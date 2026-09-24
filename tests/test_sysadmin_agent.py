@@ -1,5 +1,6 @@
 """Tests for the SysAdmin agent — HTTP/TCP/systemd checks, alerting, thresholds."""
 
+import json
 from collections import namedtuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -7,7 +8,13 @@ import httpx
 import pytest
 
 from sysadmin.core.config import Thresholds
-from sysadmin.monitor.agent import SysAdminAgent
+from sysadmin.core.text import TRUNCATION_MARKER
+from sysadmin.monitor.agent import (
+    DEGRADED_STREAK,
+    REASON_CHARS,
+    SysAdminAgent,
+    degraded_message,
+)
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.services import SKIPPED, ServiceEntry
 from sysadmin.monitor.systemd import SystemdQueryError, UserBusUnavailableError
@@ -78,6 +85,10 @@ class TestCheckHttp:
         status, _, details = await agent._check_http(http_service)
         assert status == "degraded"
         assert details["status_code"] == 404
+        # SNAG-SVC-006: the only degraded cause this box produced in the
+        # thirty days before the fix was searxng's 424, and it carried no
+        # reason for the alert message to quote.
+        assert details["reason"] == "HTTP 404"
 
     @pytest.mark.asyncio
     async def test_http_5xx_is_critical(self, agent, http_client, http_service):
@@ -169,9 +180,11 @@ class TestCheckSystemd:
             new_callable=AsyncMock,
             return_value={"is_active": False, "ActiveState": "activating"},
         ):
-            status, _, _ = await agent._check_systemd(systemd_service)
+            status, _, details = await agent._check_systemd(systemd_service)
 
         assert status == "degraded"
+        assert details["reason"] == "unit still activating"
+        assert details["ActiveState"] == "activating", "the evidence stays beside it"
 
     @pytest.mark.asyncio
     async def test_systemd_inactive_is_critical(self, agent, systemd_service):
@@ -326,6 +339,55 @@ class TestHandleStatus:
         assert alerts == 1
         ra.assert_called_once()
         assert ra.call_args.kwargs["severity"] == "warning"
+
+    @pytest.mark.asyncio
+    async def test_the_degraded_message_says_why(self, agent, mock_session, svc):
+        """SNAG-SVC-006 — the toast body is the message, so the reason is in it.
+
+        Falsified by restoring the fixed sentence: the title is one
+        identity for every cause, so without this a stalled pipeline and
+        a renamed field toast identically and want opposite remedies.
+        """
+        agent._degraded_counts["svc"] = 2
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            await agent._handle_status(
+                mock_session, svc, "degraded",
+                {"reason": "stalled is true, expected false"},
+            )
+        kwargs = ra.call_args.kwargs
+        assert kwargs["title"] == "svc degraded", "the identity must not move"
+        assert kwargs["message"] == (
+            "svc has been degraded for 3 consecutive checks; "
+            "last check: stalled is true, expected false"
+        )
+        assert kwargs["details"]["reason"] == "stalled is true, expected false"
+
+    def test_no_reason_keeps_the_bare_sentence_rather_than_inventing_one(self):
+        assert degraded_message("svc", {"status_code": 404}) == (
+            "svc has been degraded for 3 consecutive checks"
+        )
+
+    def test_a_long_reason_is_cut_in_the_message_and_whole_in_details(self):
+        """The one free value — a body object an unmet ``expect:`` quotes."""
+        reason = "status is " + json.dumps({f"k{i}": "v" * 20 for i in range(40)})
+        details = {"reason": reason}
+        message = degraded_message("svc", details)
+        quoted = message.split("last check: ", 1)[1]
+        # `truncate_at_word` caps the text and appends its marker past the
+        # cap on purpose — a cap swallowing its own marker caps the wrong thing.
+        assert len(quoted) <= REASON_CHARS + len(" " + TRUNCATION_MARKER)
+        assert quoted.endswith(TRUNCATION_MARKER), "an unmarked cut reads as whole"
+        assert details["reason"] == reason, "the message may cut, the evidence may not"
+
+    def test_a_multi_line_reason_is_one_line_in_the_message(self):
+        """The tray renders the message on one line (``failures.ERROR_CHARS``)."""
+        message = degraded_message("svc", {"reason": "body is not JSON:\n  line 1"})
+        assert "\n" not in message
+        assert message.endswith("last check: body is not JSON: line 1")
+
+    def test_the_sentence_and_the_gate_share_one_number(self):
+        """``DEGRADED_STREAK`` is quoted by the message and tested by the gate."""
+        assert f"for {DEGRADED_STREAK} consecutive" in degraded_message("s", {})
 
     @pytest.mark.asyncio
     async def test_critical_raises_alert(self, agent, mock_session, svc):

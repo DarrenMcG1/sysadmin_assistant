@@ -39,7 +39,7 @@ from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import AnomalyConfig, AppConfig, get_config
 from sysadmin.core.escalation import QUIETEST_SEVERITY, may_quieten_in_place
 from sysadmin.core.models.alert import Alert, unresolved
-from sysadmin.core.text import TRUNCATION_MARKER
+from sysadmin.core.text import TRUNCATION_MARKER, truncate_at_word
 from sysadmin.estate import client as estate_client
 from sysadmin.monitor import collation, failures, gpu_context, stalls
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
@@ -180,6 +180,49 @@ _NO_ARBITRATION = estate_client.ArbitratedStops(
 def service_alert_title(service_name: str, kind: str) -> str:
     """The alert title for ``service_name`` being in state ``kind``."""
     return f"{service_name} {kind}"
+
+
+#: Consecutive ``degraded`` checks before a row is raised.  One number
+#: stated once, because the message quotes it and the streak gate tests
+#: it, and two statements of it could disagree.
+DEGRADED_STREAK = 3
+
+#: Ceiling on a check's ``reason`` as quoted into a ``degraded`` message.
+#: **Derived, not picked**: it clears the longest reason whose wording
+#: this module fixes — the GPU-context one, 165 characters for the
+#: longest ``holds_vram`` unit declared on 2026-09-24 and 176 at the
+#: longest unit any entry declares — so the cap can only bite on the one
+#: free value, the body value an unmet ``expect:`` quotes back, which is
+#: a whole object when the declared path stops short of a scalar.  The
+#: whole reason stays in ``details['reason']``.
+REASON_CHARS = 200
+
+
+def degraded_message(service_name: str, details: dict) -> str:
+    """The message for a ``degraded`` row: that it is, and why (SNAG-SVC-006).
+
+    ``alert.message`` is the toast body, and the title is one identity
+    for every cause — a slow route, a 4xx, a stalled pipeline and a field
+    the check can no longer read all raise ``{name} degraded``, and the
+    last two have opposite remedies.  So the check's ``reason`` rides in
+    the message.  It is the **last** check's reason: the streak is three
+    checks and ``details`` is the third, so the sentence claims no more
+    than that — and ``refresh_alert`` rewrites a held row's message when
+    the recomputed text moves, so a cause that changes mid-fault reaches
+    the row on the next poll.
+
+    A ``details`` with no ``reason`` keeps the bare sentence rather than
+    inventing one; every producer in this module supplies one, which the
+    tests pin per path.
+    """
+    message = (
+        f"{service_name} has been degraded for {DEGRADED_STREAK} consecutive checks"
+    )
+    reason = details.get("reason")
+    if not reason:
+        return message
+    flattened = " ".join(str(reason).split())
+    return f"{message}; last check: {truncate_at_word(flattened, REASON_CHARS)}"
 
 
 def disk_alert_title(mount: str, critical: bool) -> str:
@@ -1212,7 +1255,14 @@ class SysAdminAgent(BaseAgent):
                     return "degraded", elapsed_ms, {"reason": "slow response"}
                 return "ok", elapsed_ms, {}
             elif resp.status_code < 500:
-                return "degraded", elapsed_ms, {"status_code": resp.status_code}
+                # `reason` beside the code, not instead of it: the code is
+                # the evidence and the reason is the sentence the alert
+                # quotes (SNAG-SVC-006) — the only degraded cause this box
+                # produced in the thirty days before it was a 424.
+                return "degraded", elapsed_ms, {
+                    "status_code": resp.status_code,
+                    "reason": f"HTTP {resp.status_code}",
+                }
             else:
                 return "critical", elapsed_ms, {"status_code": resp.status_code}
         except httpx.TimeoutException:
@@ -1356,7 +1406,9 @@ class SysAdminAgent(BaseAgent):
 
             if not status_info.get("is_active"):
                 if status_info.get("ActiveState") == "activating":
-                    return "degraded", elapsed_ms, status_info
+                    return "degraded", elapsed_ms, {
+                        **status_info, "reason": "unit still activating"
+                    }
                 return "critical", elapsed_ms, status_info
 
             # The timer is armed, which settles the *schedule* and says
@@ -1515,12 +1567,12 @@ class SysAdminAgent(BaseAgent):
             self._degraded_counts[service_name] = (
                 self._degraded_counts.get(service_name, 0) + 1
             )
-            if self._degraded_counts[service_name] >= 3:
+            if self._degraded_counts[service_name] >= DEGRADED_STREAK:
                 return await self._raise_judged(
                     session,
                     severity="warning",
                     title=service_alert_title(service_name, "degraded"),
-                    message=f"{service_name} has been degraded for 3 consecutive checks",
+                    message=degraded_message(service_name, details),
                     details={**details, "service_name": service_name},
                 )
             return 0

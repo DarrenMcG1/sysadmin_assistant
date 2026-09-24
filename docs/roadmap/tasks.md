@@ -4,7 +4,23 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-23
+> **Last Updated**: 2026-09-24
+
+---
+
+## Session 253: a degraded alert says why (2026-09-24)
+
+- [x] **`SNAG-SVC-006` fixed**: a `degraded` row's message appends the last
+      check's `details['reason']`, capped at `REASON_CHARS` with a marker.
+      Owner widened it so every degraded producer writes a `reason` — the
+      only live cause in thirty days was searxng's HTTP 424, which had none.
+      Measured first: 0 open `% degraded` rows, so the deploy rewrites none.
+- [ ] **Restart `sysadmin.service` to deploy it, after
+      `~/projects/archive/bsl-translator/.project.yaml` parses again.** A
+      restart before that fails the boot (`SNAG-SVC-007`). Check with
+      `uv run python -c "from estate.registry import load_registry;
+      load_registry('/home/gaddi/projects')"` first; then
+      `./scripts/check-ops-claims.sh` should read `ok` on the deploy line.
 
 ---
 

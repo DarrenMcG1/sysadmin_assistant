@@ -7,7 +7,7 @@ because the check judged the status code alone.
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -182,6 +182,40 @@ class TestTheCheckReadsTheBody:
         plain = ServiceEntry(name="w", kind="http", url="http://x/health")
         assert (await agent._check_http(plain))[0] == "ok"
         resp.json.assert_not_called()
+
+
+class TestTheStallReachesTheToast:
+    """``SNAG-SVC-006`` — the path a stalled pipeline takes to the tray.
+
+    The check was built to detect a stall and the alert then announced it
+    as "degraded for 3 consecutive checks", with the one sentence saying
+    what to go and look at in ``details``.  Driven through the real
+    ``_check_http`` and ``_handle_status``, because the fix is a join
+    between the two and a test of either half alone passes without it.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "body, why",
+        [
+            ({"stalled": True}, "stalled is true, expected false"),
+            ({"is_stalled": False}, "field 'stalled' is absent from the body"),
+        ],
+        ids=["the-producer-says-stalled", "the-field-the-check-reads-has-gone"],
+    )
+    async def test_the_message_names_which_of_the_two_remedies(
+        self, agent, pipeline, mock_session, body, why
+    ):
+        """The two causes the entry named as having opposite remedies."""
+        agent._http.client.get = AsyncMock(return_value=_response(200, body))
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            for _ in range(3):
+                status, _, details = await agent._check_http(pipeline)
+                await agent._handle_status(mock_session, pipeline, status, details)
+
+        ra.assert_called_once()
+        assert ra.call_args.kwargs["title"] == "pipeline degraded"
+        assert ra.call_args.kwargs["message"].endswith(why)
 
 
 class TestTheShippedDeclaration:

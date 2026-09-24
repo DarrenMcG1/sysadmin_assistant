@@ -1,8 +1,54 @@
-# Handoff — 2026-09-23 (Session 252)
+# Handoff — 2026-09-24 (Session 253)
 
 ## Next action
 
-Fix `SNAG-SVC-006`: make a degraded service alert's message carry `details['reason']`, so a stalled pipeline toasts why and not only that. *(For: session)*
+Fix the `change:` indentation in bsl-translator's .project.yaml so the registry parses, then restart sysadmin.service to deploy the degraded-reason fix. *(For: owner, ~5 min)*
+
+The manifest (`~/projects/archive/bsl-translator/.project.yaml`, its commit
+`bb51480`, 10:15 today) indents `change:` to column 5 under `- date:`; its
+siblings belong at column 2. Until it parses, `load_registry` raises for the
+whole estate: estate-manager's message register answers 500, and this
+daemon's lifespan does not catch the error, so a restart fails the boot.
+That is why the restart this sitting owes was not paid. The check that it
+parses, and the restart after it, are the unchecked item in `tasks.md`.
+The file is another repository's config, so it was not edited from here.
+The same restart also answers estate messages `faae94f1` and `6b140d86`,
+both open: they warn that a process which imported `estate.registry` before
+the estate's ADR-0197/0198 rejects a manifest's new `stack:`/`started:`
+keys. Neither could be read whole this sitting, because the register 500s;
+read them after the restart and close both if the load is clean.
+
+*What this sitting did.* Closed `SNAG-SVC-006` (the entry about a degraded
+alert saying "degraded for 3 consecutive checks" and never why). The message
+now ends `; last check: <reason>`, cut at 200 characters with a marker, the
+whole reason still in `details`. **Owner's decision, with reason:** every
+degraded producer now writes a `reason`, not only the body check, because the
+only degraded cause this box produced in thirty days was searxng answering
+HTTP 424, which had `status_code` and no `reason` — the fix as filed would
+have missed the entire live population.
+
+*Measured, not assumed.* 0 open `% degraded` rows, so the rewrite the entry
+worried about touches nothing. The 200-character cap is derived: the longest
+reason whose wording the code fixes is the GPU-context one, 165 characters
+today and 176 at the longest unit `services.yaml` declares; a test drives
+that path and fails at 160, the obvious constant to reuse. Six mutations,
+each red on its own test.
+
+*Filed:* `SNAG-SVC-007` (P2) — one malformed manifest anywhere fails this
+daemon's boot, while `reload.py` already refuses the same failure safely.
+Whether the boot should load leniently, fail only on manifests
+`services.yaml` references, or keep failing closed is an owner decision;
+the lenient mode may belong in estate-manager's `estate.registry`.
+
+*Suite:* 4269 collected; 11 failures and 5 errors, all live tests, identical
+on a clean tree, all this manifest. Ruff and mypy clean. The friction could
+not be filed at the register, because the register is what it broke.
+
+---
+
+## Session 252 — a health check reads the body
+
+*Its next action — fix the degraded alert's message so it carries the reason — was taken by Session 253.*
 
 `SNAG-SVC-006` is the entry about it: `_handle_status` raises `{name}
 degraded` with a fixed message, and `alert.message` is the toast body, so the

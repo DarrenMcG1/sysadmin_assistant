@@ -630,3 +630,51 @@ class TestAutoRestartIsAnEventNotAState:
 
         restart.assert_awaited_once_with("svc.service", user=False)
         assert agent._failure_counts["svc"] == 0
+
+
+# ---------------------------------------------------------------------------
+# A held degraded row says why *now*
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+class TestAHeldDegradedRowSaysWhyNow:
+    """``SNAG-SVC-006`` read through ``SNAG-AGENT-009``'s refresh.
+
+    The reason rides in the message, and the message of a held row is
+    rewritten whenever the recomputed text moves — so a fault that opens
+    as one cause and becomes another says the second on the next poll,
+    under the same title and in the same row.  Crossing a run boundary is
+    the point: a title written earlier in the *same* run is suppressed
+    and never rewritten, so the test sets up what ``_execute`` sets up.
+    """
+
+    @staticmethod
+    def _next_run(agent, alerts) -> None:
+        agent._open_titles = set(alerts.open_titles())
+        agent._written_titles = set()
+        agent._judged_titles = set()
+        agent._suppressed = agent._refreshed = 0
+
+    async def test_the_row_follows_the_cause_without_moving_its_identity(
+        self, agent, session, alerts
+    ):
+        svc = ServiceEntry(name="pipe", kind="http", url="http://localhost/s")
+        agent._degraded_counts = {"pipe": 2}
+        self._next_run(agent, alerts)
+        await agent._handle_status(
+            session, svc, "degraded", {"reason": "slow response"}
+        )
+        (row,) = alerts.open()
+        assert row.message.endswith("last check: slow response")
+
+        self._next_run(agent, alerts)
+        written = await agent._handle_status(
+            session, svc, "degraded", {"reason": "stalled is true, expected false"}
+        )
+
+        assert written == 0 and len(alerts.rows) == 1, "one fault, one row"
+        assert row.title == "pipe degraded"
+        assert row.message.endswith("last check: stalled is true, expected false")
+        assert row.details["reason"] == "stalled is true, expected false"
+        assert agent._refreshed == 1

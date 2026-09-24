@@ -463,6 +463,44 @@ class TestTheReadingIsAFaultAndItDeducts:
         assert "VRAM" in details["reason"]
 
     @pytest.mark.asyncio
+    async def test_the_alert_quotes_the_reason_whole_at_the_longest_declared_unit(self):
+        """``REASON_CHARS``' derivation, driven rather than restated.
+
+        The cap is meant to bite only on the free value an unmet
+        ``expect:`` quotes back, never on a sentence whose wording this
+        module fixes; the GPU-context one is the longest of those, and it
+        grows with the unit's name.  Falsified by ``REASON_CHARS = 160``
+        — ``failures.ERROR_CHARS``, the tray-message ceiling one module
+        over and the obvious constant to reuse — which cuts it after
+        "created before the card reset at …" and drops the consequence.
+        """
+        from sysadmin.core.text import TRUNCATION_MARKER
+        from sysadmin.monitor.agent import degraded_message
+        from sysadmin.monitor.services import load_services
+
+        entries = load_services(
+            Path(__file__).resolve().parents[1] / "services.yaml"
+        ).services
+        longest = max((s.unit for s in entries if s.unit), key=len)
+        svc = declaring(systemd={"unit": longest, "scope": "user"})
+        agent = SysAdminAgent()
+        sighting = gpu_context.ResetSighting(RESET_AT, "sig")
+        with (
+            patch.object(agent, "_check_http", AsyncMock(return_value=("ok", 5, {}))),
+            patch(_UNIT_STATUS, AsyncMock(return_value=active_unit())),
+            patch.object(
+                gpu_context, "reset_since", AsyncMock(return_value=sighting)
+            ),
+        ):
+            _, _, details = await agent._check_http_and_unit(
+                svc, check_plan(svc), FakeSession()
+            )
+
+        message = degraded_message(svc.name, details)
+        assert TRUNCATION_MARKER not in message
+        assert message.endswith(details["reason"])
+
+    @pytest.mark.asyncio
     async def test_a_clean_context_leaves_ok_and_still_records_the_reading(self):
         """"Checked, and it was not this" is not the same fact as silence."""
         svc = declaring()
