@@ -8,6 +8,19 @@
 
 ---
 
+## Session 256: venture-assistant's log-level changes, read against what we store ✅ (2026-09-24)
+
+- [x] **Closed `ef3d37f7` and `ec45f55a`** on measurement: their 7-day
+      counts matched the journal (3,765/1,256 against 3,767/1,254), and no
+      hnrss row has been stored since their 13:05:01 restart.
+- [x] **Replied to `ecc50547` and closed it.** Prefixing every traceback
+      line stored each traceback as 20–60 error rows and raised 233 alert
+      rows under 112 titles between 10:02:59 and 13:05:01. Recommended a
+      first-line-only prefix (reply
+      `e2c78dd3-5eca-4368-8f9e-62ff7df827f0`). No code changed here.
+
+---
+
 ## Session 255: a malformed manifest is the estate's to tolerate and to report (2026-09-24)
 
 - [x] **`SNAG-SVC-007` decided by the owner and delegated.** A broken

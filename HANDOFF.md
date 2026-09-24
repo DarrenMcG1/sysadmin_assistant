@@ -1,8 +1,49 @@
-# Handoff — 2026-09-24 (Session 255)
+# Handoff — 2026-09-24 (Session 256)
 
 ## Next action
 
-Read venture-assistant's three log-level messages against the volume `log_aggregator` stores for their units, then close each or reply. *(For: session)*
+Decide an `expect:` for the three health routes that already carry a sub-status in a 200, telling each producer first. *(For: owner, ~20 min)*
+
+They are venture-assistant `:8300/api/health` (`status`), `:8100/api/health`
+(`inference`, `bus`) and the SearXNG shim `:8600/api/health` (`search.ok`),
+the one open item in tasks.md's Session 252 block. Each one changes what an
+existing service reports, which is why it is the owner's call.
+
+*What this sitting did.* Read venture-assistant's three log-level messages
+against `log_entries` and closed all three. Their priority prefix went live
+at their 10:02:59 restart. Between then and their 13:05:01 restart, which
+shipped the hnrss downgrade, `log_aggregator` stored **1,020 error and 46
+warning rows** for `venture-assistant-backend.service`. Since then it has
+stored one `embed rejections` warning an hour. Their corrected 7-day counts
+also held against the journal (3,765 WARNING and 1,256 ERROR lines, against
+their 3,767 and 1,254).
+
+*The finding.* Their message said a prefixed traceback "is stored whole".
+It isn't. journald splits stream input per line, so every prefixed line is
+its own entry at priority 3, and each one got its own row **and its own
+alert signature**. Carets are not normalised, so `^^^^` runs of different
+lengths count as different faults. That made **233 alert rows under 112
+titles** in three hours, all `warning`, which is the tray's threshold. All
+have resolved on silence. Any ERROR they still log with a traceback (403,
+404, unparseable, and their own shutdown) fans out the same way. Replied as
+`e2c78dd3-5eca-4368-8f9e-62ff7df827f0`, recommending they prefix only a
+record's first line. That keeps the traceback visible in `journalctl -u`
+while our `-p 4` read stores one row per failure.
+
+*Rejected, and why.* The owner chose the producer-side recommendation over
+two alternatives. One was folding continuation lines in `read_journal`: a
+special case for one source in a reader serving fourteen, which Session
+61's "the producer, not the reader" refused for the same reason. The other
+was a SNAG entry for the alert family having no incident grouping
+(`log_actions.group_incidents` covers only the advice endpoint). If another
+producer adopts per-line prefixes, that is the entry to file. No code
+changed; no restart owed.
+
+---
+
+## Session 255 — a malformed manifest is the estate's to tolerate and to report
+
+*Its next action — venture-assistant's three log-level messages — was taken in Session 256.*
 
 They are `ecc50547`, `ef3d37f7` and `ec45f55a`: WARNING and above from
 their backend now reach the journal at real priority, and their
