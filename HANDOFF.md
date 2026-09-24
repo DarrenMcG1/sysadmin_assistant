@@ -1,8 +1,41 @@
-# Handoff — 2026-09-24 (Session 253)
+# Handoff — 2026-09-24 (Session 254)
 
 ## Next action
 
-Fix the `change:` indentation in bsl-translator's .project.yaml so the registry parses, then restart sysadmin.service to deploy the degraded-reason fix. *(For: owner, ~5 min)*
+Decide how this daemon's boot treats a malformed manifest in another repository (`SNAG-SVC-007`): load leniently, fail only on referenced ones, or keep failing closed. *(For: owner, ~20 min)*
+
+The specimen is gone and the entry is not: bsl-translator's manifest parses
+again, but the lifespan still calls `load_registry` outside any `try`, so the
+next bad `.project.yaml` anywhere under `~/projects` fails the next restart
+the same way, while `reload.py` already refuses the same failure safely. The
+entry carries the three options; a lenient mode may belong in estate-manager's
+`estate.registry` rather than here, which would make it a filing at them.
+
+*What this sitting did.* Paid the restart Session 253 owed. The owner fixed
+the manifest (bsl-translator `fedf248`, 10:38); `load_registry` parsed from
+this checkout first, then one `kill -TERM` at 13:47:34 — `NRestarts` 2 → 3,
+`/health` 200, boot log `registry_loaded` 28 of 28 declared,
+`GET /api/projects/managed` 200. The degraded-reason fix is live and
+`check-ops-claims.sh` reads all `ok`. The owner then ran `sudo systemctl
+restart sysadmin.service` from a terminal in estate-manager at 13:56:49 (the
+owner item their ADR-0197 recorded); same clean load, and STATUS.md carries
+that start time. Closed estate messages `faae94f1` and
+`6b140d86` (estate-manager's warnings that a process older than their
+`stack:`/`started:` manifest keys would fail its registry load): the new
+process loaded bsl-translator's `started:` cleanly. Their note that the
+restart needs `sudo` was wrong and the close note says so.
+
+*Left open.* Three messages from venture-assistant (`ecc50547`, `ef3d37f7`,
+`ec45f55a`) announce log-level changes to their backend: WARNING and above
+now reach the journal at their real priority, and their self-healing hnrss
+failures drop to INFO. None asks anything of us; each is worth reading
+against `log_aggregator`'s volume before closing.
+
+---
+
+## Session 253 — a degraded alert says why
+
+*Its next action — fix bsl-translator's manifest and restart to deploy — was taken by the owner and Session 254.*
 
 The manifest (`~/projects/archive/bsl-translator/.project.yaml`, its commit
 `bb51480`, 10:15 today) indents `change:` to column 5 under `- date:`; its

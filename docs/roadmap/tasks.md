@@ -15,12 +15,12 @@
       Owner widened it so every degraded producer writes a `reason` — the
       only live cause in thirty days was searxng's HTTP 424, which had none.
       Measured first: 0 open `% degraded` rows, so the deploy rewrites none.
-- [ ] **Restart `sysadmin.service` to deploy it, after
-      `~/projects/archive/bsl-translator/.project.yaml` parses again.** A
-      restart before that fails the boot (`SNAG-SVC-007`). Check with
-      `uv run python -c "from estate.registry import load_registry;
-      load_registry('/home/gaddi/projects')"` first; then
-      `./scripts/check-ops-claims.sh` should read `ok` on the deploy line.
+- [x] **Restart `sysadmin.service` to deploy it, after
+      `~/projects/archive/bsl-translator/.project.yaml` parses again.** The
+      owner fixed the manifest (their `fedf248`, 10:38); `load_registry`
+      parsed from this checkout first, then one restart at 13:47:34,
+      `NRestarts` 2 → 3, `/health` 200, boot log `registry_loaded` 28 of 28
+      declared, and the deploy line of `check-ops-claims.sh` reads `ok`.
 
 ---
 

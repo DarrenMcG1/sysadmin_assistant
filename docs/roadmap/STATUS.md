@@ -9,12 +9,16 @@
 > `stalled is true, expected false` instead of only "degraded for 3
 > consecutive checks". The 4xx branch and a still-`activating` unit write a
 > `reason` too — searxng's HTTP 424 was the only degraded cause in the last
-> thirty days and carried none. **Restart owed and deliberately not paid**:
-> `~/projects/archive/bsl-translator/.project.yaml` has been malformed since
-> its commit `bb51480` at 10:15 today, `load_registry` raises on it, and the
-> lifespan does not catch that, so a restart now would fail the boot
-> (`SNAG-SVC-007`). It is also why estate-manager's message register answers
-> 500. The owner fixes the manifest; the next restart deploys this.
+> thirty days and carried none. The restart waited on
+> `~/projects/archive/bsl-translator/.project.yaml`, malformed from its commit
+> `bb51480` until the owner's `fedf248` at 10:38, because `load_registry`
+> raises on it and the lifespan does not catch that (`SNAG-SVC-007`). Paid
+> once the manifest parsed: daemon restarted at 2026-09-24 13:47:34, the
+> boot's registry load reading 28 of 28 declared, and estate messages
+> `faae94f1` and `6b140d86` closed on it. The owner's `sudo systemctl
+> restart` from a terminal in estate-manager then restarted at
+> **2026-09-24 13:56:50** <!--check:deploy--> <!--check:daemon_start-->, the
+> same clean 28-of-28 load.
 
 > **A health check reads the body when the route says so** (2026-09-23,
 > Session 252, estate message `ed301e95` from venture-assistant). Their
@@ -24,7 +28,7 @@
 > `venture-pipeline` is declared with it. Unmet or unreadable is `degraded`.
 > Two `sysadmin/` files changed, so the restart was owed and paid twice (the
 > second for the reason's JSON spelling): daemon restarted at
-> **2026-09-23 22:46:33** <!--check:deploy--> <!--check:daemon_start-->, and
+> 2026-09-23 22:46:33, and
 > `venture-pipeline` read `ok` at 21:51:35 UTC.
 
 > **`nothing_granted` names its limb, and the comparison the estate left us is

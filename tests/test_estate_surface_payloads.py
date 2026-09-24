@@ -917,7 +917,12 @@ class TestTheKeysTheJudgeReadsAreStillServed:
         assert floor["reading"] in (None, "sampled", "unreadable")
         assert isinstance(floor["threshold_percent"], int)
         if floor["reading"] == "sampled":
+            # may-not-evaluate: the arbiter samples only while something
+            # waits and holds the reading in memory, so an idle queue or a
+            # restarted estate API reads null (their ADR-0189 §6).  The
+            # asserts above this branch say something either way.
             assert isinstance(floor["percent"], int)
+            # may-not-evaluate: the same sampled branch as the line above.
             assert datetime.fromisoformat(floor["read_at"]).tzinfo is not None
 
     def test_the_masked_gauge_never_exceeds_the_gauge_it_masks(self):
