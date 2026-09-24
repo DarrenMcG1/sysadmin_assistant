@@ -8,6 +8,23 @@
 
 ---
 
+## Session 255: a malformed manifest is the estate's to tolerate and to report (2026-09-24)
+
+- [x] **`SNAG-SVC-007` decided by the owner and delegated.** A broken
+      manifest must never go unnoticed, and its repository's next session
+      should hear it. Filed at estate-manager
+      (`7d55e72c-d0db-44d1-92f6-d961e9576a4f`): a partial load in
+      `estate.registry`, a manifests audit check naming the repository by
+      path, and delivery of that finding to the repository's session.
+- [x] **Closed estate message `7bab3703`** (the `features:` restart
+      warning): the owner's 13:56:50 restart came after `manifest.py`
+      last changed at 13:49:37, and the install is editable.
+- Owed once estate-manager ships, and not before: judge their manifests
+  check through `JUDGED_AUDIT_CHECKS`, and log refused manifests at
+  WARNING from the lifespan. Recorded on `SNAG-SVC-007`.
+
+---
+
 ## Session 253: a degraded alert says why (2026-09-24)
 
 - [x] **`SNAG-SVC-006` fixed**: a `degraded` row's message appends the last

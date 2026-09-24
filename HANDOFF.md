@@ -1,8 +1,56 @@
-# Handoff — 2026-09-24 (Session 254)
+# Handoff — 2026-09-24 (Session 255)
 
 ## Next action
 
-Decide how this daemon's boot treats a malformed manifest in another repository (`SNAG-SVC-007`): load leniently, fail only on referenced ones, or keep failing closed. *(For: owner, ~20 min)*
+Read venture-assistant's three log-level messages against the volume `log_aggregator` stores for their units, then close each or reply. *(For: session)*
+
+They are `ecc50547`, `ef3d37f7` and `ec45f55a`: WARNING and above from
+their backend now reach the journal at real priority, and their
+self-healing hnrss failures drop out (4,288 of 5,012 records a week, by
+their count). None asks anything of us, but the first raises what our
+reader stores and the other two lower it, so a before-and-after count of
+their units' rows in `log_entries` is what makes a close note honest.
+
+*What this sitting did.* Took the owner's decision on `SNAG-SVC-007` (a
+malformed `.project.yaml` anywhere stops this daemon booting). The ruling:
+strictness has no value of its own, but a broken manifest must never go
+unnoticed and the owning repository's next session should hear it needs
+fixing. The entry's three options were really two: with a partial
+registry, "fail only on referenced ones" comes free through the existing
+`services.yaml` check, and that partial load can only be built in
+estate-manager's library, because a broken manifest's id is inside the
+file that won't parse. Filed at them as
+`7d55e72c-d0db-44d1-92f6-d961e9576a4f`: a partial load, a manifests audit
+check, and delivery of that finding to the repository's session. The
+entry is delegated; this side owes the judging and a WARNING log line
+only once theirs land.
+
+*Rejected, and why.* The owner's first idea — this daemon filing a message
+at the broken repository — fails on its own mechanism: the register
+resolves every receiver through the same all-or-nothing registry, so it
+answers 500 during exactly the fault it would carry. It would also have
+the monitor filing at other repositories, which is the estate's job.
+Catching `ManifestError` in the lifespan was refused because there is no
+registry to fall back to at boot.
+
+*Also.* Closed `7bab3703` (estate-manager's `features:` restart warning):
+the owner's 13:56:50 restart came after their `manifest.py` last changed,
+at 13:49:37, and the install is editable. Closed `5cd09c07` (the same
+warning for `parts:`) on the same evidence: the owner restarted again at
+15:57:47, after `manifest.py` was written at 14:50:33. The owner restarted
+three times today (13:56:50, 14:34:48, 15:57:47), and only the first had
+been recorded; postflight caught the gap, and STATUS.md carries all three.
+Nothing records why 14:34:48 happened. That is four manifest-key windows
+in about 19 hours (their ADR-0197 to ADR-0200), which is the case for the
+partial load. A finding reaching no session was
+measured, not assumed: only `inbox-notice.sh` runs at SessionStart and it
+prints messages. No code changed; no restart owed.
+
+---
+
+## Session 254 — the restart paid, once the manifest parsed
+
+*Its next action — decide `SNAG-SVC-007` — was taken by the owner in Session 255.*
 
 The specimen is gone and the entry is not: bsl-translator's manifest parses
 again, but the lifespan still calls `load_registry` outside any `try`, so the

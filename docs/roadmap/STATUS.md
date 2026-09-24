@@ -15,10 +15,14 @@
 > raises on it and the lifespan does not catch that (`SNAG-SVC-007`). Paid
 > once the manifest parsed: daemon restarted at 2026-09-24 13:47:34, the
 > boot's registry load reading 28 of 28 declared, and estate messages
-> `faae94f1` and `6b140d86` closed on it. The owner's `sudo systemctl
-> restart` from a terminal in estate-manager then restarted at
-> **2026-09-24 13:56:50** <!--check:deploy--> <!--check:daemon_start-->, the
-> same clean 28-of-28 load.
+> `faae94f1` and `6b140d86` closed on it. The owner then restarted it
+> three times with `sudo systemctl restart` from a terminal in
+> estate-manager — 13:56:50 onto their `features:` key (their `0f0f788`),
+> 14:34:48 for a reason neither repository records, and last
+> restarted at **2026-09-24 15:57:47** <!--check:deploy--> <!--check:daemon_start-->
+> onto their `parts:` key (their `7401bfc`) — each the same clean
+> 28-of-28 load. Session 255 delegated the lasting fix
+> for that class (`SNAG-SVC-007`) to estate-manager.
 
 > **A health check reads the body when the route says so** (2026-09-23,
 > Session 252, estate message `ed301e95` from venture-assistant). Their
