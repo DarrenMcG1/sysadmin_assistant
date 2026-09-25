@@ -218,6 +218,33 @@ class TestTheStallReachesTheToast:
         assert ra.call_args.kwargs["message"].endswith(why)
 
 
+class TestTheBusDeclaration:
+    """``alfred-bus``: the one sub-status on this box no other entry sees
+    (owner's choice 2026-09-25; the two other routes named with it were
+    declined — see tasks.md's Session 252 block)."""
+
+    def _entries(self) -> dict[str, ServiceEntry]:
+        raw = yaml.safe_load(SERVICES_YAML.read_text())
+        return {e.name: e for e in parse_services(raw).services}
+
+    def test_it_reads_bus_ok_off_the_backends_own_route(self):
+        entries = self._entries()
+        bus = entries["alfred-bus"]
+        assert bus.url == entries["alfred"].url
+        assert bus.expect == HttpExpectation(path="bus", equals="ok")
+
+    def test_it_claims_neither_the_port_nor_the_unit(self):
+        # Both are the `alfred` entry's; a dead backend is one alert.
+        bus = self._entries()["alfred-bus"]
+        assert bus.port is None
+        assert bus.systemd is None
+
+    def test_the_backend_entry_carries_no_condition(self):
+        # The bus is non-critical by Alfred's ADR-0033 §7(a), so its
+        # fault must not degrade — or cost points to — the backend.
+        assert self._entries()["alfred"].expect is None
+
+
 class TestTheShippedDeclaration:
     """The entry the message asked for, as ``services.yaml`` ships it."""
 

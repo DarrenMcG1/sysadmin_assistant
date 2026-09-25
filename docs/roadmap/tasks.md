@@ -4,7 +4,35 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-24
+> **Last Updated**: 2026-09-25
+
+---
+
+## Session 257: one of the three health routes had a fault nothing else could see ✅ (2026-09-25)
+
+- [x] **Owner decided the `expect:` for the three routes** that carry a
+      sub-status in a 200 (Session 252's open item). One condition added,
+      two declined, each on reading the producer's handler.
+- [x] **`alfred-bus` declared** against `:8100/api/health` with
+      `expect: {path: bus, equals: ok}`, no `port:` and no `systemd:`.
+      Alfred's `status` is always `"ok"` (their ADR-0052 §3), and
+      `inference`/`db` restate the llama-server and postgresql entries.
+      `bus` connects with Alfred's own credentials, so it alone sees a live
+      broker refusing Alfred. A separate entry rather than a condition on
+      `alfred`, so a non-critical bus fault costs the backend no
+      reliability points. Alfred told first:
+      `b5191cf0-aac2-4719-8a38-2c98319b6aea`. Deployed by reload.
+- [x] **venture-assistant `:8300` declined.** `status` is `degraded` exactly
+      when the database or either llama server fails its probe, and all
+      three are entries here. `venture-chat` read `unreachable` on 1,199 of
+      8,406 checks in 30 days, mostly arbiter swaps, so a condition would
+      copy each swap into a second row that `SNAG-AGENT-011`'s lease
+      quietening cannot reach (the backend is not the stopped unit).
+- [x] **SearXNG shim `:8600` declined.** The shim already answers 424 when
+      `search.ok` is false or stale; its only 200 without `search.ok: true`
+      is `status: starting`, so a condition would add one false `degraded`
+      per shim start. Nothing filed for either decline: nothing they
+      publish is read differently.
 
 ---
 
@@ -64,12 +92,13 @@
 - [x] **`venture-pipeline` declared** against `:8300/pipeline/status`,
       `expect: {path: stalled, equals: false}`, no `port:` and no `systemd:`
       (both already held by the `venture-assistant` entry).
-- [ ] **Decide an `expect:` for the three health routes that already carry a
+- [x] **Decide an `expect:` for the three health routes that already carry a
       sub-status in a 200** — venture-assistant `:8300/api/health`
       (`status: healthy`/`degraded`), `:8100/api/health` (`inference`,
       `bus`), SearXNG shim `:8600/api/health` (`search.ok`). Each changes
       what an existing service reports, so each producer is told first.
       Measured 2026-09-23: all three answer 200 and read healthy today.
+      Decided in Session 257: `alfred-bus` added, the other two declined.
 
 ---
 

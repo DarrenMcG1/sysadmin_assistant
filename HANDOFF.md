@@ -1,8 +1,57 @@
-# Handoff — 2026-09-24 (Session 256)
+# Handoff — 2026-09-25 (Session 257)
 
 ## Next action
 
-Decide an `expect:` for the three health routes that already carry a sub-status in a 200, telling each producer first. *(For: owner, ~20 min)*
+Read estate message `a9dce2d5` (estate-manager's ADR-0201 plan) in full and record what this side owes when their partial registry load lands. *(For: session)*
+
+It answers our `7d55e72c`: `load_registry` gains an opt-in `partial=True`,
+a `manifests` audit check files `manifest_refused` at `breach`, and
+`/api/projects/attention` gains `refused_manifests`. It is decided and not
+built. Session 255 recorded that this side owes the judging and a WARNING
+log line only once theirs land, so the reading is whether the plan changes
+that, for example whether `manifests` belongs in `JUDGED_AUDIT_CHECKS`,
+which ADR-0006 says is an ownership test. Then close it, or leave it open
+with the reason in tasks.md.
+
+*What this sitting did.* Took the owner's decision on the three health
+routes that carry a sub-status inside a 200. Reading each producer's
+handler, the task's premise held for one of the three:
+
+- **Alfred `:8100` — `alfred-bus` added**, reading `bus` with
+  `expect: {path: bus, equals: ok}`. Alfred's `status` is hard-coded
+  `"ok"` (their ADR-0052 §3), so a condition on it tests a constant, and
+  `inference`/`db` restate our llama-server and postgresql entries. `bus`
+  is a real connect using Alfred's credentials, so it alone catches a live
+  broker refusing Alfred. It is a separate entry, by the owner's choice,
+  so a non-critical bus fault costs the `alfred` backend no reliability
+  points. Alfred told first (`b5191cf0-aac2-4719-8a38-2c98319b6aea`).
+  Deployed by `POST /api/sysadmin/reload`; read `ok` at 08:02:49 UTC.
+- **venture-assistant `:8300` — declined.** `status` goes `degraded`
+  exactly when the database or either llama server fails its probe, and
+  each is an entry here. `venture-chat` was `unreachable` on 1,199 of
+  8,406 checks in 30 days, mostly deliberate arbiter swaps, so a condition
+  would copy each swap into a second row that the lease quietening
+  (`SNAG-AGENT-011`'s fix) cannot reach.
+- **SearXNG shim `:8600` — declined.** The shim already answers 424 when
+  `search.ok` is false or stale. Its only 200 without `search.ok: true`
+  is `status: starting`, so a condition would only add a false `degraded`
+  per shim start.
+
+*Rejected, and why.* A condition on the `alfred` entry itself, which is
+simpler but charges the backend for a component their ADR-0033 §7(a) makes
+non-critical. Filing at venture-assistant or estate-manager about the two
+declines: nothing they publish is read differently, and a measured-empty
+audience files nothing.
+
+*Noticed, not chased.* Entries with no unit (`alfred-bus`, `internet`,
+`venture-pipeline`) report `controllable: true` on the status route. That
+is the existing shape, not this change.
+
+---
+
+## Session 256 — venture-assistant's log-level changes, read against what we store
+
+*Its next action — decide an `expect:` for the three health routes — was taken by the owner in Session 257.*
 
 They are venture-assistant `:8300/api/health` (`status`), `:8100/api/health`
 (`inference`, `bus`) and the SearXNG shim `:8600/api/health` (`search.ok`),

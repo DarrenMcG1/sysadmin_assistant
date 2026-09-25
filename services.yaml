@@ -57,6 +57,27 @@ services:
     systemd: { unit: alfred-backend.service, scope: user }
     log: { type: journalctl, severity_filter: warning }
 
+  # Alfred's MQTT connection, read out of the same 200 the entry above
+  # polls. Their `status` is always "ok" (their ADR-0052 §3: a degraded
+  # component never takes it down), so a condition on it would test a
+  # constant; `inference` and `db` restate the llama-server and postgresql
+  # entries. `bus` is the one field nothing else here sees: their
+  # check_bus connects with Alfred's own credentials, so it reads
+  # "unreachable" when a live broker refuses Alfred under dynsec, which
+  # the mosquitto entry cannot tell apart from health. `equals: ok` is
+  # strict on purpose — "disabled" cannot publish either.
+  # Its own entry rather than an `expect:` on `alfred`, by the owner's
+  # choice (2026-09-25): the bus is non-critical by their ADR-0033 §7(a),
+  # so its faults must not charge the backend's reliability score. No
+  # `port:` and no `systemd:`, both held above — venture-pipeline's shape.
+  # Alfred told first, estate message b5191cf0.
+  - project: alfred
+    name: alfred-bus
+    role: bus
+    kind: http
+    url: http://localhost:8100/api/health
+    expect: { path: bus, equals: ok }
+
   - project: alfred
     name: alfred-frontend
     role: frontend
