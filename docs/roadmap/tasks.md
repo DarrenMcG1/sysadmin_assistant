@@ -8,6 +8,27 @@
 
 ---
 
+## Session 258: estate-manager's partial registry load has landed, and what this side owes is written down (2026-09-25)
+
+- [x] **Read estate messages `a9dce2d5` (ADR-0201's plan) and `ec92eb8f`
+      (its build) in full, and checked them against the box.** estate-manager
+      `2692ba8` is live: `load_registry(..., partial=True)` is importable
+      here through the editable install, `/api/projects/attention` carries
+      `refused_manifests: []`, and audit check 14 read 28 of 28 manifests
+      at 08:08 UTC. Both messages closed.
+- [x] **Owner's decision: judge `refused_manifests` off `/attention`, not
+      audit check 14.** They carry the same fact, and ADR-0006's ownership
+      test would refuse `manifests` for the reason it refused `docs`.
+      Recorded on `SNAG-SVC-007`, which is `Open — owed` again.
+- [ ] **Build `SNAG-SVC-007`'s owed half** (numbered on the entry):
+      `partial=True` at the six production calls; the lifespan logs each
+      refusal at WARNING before `load_services_singleton`; `judge_attention`
+      raises one `warning` row per refused tree, titled by path; the
+      `manifests` refusal is recorded at `JUDGED_AUDIT_CHECKS`; the contract
+      test pins the new key. One restart deploys it.
+
+---
+
 ## Session 257: one of the three health routes had a fault nothing else could see ✅ (2026-09-25)
 
 - [x] **Owner decided the `expect:` for the three routes** that carry a

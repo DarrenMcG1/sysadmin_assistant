@@ -1,17 +1,38 @@
-# Handoff — 2026-09-25 (Session 257)
+# Handoff — 2026-09-25 (Session 258)
 
 ## Next action
 
-Read estate message `a9dce2d5` (estate-manager's ADR-0201 plan) in full and record what this side owes when their partial registry load lands. *(For: session)*
+Build `SNAG-SVC-007`'s owed half: opt in to `partial=True`, log refused manifests at WARNING, and judge `refused_manifests` off `/attention`. *(For: session)*
 
-It answers our `7d55e72c`: `load_registry` gains an opt-in `partial=True`,
-a `manifests` audit check files `manifest_refused` at `breach`, and
-`/api/projects/attention` gains `refused_manifests`. It is decided and not
-built. Session 255 recorded that this side owes the judging and a WARNING
-log line only once theirs land, so the reading is whether the plan changes
-that, for example whether `manifests` belongs in `JUDGED_AUDIT_CHECKS`,
-which ADR-0006 says is an ownership test. Then close it, or leave it open
-with the reason in tasks.md.
+The five steps are numbered on the entry. estate-manager's partial registry
+load (their ADR-0201, commit `2692ba8`) is live and importable here through
+the editable install, so nothing blocks it. The owner decided the surface
+this sitting: `/attention`, not audit check 14, because the two carry one
+fact and ADR-0006's ownership test would refuse `manifests` exactly as it
+refused `docs`. It is code in `sysadmin/`, so one restart deploys it.
+
+*What this sitting did.* Read estate messages `a9dce2d5` (ADR-0201's plan)
+and `ec92eb8f` (the build, filed 57 minutes later) in full and checked them
+on the box. `/api/projects/attention` carries `refused_manifests: []`, and
+the 08:08 UTC audit ran check 14 over 28 of 28 manifests with none refused.
+Their ADR-0201 §13 (the owner's ruling on 2026-09-25) makes this judge the
+only path to the owner for the 18 trees that have never had a session, and
+§11 reopens their ADR if we decline. `SNAG-SVC-007` went from delegated back
+to owed, with the work numbered on it. Both messages closed.
+
+*Changed from what Session 255 recorded.* It said to add `manifests` to
+`JUDGED_AUDIT_CHECKS`. That constant admits a check by ownership, and a
+manifest belongs to its repository, so it stays out and the reason is owed
+at its docstring. The WARNING line has to come *before* the `services.yaml`
+check: a refused manifest among the five that file references still fails
+the boot, and the unknown-id error cannot say why, because the id is inside
+the file that would not parse.
+
+---
+
+## Session 257 — Alfred's MQTT connection, watched from its health route
+
+*Its next action, to read estate message `a9dce2d5`, was taken by Session 258.*
 
 *What this sitting did.* Took the owner's decision on the three health
 routes that carry a sub-status inside a 200. Reading each producer's
