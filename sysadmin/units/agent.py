@@ -35,7 +35,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from estate.registry import load_registry
+from estate.registry import Registry, load_registry
 from sqlalchemy import select
 
 from sysadmin.core.agent import AgentResult, BaseAgent
@@ -184,6 +184,43 @@ def armed_alert_details(finding: UnitFinding) -> dict[str, Any]:
         "project_path": finding.project_path,
         "remedy": removal_command(finding),
     }
+
+
+#: The status a refused tree is matched under. Not one the registry
+#: emits, and deliberately not ``archived``: :attr:`ProjectRef.is_live`
+#: reads only that one value, so this reads as live.
+REFUSED_STATUS = "refused"
+
+
+def _refs_from(registry: Registry) -> list[ProjectRef]:
+    """The match targets: every entry, **and every tree a partial load refused**.
+
+    ``SNAG-SVC-007``, and ``test_project_refs_include_undeclared_repositories``'
+    argument one case further: a repository still owns its units when its
+    manifest will not parse. A partial load leaves the refused tree out of
+    ``entries`` altogether, so matching against ``entries`` alone reads every
+    unit in it as an orphan — and an enabled one with an unbounded restart as
+    an **armed** orphan, which is ``critical``. Measured 2026-09-25: 22 of this
+    box's 43 hand-written units live in the five trees ``services.yaml``
+    references, so one broken manifest there would have claimed a project was
+    gone, more loudly than the manifest row saying what actually broke.
+
+    Live, not ``archived``, by the owner's decision. The status is inside the
+    file that failed, so it is unknown. Reading ``archive/`` off the path — the
+    registry's own inference for a tree with *no* manifest — was not taken:
+    a declared status always wins there, and this tree has one, unreadable.
+    The cost is an orphan in a genuinely retired tree going unreported until
+    its manifest is fixed, which the judge's manifest row is already asking for.
+    """
+    refs = [
+        ProjectRef(name=entry.path.name, path=str(entry.path), status=entry.status)
+        for entry in registry.entries
+    ]
+    refs += [
+        ProjectRef(name=item.path.name, path=str(item.path), status=REFUSED_STATUS)
+        for item in registry.refused
+    ]
+    return refs
 
 
 class ServiceDiscoveryAgent(BaseAgent):
@@ -701,15 +738,15 @@ class ServiceDiscoveryAgent(BaseAgent):
         registry = ServiceDiscoveryAgent._registry(config)
         if registry is None:
             return [], {}
-        refs = [
-            ProjectRef(name=entry.path.name, path=str(entry.path), status=entry.status)
-            for entry in registry.entries
-        ]
+        refs = _refs_from(registry)
         aliases = {
             entry.path.name: [entry.path.name]
             + ([entry.manifest.id] if entry.manifest else [])
             for entry in registry.entries
         }
+        # A refused tree has no readable id, so its directory is the only
+        # name anyone can call it by.
+        aliases.update({item.path.name: [item.path.name] for item in registry.refused})
         return refs, aliases
 
     @staticmethod
@@ -719,7 +756,10 @@ class ServiceDiscoveryAgent(BaseAgent):
         root = Path(organiser_config.projects_root)
         if not root.exists():
             return None
-        return load_registry(root, organiser_config.discovery_depth)
+        # Partial (``SNAG-SVC-007``): a malformed manifest anywhere used to
+        # fail this sweep's whole run. What it costs now is handled by
+        # :func:`_refs_from`, which keeps the refused tree as a project.
+        return load_registry(root, organiser_config.discovery_depth, partial=True)
 
     @staticmethod
     def _project_refs(config) -> list[ProjectRef]:
@@ -741,11 +781,9 @@ class ServiceDiscoveryAgent(BaseAgent):
         if not root.exists():
             return []
 
-        registry = load_registry(root, organiser_config.discovery_depth)
-        return [
-            ProjectRef(name=entry.path.name, path=str(entry.path), status=entry.status)
-            for entry in registry.entries
-        ]
+        return _refs_from(
+            load_registry(root, organiser_config.discovery_depth, partial=True)
+        )
 
     async def _maintain_alert(
         self, session, actionable: int, threshold: int, scan

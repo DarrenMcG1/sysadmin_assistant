@@ -408,6 +408,21 @@ class TestIdResolution:
         with pytest.raises(UnknownProjectError):
             load_services(path, registry)
 
+    def test_a_partial_load_that_refused_everything_is_still_strict(self, tmp_path):
+        """``SNAG-SVC-007``. Every manifest refused also declares nothing,
+        and reading that as an un-migrated estate would switch the id
+        check off — with a migration hint — at the moment every
+        reference is genuinely unresolvable."""
+        estate = tmp_path / "estate"
+        (estate / "alfred" / ".git").mkdir(parents=True)
+        (estate / "alfred" / ".project.yaml").write_text("schema: 1\nid: [\n")
+        registry = load_registry(estate, partial=True)
+        assert registry.ids == () and len(registry.refused) == 1
+
+        path = self._write(tmp_path, "alfred")
+        with pytest.raises(UnknownProjectError):
+            load_services(path, registry)
+
     def test_no_registry_means_no_id_check(self, tmp_path):
         path = self._write(tmp_path, "whatever")
         assert len(load_services(path).services) == 1
@@ -817,3 +832,113 @@ class TestTheJournalHelperCanAnswerBothWays:
             f"premise failed: no application records for {OWN_UNIT} in "
             "seven days, so the windowed form witnessed nothing"
         )
+
+
+# ── SNAG-SVC-007: a malformed manifest elsewhere does not stop the boot ──
+
+
+def _broken(estate: Path, tree: str) -> Path:
+    path = estate / tree
+    (path / ".git").mkdir(parents=True)
+    # 2026-09-24's specimen: `change:` indented under a `- date:`.
+    (path / ".project.yaml").write_text(
+        "schema: 1\nid: x\nname: x\ndecisions:\n  - date: 2026-09-24\n"
+        "     change: y\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+class TestAPartialRegistryLoad:
+    """What ``partial=True`` buys the lifespan, and what it must not."""
+
+    def _services(self, tmp_path: Path, *projects: str) -> Path:
+        return TestIdResolution()._write(tmp_path, *projects)
+
+    def test_an_unreferenced_broken_manifest_no_longer_fails_the_load(self, tmp_path):
+        """The founding case: a repository ``services.yaml`` never names."""
+        estate = tmp_path / "estate"
+        make_registry(estate, "alfred")
+        _broken(estate, "archive/bsl-translator")
+        with pytest.raises(Exception):
+            load_registry(estate)  # the strict contract, unchanged
+        registry = load_registry(estate, partial=True)
+        assert len(load_services(self._services(tmp_path, "alfred"), registry).services) == 1
+
+    def test_a_referenced_broken_manifest_still_fails_and_the_journal_says_why(
+        self, tmp_path, caplog
+    ):
+        """Session 255's intent, kept: a tree ``services.yaml`` references
+        still fails the boot, through the unknown-id check — which can
+        name the id and never the reason, because the id is inside the
+        file that would not parse.
+
+        **The reason is the library's own WARNING, and this pins it.**
+        ``estate.registry`` logs ``registry_manifest_refused`` inside
+        ``load_registry``, so it lands before the id check by
+        construction, and this repository does not restate it. If the
+        estate stops writing it, this goes red: add a line in the
+        lifespan and the reload before the id check, at WARNING."""
+        estate = tmp_path / "estate"
+        make_registry(estate, "sysadmin-assistant")
+        _broken(estate, "alfred")
+        caplog.set_level("WARNING")
+
+        registry = load_registry(estate, partial=True)
+        with pytest.raises(UnknownProjectError) as excinfo:
+            load_services(self._services(tmp_path, "alfred"), registry)
+        # The id it can name is the reference, never the broken file's own.
+        assert excinfo.value.unknown == ["alfred"]
+
+        refusals = [r for r in caplog.records if r.getMessage() == "registry_manifest_refused"]
+        assert len(refusals) == 1
+        [record] = refusals
+        assert record.levelname == "WARNING"
+        assert record.path == str(estate / "alfred")
+        assert record.cause == "invalid"
+        assert "unreadable YAML" in record.reason
+
+
+class TestEveryProductionLoadIsPartial:
+    """The owner's ruling covers every call site, not the lifespan alone.
+
+    An AST sweep rather than a grep, so a call spelled across lines or
+    through an alias is still found and a mention in a docstring is not.
+    A seventh call added strict is the defect coming back by another door:
+    the routes answer 500, the unit sweep fails its run.
+    """
+
+    def _calls(self):
+        import ast
+
+        found = []
+        for path in sorted((REPO_ROOT / "sysadmin").rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "load_registry"
+                ):
+                    partial = next(
+                        (k.value for k in node.keywords if k.arg == "partial"), None
+                    )
+                    found.append((path.relative_to(REPO_ROOT), node.lineno, partial))
+        return found
+
+    def test_the_sweep_finds_the_known_calls(self):
+        """The premise: a sweep that finds nothing passes the next test.
+        A floor rather than an equality — six on 2026-09-25, in five
+        files — because a seventh call that *is* partial keeps the claim,
+        and an equality would go red on it."""
+        assert len(self._calls()) >= 6
+
+    def test_every_call_passes_partial_true(self):
+        import ast
+
+        strict = [
+            f"{path}:{line}"
+            for path, line, partial in self._calls()
+            if not (isinstance(partial, ast.Constant) and partial.value is True)
+        ]
+        assert strict == []

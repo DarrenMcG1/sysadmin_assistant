@@ -379,8 +379,14 @@ def reload_configuration(
             keys = KeyReport(walked=False)
 
         try:
+            # Partial, for the lifespan's reason (``SNAG-SVC-007``). A
+            # referenced tree that is refused still refuses this reload
+            # through the unknown-id check; the library's own
+            # ``registry_manifest_refused`` WARNING is what says why, and
+            # on the SIGHUP path that line is the only report there is.
             registry = load_registry(
-                new_config.agents.project_organiser.projects_root
+                new_config.agents.project_organiser.projects_root,
+                partial=True,
             )
             new_services = load_services(
                 services_path or default_services_path(), registry

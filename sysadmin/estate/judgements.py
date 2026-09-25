@@ -197,6 +197,19 @@ CHECK_ERROR_CHARS = 300
 #: payload rather than off this comment (``SNAG-DOCS-030``).
 ERRORED_REASONS_LISTED = 2
 
+#: How much of a refused manifest's reason reaches the message, once
+#: flattened to one line.
+#:
+#: A backstop, like :data:`CHECK_ERROR_CHARS` and for its reason, but not
+#: that constant: a second job for a constant is how
+#: ``JUDGED_AUDIT_SEVERITY`` became a check filter nobody argued for.
+#: Measured 2026-09-25 by driving ``load_registry(partial=True)`` at one
+#: tree per shape the library composes — schema (34–71 characters), YAML
+#: (125, over four lines), ``duplicate_id`` (150, most of it an absolute
+#: path) and ``unknown_supersedes`` (41). 300 is invented and sits above
+#: all of them; the reason is whole in ``details`` either way.
+MANIFEST_REASON_CHARS = 300
+
 #: Severity for every judgement this module makes, with one exception.
 #:
 #: ``warning`` and not ``critical``: ``critical`` breaks through the DND
@@ -220,6 +233,7 @@ DEFAULT_SEVERITY = "warning"
 #: :data:`SURFACE_TITLE_PATTERNS` as they stand, with no ``%``.
 HEALTH_ROLLUP_TITLE = "Estate project health breaches"
 NUDGE_ROLLUP_TITLE = "Estate project next actions idle"
+MANIFEST_ROLLUP_TITLE = "Estate project manifests refused"
 
 #: Title for a fault about ``~/.claude/settings.json`` as a whole rather
 #: than about one hook — raised by :func:`judge_hook_wiring` off a local
@@ -257,8 +271,10 @@ SURFACE_TITLE_PATTERNS: dict[str, tuple[str, ...]] = {
     "projects_attention": (
         "Project % health breach",
         "Project % next action idle",
+        "Project manifest % refused",
         HEALTH_ROLLUP_TITLE,
         NUDGE_ROLLUP_TITLE,
+        MANIFEST_ROLLUP_TITLE,
     ),
     "audit_invariants": ("Estate audit %",),
     # Two families, one surface — they arrive in one payload from one
@@ -574,6 +590,26 @@ def judge_attention(payload: dict[str, Any], max_rows: int) -> list[Judgement]:
     3. **The message is cut at a word boundary and the cut is marked.**
        See :data:`NEXT_ACTION_CHARS`.
 
+    4. **A refused manifest is a third family** (``SNAG-SVC-007``,
+       2026-09-25). ``refused_manifests`` is the estate's partial
+       registry load naming each tree it left out (their ADR-0201 §5),
+       and for the trees that have never had a session this row is the
+       only path to the owner (their §13). One row per tree at
+       :data:`DEFAULT_SEVERITY`, **titled by the tree and never by the
+       reason**: the reason's text changes with the typo, and a title
+       that moves with it forks the row every time someone half-fixes the
+       file (:func:`judge_audit_findings` rule 5). It collapses under
+       ``max_rows`` independently of the other two, for rule 1's reason —
+       and a mass refusal has a likelier cause than a mass of typos,
+       which the roll-up names. Recovery is the sweep: a fixed tree
+       leaves the payload, leaves the judged set, and resolves.
+
+       An **absent** key is not an empty one. It reads as no refusals
+       here, because a judge cannot raise off a key it was not sent, but
+       the day the producer stops publishing it this family goes quiet —
+       so the live half of ``tests/test_estate_project_contracts.py``
+       asserts the key is present (``waiting_reason``'s rule).
+
     ``max_rows`` is passed rather than read here because this module
     holds no configuration and no clock — the property that lets every
     rule be tested against a dict literal, which is the only way these
@@ -602,7 +638,66 @@ def judge_attention(payload: dict[str, Any], max_rows: int) -> list[Judgement]:
     else:
         out += [_nudge_row(entry) for entry in nudges]
 
+    refused = [
+        entry
+        for entry in payload.get("refused_manifests") or []
+        if isinstance(entry, dict) and entry.get("tree")
+    ]
+    if len(refused) > max_rows:
+        out.append(_manifest_rollup(refused, max_rows))
+    else:
+        out += [_manifest_row(entry) for entry in refused]
+
     return out
+
+
+def _manifest_row(entry: dict[str, Any]) -> Judgement:
+    tree = str(entry["tree"])
+    cause = entry.get("cause") or "unknown"
+    reason = str(entry.get("reason") or "")
+    # One line: the YAML shape is four, the last a caret aligned under a
+    # column a notification body will not preserve.
+    flat = truncate_at_word(" ".join(reason.split()), MANIFEST_REASON_CHARS)
+    if flat and not flat.endswith((".", "…")):
+        flat += "."
+    return Judgement(
+        surface="projects_attention",
+        title=f"Project manifest {tree} refused",
+        message=(
+            f"{tree}/.project.yaml was refused by the estate registry "
+            f"({cause}): {flat} The repository is left out of the estate "
+            "until the manifest loads; fix it in that repository."
+        ),
+        details={
+            "tree": tree,
+            "manifest": f"{tree}/.project.yaml",
+            "cause": entry.get("cause"),
+            # Whole and unflattened: the caret's column is information.
+            "reason": entry.get("reason"),
+        },
+    )
+
+
+def _manifest_rollup(refused: list[dict[str, Any]], max_rows: int) -> Judgement:
+    """One row for all of them, naming the trees in ``details``."""
+    trees = sorted(str(entry["tree"]) for entry in refused)
+    return Judgement(
+        surface="projects_attention",
+        title=MANIFEST_ROLLUP_TITLE,
+        message=(
+            f"{len(refused)} project manifests are refused at once. That many "
+            "is likelier one change than that many typos — a key or value the "
+            "running estate-lib does not know yet, or a shared template — so "
+            "compare the causes in details.causes before editing any of them."
+        ),
+        details={
+            "trees": trees,
+            "refused_count": len(refused),
+            "max_rows": max_rows,
+            # Scalars per tree, so the block stays diffable between runs.
+            "causes": {str(e["tree"]): e.get("cause") for e in refused},
+        },
+    )
 
 
 def _health_row(entry: dict[str, Any]) -> Judgement:
@@ -952,26 +1047,40 @@ WIRING_CHECK = "wiring"
 #: ``breach``, so a filter admitting checks on rung alone would have
 #: taken it silently — the second job a scalar acquired, one check over.
 #:
+#: **``manifests`` was refused on 2026-09-25 for the same clause, and it
+#: is judged anyway — off another surface** (``SNAG-SVC-007``, the
+#: owner's decision). A ``.project.yaml`` belongs to its repository
+#: exactly as a ``HANDOFF.md`` does, so admitting check 14 here would be
+#: ``docs``' refusal reversed with no argument. What differs is that the
+#: same fact is already published on ``GET :8400/api/projects/attention``
+#: as ``refused_manifests``, and that surface has carried per-repository
+#: judgements since Session 45, so :func:`judge_attention` speaks for it
+#: without reinterpreting this test. Judging both would be two rows for
+#: one fault. What is given up is check 14's coverage figures, which
+#: tell a clean walk from one that could not look; the audit having
+#: *run* is still :func:`judge_audit_invariants`'.
+#:
 #: **This was two scalars until 2026-08-30 and the pair had gone wrong in
 #: two directions at once.**  It was written against a four-check audit
 #: in which *every* check emitted ``breach``, so a single
 #: ``JUDGED_AUDIT_SEVERITY`` was unambiguously a deference to the
-#: producer's rung.  The audit runs **thirteen** checks now, at three rungs
+#: producer's rung.  The audit runs many more checks now, at three rungs
 #: (their ``estate_service/audit/agent.py`` numbers them; the live count
-#: is ``last_audit.checks_run`` on ``GET :8400/api/audit/invariants`` —
-#: this figure is a restatement of another repository's cardinality and
-#: went stale once already, estate message ``00b631ec``; **it is the
-#: only live restatement left in this tree** — four others in code and
-#: tests were retired on 2026-09-13 for the qualitative facts their
-#: arguments actually needed, while **nine** dated records were kept,
-#: because a measurement stamped with its date cannot drift and a live
-#: cardinality can.  The nine are dated at their owning block: an ADR's
-#: evidence, two session blocks, four fixed-snag measurements, a shell
-#: script's reason block and a fixture's provenance note — the last
-#: self-verifying, since the payload it describes does hold thirteen.
-#: The claim in bold is refutable by one ``grep``, which is the guard
-#: this class gets: a live comparison against ``checks_run`` would fail
-#: closed on a dead 8400 (``SNAG-DOCS-030``)), and that
+#: is ``last_audit.checks_run`` on ``GET :8400/api/audit/invariants``.
+#: **The count is no longer restated here.** This sentence read
+#: *thirteen* until 2026-09-25, when check 14 ``manifests`` landed
+#: (estate ADR-0201) — the second time it went stale, after estate
+#: message ``00b631ec``, and the first time since it was named *the
+#: only live restatement left in this tree*. So it was retired rather
+#: than refreshed, as the four others in code and tests were on
+#: 2026-09-13, and **no live restatement of the total remains in this
+#: tree**. The dated records were kept, because a measurement stamped
+#: with its date cannot drift and a live cardinality can: an ADR's
+#: evidence, session blocks, fixed-snag measurements, a shell script's
+#: reason block and a fixture's provenance note. The claim in bold is
+#: refutable by one ``grep``, which is the guard this class gets: a
+#: live comparison against ``checks_run`` would fail closed on a dead
+#: 8400 (``SNAG-DOCS-030``)), and that
 #: constant had quietly acquired a second job nobody argued for:
 #: it was also a check filter.  So admitting a second check by name alone
 #: would have shipped green and inert — ``wiring`` emits no ``breach`` at

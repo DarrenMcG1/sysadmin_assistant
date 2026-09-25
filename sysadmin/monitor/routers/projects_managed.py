@@ -27,7 +27,12 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
     """List projects from the registry with live service health status."""
     config = get_config()
-    registry = load_registry(config.agents.project_organiser.projects_root)
+    # Partial (``SNAG-SVC-007``): one malformed manifest used to 500 this
+    # route for every project. A refused tree is absent from the list, and
+    # the estate judge's manifest row is what names it.
+    registry = load_registry(
+        config.agents.project_organiser.projects_root, partial=True
+    )
 
     # Fetch latest health check per service
     latest_health_subq = (

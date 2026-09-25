@@ -6,9 +6,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from sysadmin.units.agent import ALERT_TITLE, ServiceDiscoveryAgent
+from sysadmin.units.agent import ALERT_TITLE, REFUSED_STATUS, ServiceDiscoveryAgent
 from sysadmin.units.models import UnitAudit
-from sysadmin.units.scan import HOST, ORPHANED, UNMONITORED
+from sysadmin.units.scan import (
+    HOST,
+    ORPHANED,
+    UNMONITORED,
+    UnitFile,
+    classify_units,
+)
 
 SCANNED_AT = datetime(2026, 8, 7, 9, 0, tzinfo=UTC)
 
@@ -434,6 +440,66 @@ def test_project_refs_include_undeclared_repositories(mock_config, tmp_path):
     refs = ServiceDiscoveryAgent._project_refs(mock_config)
 
     assert [(r.name, r.status) for r in refs] == [("mystery", "undeclared")]
+
+
+def _refused_tree(root, name="thing"):
+    """A repository whose manifest will not parse (``SNAG-SVC-007``)."""
+    (root / name / ".git").mkdir(parents=True)
+    (root / name / ".project.yaml").write_text("schema: 1\nid: [\n", encoding="utf-8")
+    return root / name
+
+
+def test_project_refs_keep_a_refused_repository(mock_config, tmp_path):
+    """The undeclared argument one case further: a repository still owns
+    its units when its manifest will not parse. A partial load leaves the
+    tree out of ``entries``, so matching against entries alone would read
+    every unit in it as an orphan. Live, because its status is inside the
+    file that failed."""
+    _refused_tree(tmp_path)
+    mock_config.agents.project_organiser.projects_root = str(tmp_path)
+
+    refs = ServiceDiscoveryAgent._project_refs(mock_config)
+
+    assert [(r.name, r.status, r.is_live) for r in refs] == [
+        ("thing", REFUSED_STATUS, True)
+    ]
+
+
+def test_project_inputs_keep_a_refused_repository_too(mock_config, tmp_path):
+    """The production path — ``_project_refs`` has no caller outside the
+    tests — and its alias map, where the directory is the only name a
+    tree with an unreadable id has."""
+    _refused_tree(tmp_path)
+    mock_config.agents.project_organiser.projects_root = str(tmp_path)
+
+    refs, aliases = ServiceDiscoveryAgent._project_inputs(mock_config)
+
+    assert [(r.name, r.status) for r in refs] == [("thing", REFUSED_STATUS)]
+    assert aliases == {"thing": ["thing"]}
+
+
+def test_an_armed_unit_in_a_refused_repository_is_not_an_orphan(mock_config, tmp_path):
+    """What the two tests above exist for, driven through the classifier.
+    An enabled unit restarting without bound is the armed-orphan shape,
+    which is ``critical``: one broken manifest would have announced that
+    the project was gone, louder than the row saying what broke."""
+    tree = _refused_tree(tmp_path)
+    mock_config.agents.project_organiser.projects_root = str(tmp_path)
+    unit = UnitFile(
+        name="thing-backend.service",
+        scope="user",
+        path="/u/thing-backend.service",
+        working_directory=str(tree),
+        static=False,
+        enabled=True,
+        restart="always",
+    )
+
+    refs, _ = ServiceDiscoveryAgent._project_inputs(mock_config)
+    [finding] = classify_units([unit], refs, set(), path_exists=lambda p: True)
+
+    assert finding.category == UNMONITORED
+    assert finding.project == "thing"
 
 
 def test_project_refs_are_empty_when_the_root_is_missing(mock_config):

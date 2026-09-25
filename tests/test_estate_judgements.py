@@ -46,6 +46,8 @@ from sysadmin.estate.judgements import (
     HEALTH_ROLLUP_TITLE,
     JUDGED_AUDIT_CHECKS,
     JUDGED_AUDIT_SEVERITY,
+    MANIFEST_REASON_CHARS,
+    MANIFEST_ROLLUP_TITLE,
     NEXT_ACTION_CHARS,
     NUDGE_ROLLUP_TITLE,
     PORTS_CHECK,
@@ -97,6 +99,23 @@ def _nudges(count: int, *, severity: str = "info", days: int = 9):
         }
         for n in range(count)
     ]
+
+
+def _refused(count: int, *, cause: str = "invalid"):
+    return [
+        {"tree": f"apps/project-{n}", "cause": cause, "reason": "status: Field required"}
+        for n in range(count)
+    ]
+
+
+def _recorded_refusals():
+    """The producer's own ``refused_manifests``, one tree per cause.
+
+    Provenance is on
+    ``tests/test_estate_project_contracts.py::TestRecordedRefusedManifests``.
+    """
+    fixture = Path(__file__).parent / "fixtures" / "estate_projects_attention_refused.json"
+    return json.loads(fixture.read_text())
 
 
 def _breaches(count: int):
@@ -414,6 +433,111 @@ class TestAttention:
         malformed entry and names nothing."""
         out = attention({"health": [{"score": 1, "threshold": 2}], "nudges": [{"days": 1}]})
         assert out == []
+
+
+class TestRefusedManifests:
+    """The third attention family (``SNAG-SVC-007``, estate ADR-0201 §5).
+
+    For the trees that have never had a session, this row is the only
+    path to the owner that a broken ``.project.yaml`` has (their §13).
+    """
+
+    def test_one_refused_tree_is_one_warning_row_titled_by_the_tree(self):
+        out = attention({"health": [], "nudges": [], "refused_manifests": [
+            {"tree": "archive/bsl-translator", "cause": "invalid",
+             "reason": "decisions.0.reason: Field required"}
+        ]})
+        assert titles(out) == {"Project manifest archive/bsl-translator refused"}
+        assert out[0].severity == DEFAULT_SEVERITY == "warning"
+        assert out[0].details["cause"] == "invalid"
+        assert out[0].details["manifest"] == "archive/bsl-translator/.project.yaml"
+        assert "decisions.0.reason: Field required." in out[0].message
+
+    def test_the_title_does_not_move_with_the_reason(self):
+        """Rule 5: the reason changes with the typo. A half-fix that moves
+        the error from line 7 to line 9 is the same fault, and a title
+        carrying the reason would open a second row and toast twice."""
+        first, second = (
+            attention({"refused_manifests": [{"tree": "t", "cause": c, "reason": r}]})[0]
+            for c, r in [("invalid", "line 7"), ("duplicate_id", "line 9")]
+        )
+        assert first.title == second.title
+
+    def test_every_recorded_refusal_is_one_row(self):
+        """Driven over the producer's own payload: one row per tree, the
+        two ``duplicate_id`` halves included, because each names its own
+        tree and either edit fixes both."""
+        payload = _recorded_refusals()
+        trees = [e["tree"] for e in payload["refused_manifests"]]
+        out = attention(payload)
+        assert sorted(j.title for j in out) == sorted(
+            f"Project manifest {t} refused" for t in trees
+        )
+        assert {j.details["cause"] for j in out} == {
+            "invalid", "duplicate_id", "unknown_supersedes"
+        }
+
+    def test_a_multiline_reason_is_one_line_in_the_message_and_whole_in_details(self):
+        """The YAML shape is four lines ending in a caret aligned under a
+        column. A notification body keeps neither, so the message
+        flattens it; ``details`` keeps the column, which is information."""
+        [yaml] = [
+            e for e in _recorded_refusals()["refused_manifests"]
+            if e["reason"].startswith("unreadable YAML")
+        ]
+        [row] = attention({"refused_manifests": [yaml]})
+        assert "\n" not in row.message
+        assert "line 7, column 12: change: archived ^." in row.message
+        assert row.details["reason"] == yaml["reason"]
+
+    def test_a_long_reason_is_cut_with_a_marker_and_whole_in_details(self):
+        reason = "frobnicate: " + "word " * 100
+        [row] = attention({"refused_manifests": [
+            {"tree": "t", "cause": "invalid", "reason": reason}
+        ]})
+        assert TRUNCATION_MARKER in row.message
+        assert len(row.message) < len(reason)
+        assert row.details["reason"] == reason
+        assert MANIFEST_REASON_CHARS < len(reason)
+
+    def test_an_absent_key_judges_nothing(self):
+        """The 2026-08-16 recording's shape. Not health — the live half of
+        the contract test is what makes the key's absence loud."""
+        assert attention({"health": [], "nudges": []}) == []
+
+    def test_an_entry_with_no_tree_is_dropped(self):
+        """``Project manifest None refused`` would deduplicate every
+        malformed entry into one row naming nothing."""
+        assert attention({"refused_manifests": [{"cause": "invalid"}, "x", None]}) == []
+
+    def test_one_past_the_cap_collapses_naming_every_tree(self):
+        out = attention({"refused_manifests": _refused(MAX_ROWS + 1)})
+        assert titles(out) == {MANIFEST_ROLLUP_TITLE}
+        assert out[0].details["refused_count"] == MAX_ROWS + 1
+        assert out[0].details["trees"] == sorted(
+            f"apps/project-{n}" for n in range(MAX_ROWS + 1)
+        )
+        assert out[0].severity == DEFAULT_SEVERITY
+
+    def test_at_the_cap_every_tree_keeps_its_own_row(self):
+        out = attention({"refused_manifests": _refused(MAX_ROWS)})
+        assert len(out) == MAX_ROWS
+        assert MANIFEST_ROLLUP_TITLE not in titles(out)
+
+    def test_the_three_families_collapse_independently(self):
+        """Rule 1's reason, for a third producer: the partial load fails
+        separately from the scorer and from the streak query."""
+        out = attention({
+            "health": _breaches(MAX_ROWS + 1),
+            "nudges": _nudges(1),
+            "refused_manifests": _refused(2),
+        })
+        assert titles(out) == {
+            HEALTH_ROLLUP_TITLE,
+            "Project project-0 next action idle",
+            "Project manifest apps/project-0 refused",
+            "Project manifest apps/project-1 refused",
+        }
 
 
 class TestAttentionAgainstAPopulatedPayload:
@@ -1461,6 +1585,13 @@ def _every_title():
     out += attention(
         {"health": _breaches(MAX_ROWS + 1), "nudges": _nudges(MAX_ROWS + 1)}
     )
+    # And the third family's two shapes (``SNAG-SVC-007``): a tree is a
+    # path, so its title carries a `/` and, here, an `_` — which is a
+    # LIKE wildcard in a *pattern* and a literal in a title.
+    out += attention({"health": [], "nudges": [], "refused_manifests": [
+        {"tree": "archive/bsl_translator", "cause": "invalid", "reason": "x"}
+    ]})
+    out += attention({"refused_manifests": _refused(MAX_ROWS + 1)})
     out += judge_audit_findings({"findings": [_breach(port=8888)]}, 5)
     out += judge_audit_findings({"findings": [_breach(port=8880 + n) for n in range(6)]}, 5)
     # Both shapes of the wiring family, which shares the ports family's

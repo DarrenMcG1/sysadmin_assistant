@@ -442,6 +442,14 @@ def load_services(
     A registry that has declared *nothing* is treated as an un-migrated
     estate rather than as evidence that every reference is wrong — it logs
     once and skips the id check. One manifest anywhere makes it strict.
+
+    **So does one manifest refused** (``SNAG-SVC-007``). A partial load
+    that refused every manifest also declares nothing, and reading that
+    as "un-migrated" would switch the id check off and print a migration
+    hint at the moment every reference is genuinely unresolvable — a key
+    newer than the running model, added to every manifest in one sweep,
+    is the way there. Refusals mean somebody decided and wrote it wrongly,
+    which is the opposite of nobody having decided.
     """
     path = Path(path).expanduser()
     try:
@@ -455,7 +463,7 @@ def load_services(
         raise ServicesError(f"{path}: invalid — {exc}") from exc
 
     if registry is not None:
-        if not registry.ids:
+        if not registry.ids and not registry.refused:
             logger.warning(
                 "services_project_ids_unchecked",
                 extra={

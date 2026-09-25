@@ -404,7 +404,10 @@ class TestManagedProjectsHealth:
         registry = SimpleNamespace(
             declared=[SimpleNamespace(id="proj", name="Proj", path="/tmp/proj")]
         )
-        monkeypatch.setattr(module, "load_registry", lambda _root: registry)
+        # `partial` is required rather than swallowed, so a strict call
+        # here is a TypeError and not a stub agreeing with anything
+        # (``SNAG-SVC-007``).
+        monkeypatch.setattr(module, "load_registry", lambda _root, *, partial: registry)
         monkeypatch.setattr(
             module,
             "get_services",

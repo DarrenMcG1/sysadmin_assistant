@@ -1,8 +1,62 @@
-# Handoff — 2026-09-25 (Session 258)
+# Handoff — 2026-09-25 (Session 259)
 
 ## Next action
 
-Build `SNAG-SVC-007`'s owed half: opt in to `partial=True`, log refused manifests at WARNING, and judge `refused_manifests` off `/attention`. *(For: session)*
+Decide whether to build the settings-path comparison now the estate publishes which file its wiring check read, or record that precondition as met and leave it P4. *(For: session)*
+
+It is the unchecked `tasks.md` item headed *"`SNAG-CFG-007`'s stated trigger
+has fired"*. That entry is about two readers resolving
+`~/.claude/settings.json` by different mechanisms, with a disagreement
+about *which* file invisible from both sides. Its status reads `decided`
+and says no sitting is owed work until the estate publishes the path it
+read. Estate message `999f4432` did that: every check summary on
+`/api/audit/invariants` now carries `inputs`, and `wiring` carries
+`settings_file` with `resolves_to`. The line names no id because the entry
+is not `owed`. Changing it to owed is the first half of this decision.
+The Monday 2026-09-28 reading stays under `## Scheduled action`.
+
+*What this sitting did.* Built `SNAG-SVC-007`'s owed half and closed the
+entry. All six production `load_registry` calls pass `partial=True`,
+pinned by an AST sweep. `judge_attention` raises one `warning` row per
+tree in `refused_manifests`, titled `Project manifest <tree> refused`,
+with a roll-up above `attention_max_rows`. The `manifests` refusal is
+recorded at `JUDGED_AUDIT_CHECKS`. A new contract fixture was recorded by
+calling estate-manager's own `oversight.attention` at scratch trees, one
+per refusal cause. Deployed by one restart at 2026-09-25 12:06:43, the boot's registry load reading 29 of 29 declared and 0 refused.
+
+*Decided, and what was rejected.*
+- **The unit sweep keeps a refused tree as a live project** (owner's
+  choice). A partial load drops the tree from `entries`, and the sweep
+  matches units by path. So Alfred's broken manifest would have reported
+  its 7 units as orphans, and any enabled restart-looping one as an armed
+  orphan (`critical`). Rejected: keeping the sweep strict, which gives a
+  second row for one fault, and skipping orphan classification while
+  anything is refused, which blinds it estate-wide. Also rejected: reading
+  `archive/` off the path for the status, because a declared status wins
+  there and this tree has one, just unreadable.
+- **The WARNING line is the library's.** `estate.registry` already logs
+  `registry_manifest_refused` per tree inside `load_registry`, so it lands
+  before the id check by construction. I wrote our own helper, then removed
+  it: two lines per refusal would state one fact twice. A test pins the
+  library's line, and it goes red if they drop it.
+- **`load_services` stays strict when every manifest is refused.** Before,
+  it read that as an un-migrated estate and skipped the id check.
+- **The "thirteen checks" figure in `JUDGED_AUDIT_CHECKS`' docstring was
+  retired, not refreshed.** Check 14 made it stale, next to the paragraph
+  this sitting added.
+
+*Noticed, not chased.* `/api/projects/managed` omits a refused tree, and
+`/api/units/actions` cannot give its units a `project:` line; the judge's
+row names the tree in both cases. If a referenced manifest breaks while
+the daemon is running, nothing fails until the next restart, and then the
+boot fails as Session 255 intended. The hourly judge row is the warning in
+between.
+
+---
+
+## Session 258 — estate-manager's partial registry load has landed, and what this side owes is written down
+
+*Its next action, to build `SNAG-SVC-007`'s owed half, was taken by Session 259.*
 
 The five steps are numbered on the entry. estate-manager's partial registry
 load (their ADR-0201, commit `2692ba8`) is live and importable here through

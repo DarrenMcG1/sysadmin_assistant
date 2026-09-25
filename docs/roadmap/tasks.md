@@ -8,6 +8,34 @@
 
 ---
 
+## Session 259: a broken manifest elsewhere no longer stops the boot ✅ (2026-09-25)
+
+- [x] **`partial=True` at all six production `load_registry` calls**, pinned
+      by an AST sweep in `tests/test_services_registry.py`. A test stub in
+      `tests/test_routers.py` now requires the keyword.
+- [x] **The WARNING line is the library's, not ours.** `estate.registry`
+      already logs `registry_manifest_refused` per tree inside
+      `load_registry`, so it lands before the id check by construction. A
+      second line here would state one fact twice; a test pins the
+      library's line instead.
+- [x] **`judge_attention` judges `refused_manifests`**: one `warning` row
+      per tree, titled `Project manifest <tree> refused`, and a roll-up
+      above `attention_max_rows`. Partition patterns added.
+- [x] **The `manifests` refusal is recorded at `JUDGED_AUDIT_CHECKS`**, and
+      that docstring's restated audit check total (thirteen, now fourteen)
+      was retired rather than refreshed.
+- [x] **Contract seam guarded**: a new fixture recorded from
+      estate-manager's own `oversight.attention` at scratch trees, one per
+      refusal cause; the live half requires the key.
+- [x] **Owner's decision: the unit sweep keeps a refused tree as a live
+      project** (`REFUSED_STATUS`). Otherwise its units read as orphans,
+      and an enabled restart-looping one as an armed orphan (`critical`).
+- [x] **`load_services` stays strict when a partial load refused
+      everything**, rather than skipping the id check as "un-migrated".
+- [x] **Deployed** by one restart; `SNAG-SVC-007` closed.
+
+---
+
 ## Session 258: estate-manager's partial registry load has landed, and what this side owes is written down (2026-09-25)
 
 - [x] **Read estate messages `a9dce2d5` (ADR-0201's plan) and `ec92eb8f`
@@ -20,12 +48,12 @@
       audit check 14.** They carry the same fact, and ADR-0006's ownership
       test would refuse `manifests` for the reason it refused `docs`.
       Recorded on `SNAG-SVC-007`, which is `Open — owed` again.
-- [ ] **Build `SNAG-SVC-007`'s owed half** (numbered on the entry):
+- [x] **Build `SNAG-SVC-007`'s owed half** (numbered on the entry):
       `partial=True` at the six production calls; the lifespan logs each
       refusal at WARNING before `load_services_singleton`; `judge_attention`
       raises one `warning` row per refused tree, titled by path; the
       `manifests` refusal is recorded at `JUDGED_AUDIT_CHECKS`; the contract
-      test pins the new key. One restart deploys it.
+      test pins the new key. One restart deploys it. *Done by Session 259.*
 
 ---
 

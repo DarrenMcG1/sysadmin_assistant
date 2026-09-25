@@ -222,8 +222,21 @@ async def lifespan(app: FastAPI):
     # project fails here, at startup, naming every bad reference at once —
     # which is the whole reason services are keyed on id rather than path.
     # A path that names nothing fails silently and did, twice.
+    #
+    # The registry load is partial (``SNAG-SVC-007``, owner's ruling): a
+    # malformed manifest in a repository ``services.yaml`` never mentions
+    # used to fail this boot, and ``StartLimitBurst=5`` can make that
+    # terminal. A refused tree referenced by ``services.yaml`` still fails
+    # it, through the unknown-id check below, and that check can name the
+    # id and never the reason. The reason is ``estate.registry``'s own
+    # ``registry_manifest_refused`` WARNING, one per tree, written inside
+    # ``load_registry`` — so it lands before the check by construction,
+    # and it is stored and never alerted (``FAULT_SEVERITIES``), which is
+    # the owner's ruling. Not restated here: a second line per refusal is
+    # two statements of one fact. ``tests/test_services_registry.py`` pins
+    # that the library still writes it.
     services = load_services_singleton(registry=load_registry(
-        config.agents.project_organiser.projects_root
+        config.agents.project_organiser.projects_root, partial=True
     ))
     logger.info(
         "services_loaded",

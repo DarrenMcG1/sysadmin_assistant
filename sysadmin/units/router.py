@@ -246,7 +246,10 @@ async def get_unit_actions(
         # together, and it is the only surface that names the units in
         # the restart family at all.
         _findings_from(audit) + _restart_findings_from(audit),
-        load_registry(config.agents.project_organiser.projects_root),
+        # Partial (``SNAG-SVC-007``). Consulted only for project ids, so a
+        # refused tree costs its units a ``project:`` line in the snippet
+        # and nothing else — the sweep has already attributed them.
+        load_registry(config.agents.project_organiser.projects_root, partial=True),
         # The stored port observation: it upgrades a wired-up snippet
         # from ``kind: systemd`` to a real ``kind: http`` and carries
         # the registry-disagreement advice.  Absent on any sweep stored

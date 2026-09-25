@@ -90,6 +90,12 @@ ESTATE_URL = "http://localhost:8400"
 #: two neighbours it is not a response body.
 ATTENTION_FIXTURE = "estate_projects_attention.json"
 
+#: The ``refused_manifests`` family's recording (``SNAG-SVC-007``). A
+#: second file rather than a key edited into the first, because the first
+#: is a recording of what the producer served on 2026-08-16, before the
+#: key existed; see ``TestRecordedRefusedManifests`` for how it was made.
+ATTENTION_REFUSED_FIXTURE = "estate_projects_attention_refused.json"
+
 #: The tray's own call (``client.fetch_project_detail``) passes 30.  The
 #: fixture was recorded at 5 — the shape assertions are independent of
 #: the window, which is the point of asserting shape rather than length.
@@ -150,6 +156,12 @@ ATTENTION_NUDGE_KEYS = frozenset({
     "scans",
     "at_window_edge",
 })
+
+#: Every key :func:`~sysadmin.estate.judgements.judge_attention` reads
+#: off a ``refused_manifests`` entry. ``tree`` is the identity, and an
+#: entry without it is dropped silently — the rename-empties-the-surface
+#: trap :data:`ATTENTION_NUDGE_KEYS` describes, on a third family.
+ATTENTION_REFUSED_KEYS = frozenset({"tree", "cause", "reason"})
 
 #: The three the producer computes and ``dataclasses.asdict`` drops,
 #: because ``Nudge.title``/``.message``/``.details`` are ``@property``
@@ -324,7 +336,10 @@ def _assert_size_is_numeric(current: dict[str, Any], *, name: str) -> None:
 
 
 def _assert_attention_usable(
-    payload: dict[str, Any], *, require_populated: bool
+    payload: dict[str, Any],
+    *,
+    require_populated: bool,
+    require_refused_key: bool = False,
 ) -> None:
     """``/api/projects/attention`` as :mod:`sysadmin.estate.judgements` consumes it.
 
@@ -339,9 +354,33 @@ def _assert_attention_usable(
     breach or a nudge, which is also the first day they could catch
     anything.  The recorded half passes ``True`` and does the real work
     now.
+
+    ``require_refused_key`` is the live half's, and it is the one place
+    an absent ``refused_manifests`` can be loud (``SNAG-SVC-007``).
+    :func:`~sysadmin.estate.judgements.judge_attention` reads an absent
+    key as no refusals — it cannot raise off a key it was not sent — so
+    the producer rolling ADR-0201 back would retire that family in
+    silence. ``waiting_reason``'s rule. The 2026-08-16 recording predates
+    the key, which is why it is not required everywhere.
     """
     assert isinstance(payload.get("health"), list), "no `health` list in the payload"
     assert isinstance(payload.get("nudges"), list), "no `nudges` list in the payload"
+
+    if require_refused_key:
+        assert "refused_manifests" in payload, (
+            "the estate no longer publishes `refused_manifests` on /attention. "
+            "judge_attention reads that as no refused manifests, so a broken "
+            ".project.yaml now reaches nobody (SNAG-SVC-007, estate ADR-0201 §5)."
+        )
+    refused = payload.get("refused_manifests", [])
+    assert isinstance(refused, list), "`refused_manifests` is not a list"
+    for i, entry in enumerate(refused):
+        missing = ATTENTION_REFUSED_KEYS - set(entry)
+        assert not missing, (
+            f"refused_manifests[{i}] ({entry.get('tree')!r}) is missing "
+            f"{sorted(missing)} — judge_attention drops an entry with no `tree` "
+            "silently"
+        )
 
     if require_populated:
         assert payload["health"], "the recording carries no health breaches"
@@ -449,6 +488,61 @@ class TestRecordedAttention:
         _assert_attention_usable({"health": [], "nudges": []}, require_populated=False)
 
 
+class TestRecordedRefusedManifests:
+    """The third attention family, and how its recording was made.
+
+    Produced on 2026-09-25 by calling estate-manager's own route function,
+    ``estate_service.projects.oversight.attention`` at their ``284d00e``,
+    in their venv, with ``projects_root`` pointed at a scratch tree of six
+    repositories — five broken on purpose, one fine. Everything that
+    builds ``refused_manifests`` is theirs: the partial
+    ``load_registry`` and the projection. Two inputs are not: the
+    snapshot query answers no rows (no database is touched) and idle
+    nudges are switched off, so ``health`` and ``nudges`` are empty by
+    construction and say nothing. The reasons' absolute paths are that
+    scratch tree's.
+
+    ``archive/bsl-translator`` reproduces 2026-09-24's live specimen:
+    ``change:`` indented to column 5 under a ``- date:``.
+    """
+
+    def test_recorded_payload_is_usable(self):
+        payload = _load(ATTENTION_REFUSED_FIXTURE)
+        _assert_attention_usable(
+            payload, require_populated=False, require_refused_key=True
+        )
+        assert payload["refused_manifests"], "the recording carries no refusals"
+
+    def test_the_recording_covers_every_cause_the_library_names(self):
+        """Against the library's own constants, not a list typed here. A
+        fourth cause landing in ``estate.registry`` turns this red, which
+        is the moment to re-record rather than to widen an assertion."""
+        from typing import get_args
+
+        from estate.registry import (
+            CAUSE_DUPLICATE_ID,
+            CAUSE_INVALID,
+            CAUSE_UNKNOWN_SUPERSEDES,
+            RefusalCause,
+        )
+
+        causes = {e["cause"] for e in _load(ATTENTION_REFUSED_FIXTURE)["refused_manifests"]}
+        named = {CAUSE_DUPLICATE_ID, CAUSE_INVALID, CAUSE_UNKNOWN_SUPERSEDES}
+        assert set(get_args(RefusalCause)) == named
+        assert causes == named
+
+    def test_a_payload_without_the_key_fails_only_where_it_is_required(self):
+        """The 2026-08-16 recording predates the key and must still pass
+        where it is not required; the live half requires it. Both
+        directions, or the requirement could be vacuous."""
+        old = _load(ATTENTION_FIXTURE)
+        _assert_attention_usable(old, require_populated=True)
+        with pytest.raises(AssertionError, match="no longer publishes"):
+            _assert_attention_usable(
+                old, require_populated=False, require_refused_key=True
+            )
+
+
 # ── Live half — skipped when the estate is not running ───────────────
 
 
@@ -499,7 +593,9 @@ class TestLiveEstate:
         """
         resp = httpx.get(f"{ESTATE_URL}/api/projects/attention", timeout=10.0)
         assert resp.status_code == 200
-        _assert_attention_usable(resp.json(), require_populated=False)
+        _assert_attention_usable(
+            resp.json(), require_populated=False, require_refused_key=True
+        )
 
     def test_live_detail_is_usable(self):
         """The project name comes from the live overview, never a constant.
