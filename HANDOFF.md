@@ -11,10 +11,12 @@ VRAM gets a message saying the tick loop has stopped, which is wrong. The
 alert itself is right; only its explanation is. The entry gives the shape
 of the fix. `_floor_verdict`'s rules 3 and 4 (an absent key is not a null
 reading; an unknown value is not guessed at) carry over unchanged. Live
-population today is zero. The Monday 2026-09-28 reading stays under
-`## Scheduled action`.
+population today is zero. It is the one unchecked item in `tasks.md`'s
+Session 261 block, which lists the pieces. The Monday 2026-09-28 reading
+stays under `## Scheduled action`.
 
-*What this sitting did.* Acted on the three open estate messages.
+*What this sitting did.* Acted on the three open estate messages, all
+closed after commit `cb7229d` with a note citing it.
 
 - **`6d3dbf47` — declared and closed.** `estate-manager-scan-check-timer`
   is in `services.yaml`: the ten-minute membership check behind their

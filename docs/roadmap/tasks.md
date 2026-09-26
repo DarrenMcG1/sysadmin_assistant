@@ -8,7 +8,7 @@
 
 ---
 
-## Session 261: the estate's membership-check timer is declared; the other two messages read against the judge ✅ (2026-09-26)
+## Session 261: the estate's membership-check timer is declared; the other two messages read against the judge (2026-09-26)
 
 - [x] **`estate-manager-scan-check-timer` in `services.yaml`** (estate
       message `6d3dbf47`). `log.unit` names the `.service`, and the
@@ -27,6 +27,16 @@
       `_floor_verdict`/`_nothing_granted_cause` confirmed against the
       code and the live payload; filed as `SNAG-GPU-006`, which is owed.
 - [x] 4327 passed, 2 skipped; ruff clean.
+- [ ] **Build `SNAG-GPU-006`: read `vram_floor` under `nothing_granted`.**
+      Since estate-manager's ADR-0202 the arbiter holds a waiter on short
+      free VRAM as well as on a busy card, and the judge still blames every
+      grantable `gpu_floor` reading on a stopped tick loop. Apply their
+      published predicate (`state == "sampled"`, `need_mib > 0`,
+      `free_mib < need_mib + headroom_mib`) with their operands. An absent
+      key keeps today's sentence, and an unknown `state` is not guessed at.
+      Carry the object in `details`, and correct `_floor_verdict`'s
+      docstring, which states the grant rule as busy-only. The title does
+      not move. Its own sitting; no restart needed until it lands.
 
 ---
 
