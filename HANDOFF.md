@@ -1,8 +1,54 @@
-# Handoff — 2026-09-26 (Session 262)
+# Handoff — 2026-09-26 (Session 263)
 
 ## Next action
 
-Choose the next piece of work: the inbox is empty and no register entry is owed work here, so the pick is yours. *(For: owner, ~20 min)*
+Decide whether the estate's `pointers` audit check joins `JUDGED_AUDIT_CHECKS` under ADR-0006's ownership test, and record the answer either way. *(For: session)*
+
+The question is the one unticked item in `tasks.md`'s Session 201 block,
+from estate message `d93a1882` (2026-09-09), which the estate filed as a
+recommendation and not a ruling. `pointers` checks every repository's
+`SNAG-ESTATE-*` ids for collisions that no document marks. Since their
+ADR-0142 those findings arrive at `warn` from a 05:00 run rather than by
+failing their test gate, so nothing delivers them at all. ADR-0006 admits
+a check on **ownership**, never on severity, and two of its clauses need
+measuring against the live audit: *"no repository owns it"* (the id is
+owned by whoever minted it, but a collision spans repositories) and
+*"nobody says it at all"*. There is also a case ADR-0006 never met: a
+collision can be one of **ours**, so admitting the check could have this
+repository raising an alert about its own snag list, and the estate rules
+say no party judges itself. Refusing is a legitimate answer. Leaving the
+question open is not. It has been open for 17 days.
+
+*What this sitting did.* The owner picked the recommended option:
+re-measure the unticked items that looked done, tick those that were, and
+hand off the one that was not. Documentation only; no code changed, so no
+restart or suite run is owed. Checked against the message register
+(`GET :8400/api/estate/messages`, all 262 rows) and the later session
+blocks in `tasks.md`:
+
+- Alfred's `d51ecb7a` and the estate's `86e0fa63`: closed by this
+  repository on 2026-09-09. Ticked.
+- Our structural-reply request `4cc94260`: the estate built `in_reply_to`
+  and closed the message on 2026-09-09. Ticked.
+- The overdue 2026-09-07 `llm_used` reading: Session 206 read it on
+  2026-09-09. Ticked.
+- Closing `8c6da00e`: the register shows it closed on **2026-09-04**, three
+  days before Session 197 recorded it as open. The task was wrong on the
+  day it was written. Ticked, with that noted.
+- The `pointers` decision: not done. `JUDGED_AUDIT_CHECKS` still holds
+  `ports` and `wiring` only, and no ADR or snag entry records a refusal.
+  It is the next action above.
+
+*Rejected.* Taking the `pointers` decision in this sitting as well. It
+needs its own measurement and probably its own ADR, and the owner asked
+for one concern per session (message `a232ad04`, relayed through
+project-manager today).
+
+---
+
+## Session 262 — SNAG-GPU-006 built: a lease the VRAM floor holds names its own cause
+
+*Its next action, to choose the next piece of work, was taken by Session 263.*
 
 Checked at the close: `GET :8400/api/estate/messages` has nothing open for
 this repository, and every open `snag_list.md` entry reads *decided*,

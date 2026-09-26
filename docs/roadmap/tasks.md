@@ -8,6 +8,27 @@
 
 ---
 
+## Session 263: five stale open items re-measured; four were done and one was not (2026-09-26)
+
+_Session 262's next action left the pick open. This sitting checked the
+unticked items that looked finished against the message register and the
+later session blocks, ticked those that were, and left the one that was not
+as the next action. Documentation only._
+
+- [x] **Four items ticked, each with its evidence written beside it**:
+      the two Alfred/estate messages (closed 2026-09-09), the
+      structural-reply request `4cc94260` (accepted and built by the estate
+      2026-09-09), the overdue 2026-09-07 reading (done by Session 206), and
+      closing `8c6da00e` — which the register shows closed on 2026-09-04,
+      three days before Session 197 wrote it down as open.
+- [x] **One item is genuinely undecided and stays unticked**: whether the
+      estate's `pointers` audit check joins `JUDGED_AUDIT_CHECKS`, in the
+      Session 201 block. `JUDGED_AUDIT_CHECKS` still reads `ports` and
+      `wiring` only, and no ADR or snag entry records a refusal. It is the
+      next action.
+
+---
+
 ## Session 261: the estate's membership-check timer is declared; the other two messages read against the judge (2026-09-26)
 
 - [x] **`estate-manager-scan-check-timer` in `services.yaml`** (estate
@@ -4077,7 +4098,7 @@ for — so half of it crossed and half deliberately did not._
       its own by explicit pathspec, the parallel session being the reason
       to do so
 
-- [ ] **Two messages arrived after that close and are open.**
+- [x] **Two messages arrived after that close and are open.**
       `d51ecb7a` (Alfred) records that `alfred-desktop.service` was
       declared to `services.yaml` the same day the unit was created,
       commit `aad8236`, landing in this tree mid-sitting — it is why the
@@ -4089,8 +4110,11 @@ for — so half of it crossed and half deliberately did not._
       removed — verified here, the paragraph is gone — with the request
       restated in the past tense in `session-brief.md` so a reader can
       tell a convention's lifetime from the senders' diligence. Neither
-      asks for anything; both want reading before they are closed
-- [ ] **Filed at the estate: give a message a structural reply**
+      asks for anything; both want reading before they are closed.
+      **Discharged 2026-09-09, ticked 2026-09-26 (Session 263)**: the
+      register shows both closed by this repository at 15:37:42 that day,
+      each with a note recording what was verified before closing
+- [x] **Filed at the estate: give a message a structural reply**
       (`4cc94260`, 2026-09-09, `needs_ruling: true`, **at the owner's
       explicit request**). The register is one-way by construction: a
       reply is a new top-level row, which `models.py`'s own `closed_note`
@@ -4108,7 +4132,11 @@ for — so half of it crossed and half deliberately did not._
       the citation graph they already have, which would have linked 46
       rows today and depends on a convention nothing enforces. Theirs to
       accept or decline, and a declining with reasoning was named as
-      preferable to a change recommended from one repository's vantage
+      preferable to a change recommended from one repository's vantage.
+      **Discharged 2026-09-09, ticked 2026-09-26 (Session 263)**: the
+      estate accepted it and closed the message at 10:43:15 that day,
+      having built `in_reply_to` as an optional edge and nothing more —
+      `GET /api/estate/messages/{id}` serves `replies` beside the message
 - [ ] **Decide whether `pointers` joins `JUDGED_AUDIT_CHECKS`, and the
       deciding clause is the one that looks least likely to transfer.**
       estate message `d93a1882`, filed mid-sitting and **a
@@ -4146,10 +4174,14 @@ for — so half of it crossed and half deliberately did not._
       `docs/adr/drivers/0142-*.py` if the two windows they measured
       (50 minutes on 2026-09-04, 3 minutes on 2026-09-08, ~30 minutes of
       two sittings' cost) want re-running rather than trusting
-- [ ] **The overdue scheduled reading** — the first Monday under lease,
+- [x] **The overdue scheduled reading** — the first Monday under lease,
       `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews`,
       and the grant order in `estate-manager-api`'s journal. Scheduled
-      for 2026-09-07 and not read yet
+      for 2026-09-07 and not read yet. **Discharged 2026-09-09 by Session
+      206, ticked 2026-09-26 (Session 263)**: both halves were read there —
+      `health_reviews` false and the other two true, with lease 54 granted
+      to `health_review` at 05:00:05 — and the reading opened
+      `SNAG-SCHED-004`
 
 ---
 
@@ -4522,10 +4554,13 @@ whole of what was asked for; nothing was fixed._
       (`unwatched`) is false in both halves of that value's meaning. What
       remains is the implementation, which is a new item in the Session 199
       block below
-- [ ] **Close estate message `8c6da00e`** — Alfred's correction to the cost
+- [x] **Close estate message `8c6da00e`** — Alfred's correction to the cost
       line of our own `e5d17a89` (they measured 7 failed runs all-time
       against the 12 we quoted from their SNAG-50); open in our inbox and
-      untouched this sitting
+      untouched this sitting. **Ticked 2026-09-26 (Session 263), and it
+      was already discharged when written**: the register shows it closed
+      by this repository on 2026-09-04 at 08:20:15, citing commit
+      `2f88def` — three days before this block said it was open
 
 ---
 
