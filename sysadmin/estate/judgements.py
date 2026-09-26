@@ -257,6 +257,15 @@ MANIFEST_ROLLUP_TITLE = "Estate project manifests refused"
 #: being renamed is empty and measured rather than assumed.
 WIRING_FILE_TITLE = "Estate hook wiring is broken"
 
+#: Title for the two wiring readers disagreeing about *which* file they
+#: read (``SNAG-CFG-007``) — raised by :func:`judge_settings_path` off
+#: the derived ``settings_path`` surface.  A fixed string for
+#: :data:`WIRING_FILE_TITLE`'s reason: both subjects are paths, and a
+#: path in the title forks the row the day either side re-spells one.
+#: It opens ``Estate wiring`` rather than ``Estate audit`` or ``Estate
+#: hook`` so that no other surface's pattern can reach it.
+SETTINGS_PATH_TITLE = "Estate wiring check and this monitor read different settings files"
+
 #: Title patterns per surface, for the resolve sweep.
 #:
 #: The sweep is **scoped to the surfaces a run actually read** (see
@@ -294,6 +303,10 @@ SURFACE_TITLE_PATTERNS: dict[str, tuple[str, ...]] = {
     # Read here, not pulled — the one surface in this mapping that is not
     # an HTTP call to 8400. See :mod:`sysadmin.estate.hook_wiring`.
     "hook_wiring": (WIRING_FILE_TITLE,),
+    # Derived rather than read: read only when both `audit_invariants`
+    # and `hook_wiring` were, so its row is never swept on half the
+    # evidence. See :func:`sysadmin.estate.hook_wiring.compare_settings_paths`.
+    "settings_path": (SETTINGS_PATH_TITLE,),
 }
 
 
@@ -1928,6 +1941,53 @@ def judge_hook_wiring(payload: dict[str, Any]) -> list[Judgement]:
         Judgement(
             surface="hook_wiring",
             title=WIRING_FILE_TITLE,
+            message=message,
+            details=dict(payload),
+        )
+    ]
+
+
+def judge_settings_path(payload: dict[str, Any]) -> list[Judgement]:
+    """The estate's wiring check and this repository read different files.
+
+    ``SNAG-CFG-007``: two green surfaces about ``settings.json`` prove
+    nothing jointly unless they read one file.  The payload is
+    :func:`sysadmin.estate.hook_wiring.compare_settings_paths`', which
+    has already refused every case where the comparison could not be
+    made, so this judges a disagreement and never an absence.
+
+    Three rules:
+
+    1. **``warning``, and not re-argued.**  A disagreement makes one of
+       the two checks audit a file the harness may not load, which costs
+       the *next* session if that file breaks unseen — the same argument
+       :func:`judge_hook_wiring` rule 2 cites for its rung.
+
+    2. **Neither side is blamed**
+       (:func:`~sysadmin.estate.hook_wiring.compare_settings_paths`
+       rule 3).  The message names both files and where each is set.
+
+    3. **It fails open on a payload it cannot read** — ``same_file``
+       must be exactly ``False`` — for :func:`judge_hook_wiring` rule 4's
+       reason: the producer is this repository's own and directly
+       driven, so the guard is its tests rather than this branch.
+    """
+    if payload.get("same_file") is not False:
+        return []
+    ours = payload.get("ours_target")
+    theirs = payload.get("theirs_target")
+    message = (
+        f"estate-manager's wiring check read {theirs} while this monitor read "
+        f"{ours}, so their two clean results are about different files and "
+        "one of them is auditing a file the harness may not load. This "
+        "repository's path is the constant hook_wiring.SETTINGS_PATH; the "
+        "estate's is WiringConfig.settings_file in their audit config — "
+        "file it at estate-manager rather than editing either blind."
+    )
+    return [
+        Judgement(
+            surface="settings_path",
+            title=SETTINGS_PATH_TITLE,
             message=message,
             details=dict(payload),
         )

@@ -1,8 +1,61 @@
-# Handoff — 2026-09-25 (Session 259)
+# Handoff — 2026-09-26 (Session 260)
 
 ## Next action
 
-Decide whether to build the settings-path comparison now the estate publishes which file its wiring check read, or record that precondition as met and leave it P4. *(For: session)*
+Declare `estate-manager-scan-check.timer` in services.yaml per estate message `6d3dbf47`, then check the other two open messages against the judge. *(For: session)*
+
+The timer is enabled on the box (`systemctl --user is-enabled` answers
+`enabled`) and `services.yaml` has no entry for it, and the
+monitorable-project contract wants a service declared the day its unit
+exists. The same message says `last_scan.run_type` on
+`/api/projects/invariants` may now read `membership`: the scan judge only
+prints `run_type` into its message and details and decides nothing on it,
+so that half looks inert, but check it against a live payload rather than
+this sentence. The other two are venture-assistant's `a4d70802` (the
+pipeline `stalled` flag's age now counts from arrival) and estate-manager's
+`4ef705e8` (`vram_floor` beside `gpu_floor` on the queue surface, a third
+cause for `nothing_granted`). The Monday 2026-09-28 reading stays under
+`## Scheduled action`.
+
+*What this sitting did.* Built and closed `SNAG-CFG-007`, the risk that
+the estate's wiring check and this repository read different
+`settings.json` files while both report clean. The owner chose to build
+rather than leave it at P4. `hook_wiring.compare_settings_paths` compares
+the file the estate's wiring check read (`inputs.settings_file` on
+`/api/audit/invariants`, published since their message `999f4432`) with
+the file this repository reads, and returns a derived seventh surface,
+`settings_path`. `judge_settings_path` raises one fixed-title `warning`
+row when they differ. Both resolve to the dotfiles copy today. Deployed by
+one restart at 2026-09-26 18:30:13.
+
+*Decided, and what was rejected.*
+- **A derived surface, not a row tagged with one of its two sources.**
+  The agent clears a row only when that row's source was read this run.
+  Tagged `hook_wiring`, a run with 8400 dark would have cleared a standing
+  disagreement on half the evidence. The option was put to the owner and
+  rejected.
+- **Targets are compared, never declared paths, and the estate's path is
+  not re-resolved here.** Both sides publish `resolves_to` only when the
+  symlink moves the path, so `resolves_to`-else-`path` is the file. A
+  declared-path comparison reports two files when the estate is
+  configured with the symlink's target.
+- **An absent path is unread, not agreement.** If the estate stops
+  publishing the field, the comparison goes dark and `unread_surfaces`
+  names the missing step every hour; the live test goes red too. It never
+  clears a standing row.
+- **Neither side is blamed.** The harness's own location can move, and
+  then our constant is the stale half.
+
+*Noticed, not chased.* A four-mutation drive first printed nothing at
+all, which looked like "no test failed". The cause was zsh not
+word-splitting an unquoted `$T`, so pytest was handed one bogus path. An
+array fixed it.
+
+---
+
+## Session 259 — a broken manifest elsewhere no longer stops the boot
+
+*Its next action, to decide on `SNAG-CFG-007`'s fired trigger, was taken by Session 260.*
 
 It is the unchecked `tasks.md` item headed *"`SNAG-CFG-007`'s stated trigger
 has fired"*. That entry is about two readers resolving

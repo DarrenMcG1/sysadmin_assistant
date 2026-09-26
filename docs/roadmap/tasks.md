@@ -4,7 +4,30 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-25
+> **Last Updated**: 2026-09-26
+
+---
+
+## Session 260: the two settings.json readers are compared on which file they read ✅ (2026-09-26)
+
+- [x] **Owner's decision: build `SNAG-CFG-007`'s comparison rather than
+      record the trigger as met and leave it P4.** The empty population
+      was only ever the ranking; what held it unbuilt was the boundary,
+      and the estate's publication of `inputs.settings_file` removed that.
+- [x] **`hook_wiring.compare_settings_paths`** compares this read's target
+      with the estate wiring check's (`resolves_to`, else `path` — never
+      re-resolving their path) and returns a **derived seventh surface**,
+      `settings_path`, read only when both halves were read and the
+      estate named a file. A summary with no path is unread, and the
+      error names the missing step.
+- [x] **`judge_settings_path`** raises one fixed-title `warning` row on a
+      disagreement, naming both files and blaming neither. Partition
+      pattern added; the agent merges and judges the new surface.
+- [x] **Tests**: `tests/test_settings_path_agreement.py` (comparison,
+      judge, and a live half with a marked premise) and
+      `TestTheDerivedSurfaceNeedsBothHalves` in the agent tests. Four
+      mutations each red on their own tests; 4321 passed.
+- [x] **Deployed** by one restart; `SNAG-CFG-007` closed.
 
 ---
 
@@ -3940,7 +3963,7 @@ for — so half of it crossed and half deliberately did not._
       contradicting `detail`, unemittable before the retirement as well
       as after, and the code-reading mutation kills both. Both marked in
       place; no ADR, since it decides nothing another repository must do
-- [ ] **`SNAG-CFG-007`'s stated trigger has fired.** That entry — two
+- [x] **`SNAG-CFG-007`'s stated trigger has fired.** That entry — two
       readers resolving `~/.claude/settings.json` by different
       mechanisms, with a disagreement about *which* file invisible from
       both sides — was left P4 on a status line reading *"no sitting is
@@ -3958,7 +3981,8 @@ for — so half of it crossed and half deliberately did not._
       parse finds nothing in `sysadmin/estate/judgements.py` reading
       them. So the only live consequence is the trigger: decide whether
       the comparison is built now, or whether the entry stays P4 with
-      its precondition recorded as met
+      its precondition recorded as met — **built, 2026-09-26, by Session
+      260 on the owner's choice**, and the entry closed
 - [x] **Close the three messages.** `f5e450cb`, `999f4432` and
       `56752625` are all open in this repository's inbox and all three
       ask for nothing — under estate ADR-0041 §1 a message is not a

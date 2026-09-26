@@ -36,6 +36,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from sysadmin.estate import hook_wiring
 from sysadmin.estate.agent import SURFACE_DETAIL_KEY, EstateJudgeAgent
 from sysadmin.estate.client import SURFACES, SurfaceResult
 from sysadmin.estate.judgements import DEFAULT_SEVERITY, TRANSIENT_HOLDER_SEVERITY
@@ -75,7 +76,23 @@ CLEAN_AUDIT = {
         "checks_run": 4,
         "checks_errored": 0,
         "findings_total": 10,
-        "checks": {},
+        # The wiring summary publishes which file it read (estate
+        # message `999f4432`), and this fixture names the file this box's
+        # own read resolves to — so the derived `settings_path` surface
+        # is read and agrees by default, and a test about any other
+        # surface is not also a test about SNAG-CFG-007.
+        "checks": {
+            "wiring": {
+                "status": "ok",
+                "error": None,
+                "findings": 0,
+                "inputs": {
+                    "settings_file": hook_wiring._where(
+                        hook_wiring.SETTINGS_PATH.expanduser()
+                    )
+                },
+            }
+        },
         "publish_error": None,
         "error": None,
     },
@@ -479,7 +496,10 @@ class TestUnknownIsNotGoodNews:
         assert result.details["resolved"] == 0
         assert result.details["standing"] == 0
         assert result.details["surfaces_read"] == ["hook_wiring"]
-        assert set(result.details["unread_surfaces"]) == set(SURFACES)
+        # The derived surface is dark too, because one of its halves is.
+        assert set(result.details["unread_surfaces"]) == set(SURFACES) | {
+            hook_wiring.AGREEMENT_SURFACE
+        }
 
     async def test_an_unreachable_estate_raises_no_alert_of_its_own(self, agent):
         """``estate-manager-api`` is an ``http`` entry in services.yaml,
@@ -651,7 +671,9 @@ class TestTheLocalSurfaceIsASurface:
             SurfaceResult(
                 surface="hook_wiring",
                 payload={
-                    "path": "/home/x/.claude/settings.json",
+                    # The box's own path, so the fixture audit agrees and
+                    # the derived `settings_path` surface stays quiet.
+                    **hook_wiring._where(hook_wiring.SETTINGS_PATH.expanduser()),
                     "kind": "unparseable",
                     "fault": "boom",
                 },
@@ -696,7 +718,11 @@ class TestTheLocalSurfaceIsASurface:
             monkeypatch,
             SurfaceResult(
                 surface="hook_wiring",
-                payload={"path": "/x", "kind": None, "fault": None},
+                payload={
+                    **hook_wiring._where(hook_wiring.SETTINGS_PATH.expanduser()),
+                    "kind": None,
+                    "fault": None,
+                },
             ),
         )
         session = _session([FakeAlert(WIRING_FILE_TITLE, "hook_wiring")])
@@ -705,3 +731,110 @@ class TestTheLocalSurfaceIsASurface:
 
         assert result.details["resolved"] == 1
         assert result.alerts_raised == 0
+
+
+# ---------------------------------------------------------------------------
+# The derived surface (SNAG-CFG-007)
+# ---------------------------------------------------------------------------
+
+
+class TestTheDerivedSurfaceNeedsBothHalves:
+    """``settings_path`` rests on two reads, so its row is raised and
+    swept only on a run that read both **and** found the estate saying
+    which file it read. Tagged with either half alone, a run in which the
+    other half was dark would sweep a standing disagreement on nothing.
+    """
+
+    @staticmethod
+    def _audit_reading(path):
+        """``CLEAN_AUDIT`` with the wiring summary naming ``path``."""
+        last = CLEAN_AUDIT["last_audit"]
+        return {
+            **CLEAN_AUDIT,
+            "last_audit": {
+                **last,
+                "checks": {"wiring": {**last["checks"]["wiring"],
+                                      "inputs": {"settings_file": {"path": path}}}},
+            },
+        }
+
+    @staticmethod
+    def _with_audit(payload):
+        pull = results()
+        pull["audit_invariants"] = SurfaceResult(
+            surface="audit_invariants", payload=payload
+        )
+        return pull
+
+    def _standing(self):
+        from sysadmin.estate.judgements import SETTINGS_PATH_TITLE
+
+        return FakeAlert(SETTINGS_PATH_TITLE, hook_wiring.AGREEMENT_SURFACE)
+
+    async def test_the_default_pull_agrees_and_raises_nothing(self, agent):
+        session = _session([])
+
+        result = await _run(agent, session, results())
+
+        assert hook_wiring.AGREEMENT_SURFACE in result.details["surfaces_read"]
+        assert result.alerts_raised == 0
+
+    async def test_a_different_file_raises_one_row_on_the_derived_surface(self, agent):
+        from sysadmin.estate.judgements import SETTINGS_PATH_TITLE
+
+        session = _session([])
+        pull = self._with_audit(self._audit_reading("/elsewhere/settings.json"))
+
+        result = await _run(agent, session, pull)
+
+        assert result.alerts_raised == 1
+        row = session.add.call_args[0][0]
+        assert row.title == SETTINGS_PATH_TITLE
+        assert row.details[SURFACE_DETAIL_KEY] == hook_wiring.AGREEMENT_SURFACE
+
+    async def test_agreement_again_resolves_the_standing_row(self, agent):
+        session = _session([self._standing()])
+
+        result = await _run(agent, session, results())
+
+        assert result.details["resolved"] == 1
+
+    async def test_a_dark_estate_leaves_the_standing_row(self, agent):
+        session = _session([self._standing()])
+
+        result = await _run(agent, session, results(unread={"audit_invariants"}))
+
+        assert result.details["resolved"] == 0
+        assert hook_wiring.AGREEMENT_SURFACE in result.details["unread_surfaces"]
+
+    async def test_a_summary_that_stops_publishing_the_path_leaves_the_row(self, agent):
+        """The rollback case — rule 2 of ``compare_settings_paths``. The
+        audit was read, so every other ``audit_invariants`` rule runs; the
+        comparison was not possible, so its row is neither swept nor
+        re-raised."""
+        session = _session([self._standing()])
+        pull = self._with_audit({**CLEAN_AUDIT, "last_audit": {
+            **CLEAN_AUDIT["last_audit"], "checks": {}}})
+
+        result = await _run(agent, session, pull)
+
+        assert result.details["resolved"] == 0
+        assert "audit_invariants" in result.details["surfaces_read"]
+        assert result.details["unread_surfaces"][hook_wiring.AGREEMENT_SURFACE].endswith(
+            "publishes no checks.wiring"
+        )
+
+    async def test_an_unread_local_file_leaves_the_row(self, agent, monkeypatch):
+        import sysadmin.estate.agent as module
+
+        monkeypatch.setattr(
+            module.hook_wiring,
+            "read_settings",
+            lambda: SurfaceResult(surface="hook_wiring", error="PermissionError: denied"),
+        )
+        session = _session([self._standing()])
+
+        result = await _run(agent, session, results())
+
+        assert result.details["resolved"] == 0
+        assert hook_wiring.AGREEMENT_SURFACE in result.details["unread_surfaces"]

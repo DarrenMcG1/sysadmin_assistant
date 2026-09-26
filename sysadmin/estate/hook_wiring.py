@@ -82,10 +82,12 @@ from typing import Any
 from sysadmin.estate.client import SurfaceResult
 
 __all__ = [
+    "AGREEMENT_SURFACE",
     "SETTINGS_PATH",
     "SURFACE",
     "KIND_NOT_AN_OBJECT",
     "KIND_UNPARSEABLE",
+    "compare_settings_paths",
     "read_settings",
 ]
 
@@ -102,6 +104,16 @@ __all__ = [
 #: the per-surface scoping exists to prevent.  The rejection is
 #: superseded by its own stated reason.
 SURFACE = "hook_wiring"
+
+#: The **derived** surface: this module's read and the estate's audit,
+#: compared on which file each of them read (``SNAG-CFG-007``).
+#:
+#: A surface of its own because its row rests on **two** reads, and the
+#: sweep is scoped per surface: tagged ``hook_wiring``, a run in which
+#: 8400 did not answer would resolve a standing disagreement on the
+#: strength of one half of it — the "resolving on unknown" the per-surface
+#: scoping exists to prevent.  See :func:`compare_settings_paths`.
+AGREEMENT_SURFACE = "settings_path"
 
 #: Where the harness reads its settings from.
 #:
@@ -221,3 +233,126 @@ def read_settings(path: Path = SETTINGS_PATH) -> SurfaceResult:
         )
 
     return SurfaceResult(surface=SURFACE, payload={**where, "kind": None, "fault": None})
+
+
+def _target(where: dict[str, Any]) -> str | None:
+    """The file a ``{path, resolves_to?}`` pair names.
+
+    Both parties publish that pair by one rule — ``resolves_to`` present
+    only when resolution moved the path (:func:`_where` here, their
+    ``audit.finding.input_source``) — so an absent ``resolves_to`` means
+    ``path`` *is* the file and the comparison is two strings, with no
+    re-resolution of the estate's path on this side.  Re-resolving it
+    would be a second derivation of a fact the producer already
+    published, ``judge_queue_invariants``' *"the mask is read, never
+    recomputed"*.
+    """
+    target = where.get("resolves_to")
+    if isinstance(target, str) and target.strip():
+        return target
+    path = where.get("path")
+    if isinstance(path, str) and path.strip():
+        return path
+    return None
+
+
+def compare_settings_paths(
+    audit: SurfaceResult | None, local: SurfaceResult | None
+) -> SurfaceResult:
+    """Whether the estate's wiring check and this read opened one file.
+
+    ``SNAG-CFG-007``.  Since ADR-0008 two readers answer questions about
+    ``~/.claude/settings.json`` — this module from a constant, the
+    estate's check 11 from a *configured* ``WiringConfig.settings_file``
+    — and if those ever name different files both report cleanly about
+    their own and neither surface says which it used.  The estate began
+    publishing its answer on 2026-09-11 (their message ``999f4432``):
+    every check summary on ``GET /api/audit/invariants`` carries
+    ``inputs``, and ``wiring``'s holds ``settings_file``.
+
+    Three rules, two of them the opposite of the obvious implementation:
+
+    1. **It returns a surface, not a verdict.**  The comparison rests on
+       two reads, so it is *read* only when both were — an
+       :class:`~sysadmin.estate.client.SurfaceResult` whose ``error``
+       names the half that is missing otherwise.  That is what lets the
+       agent's existing rules reach it without a branch: an unread
+       surface raises nothing and sweeps nothing.
+
+    2. **A summary that publishes no path is unread, never agreement.**
+       ``payload.get(...)`` answers ``None`` both for a producer that
+       read nothing and for one that has stopped saying, and collapsing
+       either into "same file" would close a standing row on the day the
+       estate rolls back — ``ports_checked``'s rule at the size of a
+       dict key.  Every step down the payload that can be absent is
+       named in the error, so ``unread_surfaces`` says *which* step.
+
+    3. **Neither side is named as the wrong one.**  The constant says
+       where the harness reads its settings, and the estate's value is
+       configurable; the obvious sentence blames the configurable side.
+       But the harness's own location can move too, and the day it does
+       the *constant* is the stale half.  The payload carries both
+       targets and the judge says they differ, which is what is known.
+    """
+    if audit is None or not audit.read:
+        return SurfaceResult(
+            surface=AGREEMENT_SURFACE,
+            error="not compared: audit_invariants was not read",
+        )
+    if local is None or not local.read:
+        return SurfaceResult(
+            surface=AGREEMENT_SURFACE,
+            error=f"not compared: {SURFACE} was not read",
+        )
+
+    last = (audit.payload or {}).get("last_audit")
+    checks = last.get("checks") if isinstance(last, dict) else None
+    wiring = checks.get("wiring") if isinstance(checks, dict) else None
+    inputs = wiring.get("inputs") if isinstance(wiring, dict) else None
+    theirs = inputs.get("settings_file") if isinstance(inputs, dict) else None
+    theirs_target = _target(theirs) if isinstance(theirs, dict) else None
+    if theirs_target is None:
+        # The first step that is absent, or the path itself when every
+        # step is present and the pair names no file.
+        steps = (
+            ("last_audit", last),
+            ("last_audit.checks", checks),
+            ("checks.wiring", wiring),
+            ("wiring.inputs", inputs),
+            ("inputs.settings_file", theirs),
+        )
+        missing = next(
+            (step for step, value in steps if not isinstance(value, dict)),
+            "inputs.settings_file.path",
+        )
+        return SurfaceResult(
+            surface=AGREEMENT_SURFACE,
+            error=f"not compared: the estate's audit summary publishes no {missing}",
+        )
+
+    # Narrowed for the reader and the type checker alike: a target was
+    # found, so every step above it was a mapping.
+    assert isinstance(last, dict) and isinstance(theirs, dict)
+
+    ours = local.payload or {}
+    ours_target = _target(ours)
+    if ours_target is None:
+        # Unreachable while `read_settings` is the producer — every
+        # payload it returns carries `path` — and kept for rule 2's
+        # reason: a missing operand is never an agreement.
+        return SurfaceResult(
+            surface=AGREEMENT_SURFACE,
+            error=f"not compared: {SURFACE} published no path",
+        )
+
+    return SurfaceResult(
+        surface=AGREEMENT_SURFACE,
+        payload={
+            "ours": {k: ours[k] for k in ("path", "resolves_to") if k in ours},
+            "theirs": {k: theirs[k] for k in ("path", "resolves_to") if k in theirs},
+            "ours_target": ours_target,
+            "theirs_target": theirs_target,
+            "same_file": ours_target == theirs_target,
+            "audit_finished_at": last.get("finished_at"),
+        },
+    )

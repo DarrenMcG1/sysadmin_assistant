@@ -61,6 +61,7 @@ from sysadmin.estate.judgements import (
     judge_hook_wiring,
     judge_projects_invariants,
     judge_queue_invariants,
+    judge_settings_path,
 )
 
 HOUR = 3600.0
@@ -1609,6 +1610,13 @@ def _every_title():
     # rather than tidy: those two surfaces fail independently now.
     out += judge_hook_wiring(
         {"path": "~/.claude/settings.json", "kind": "unparseable", "fault": "boom"}
+    )
+    # The derived seventh (SNAG-CFG-007): a fixed title with no `%`, read
+    # only when two others were — so a pattern that let either of them
+    # reach it would sweep a disagreement on half its evidence.
+    out += judge_settings_path(
+        {"ours_target": "/a/settings.json", "theirs_target": "/b/settings.json",
+         "same_file": False}
     )
     return out
 

@@ -152,6 +152,14 @@ class EstateJudgeAgent(BaseAgent):
         results[hook_wiring.SURFACE] = await asyncio.to_thread(
             hook_wiring.read_settings
         )
+        # A seventh, derived from two of the six (SNAG-CFG-007): whether
+        # the estate's wiring check and the read above opened one file.
+        # Merged into the same map for the local read's reason, and read
+        # only when both halves were — so a run in which 8400 is dark
+        # neither raises nor sweeps a disagreement.
+        results[hook_wiring.AGREEMENT_SURFACE] = hook_wiring.compare_settings_paths(
+            results.get("audit_invariants"), results[hook_wiring.SURFACE]
+        )
 
         read = {name for name, r in results.items() if r.read}
         unread = {name: r.error for name, r in results.items() if not r.read}
@@ -311,6 +319,8 @@ class EstateJudgeAgent(BaseAgent):
             # refusing a sixth surface, met from the other direction once
             # the input stopped arriving over HTTP.
             out += judgements.judge_hook_wiring(payload)
+        if (payload := payloads.get(hook_wiring.AGREEMENT_SURFACE)) is not None:
+            out += judgements.judge_settings_path(payload)
         if (payload := payloads.get("queue_invariants")) is not None:
             out += judgements.judge_queue_invariants(
                 payload, config.queue_max_depth, config.queue_max_wait_seconds
