@@ -1,8 +1,63 @@
-# Handoff — 2026-09-26 (Session 261)
+# Handoff — 2026-09-26 (Session 262)
 
 ## Next action
 
-Build `SNAG-GPU-006`: read `vram_floor` under `nothing_granted` so a lease the VRAM floor holds is not blamed on a stopped tick loop. *(For: session)*
+Choose the next piece of work: the inbox is empty and no register entry is owed work here, so the pick is yours. *(For: owner, ~20 min)*
+
+Checked at the close: `GET :8400/api/estate/messages` has nothing open for
+this repository, and every open `snag_list.md` entry reads *decided*,
+*delegated* or *fixed* — none *owed*. The dated reading under
+`## Scheduled action` is not the next thing and stays there. Candidates, in
+no ranked order: `SNAG-GPU-001`'s open class (P2); `ideas.md`'s inbox; and
+four `- [ ]` items deep in `tasks.md` (lines ~4080, ~4093, ~4112, ~4149)
+that look discharged by later sittings but were not re-measured this
+sitting — ticking them, if they are, is a short session on its own.
+
+*What this sitting did.* Built and closed `SNAG-GPU-006`. Since
+estate-manager's ADR-0202 the GPU arbiter holds a waiting lease for two
+reasons: the card is busy, or free VRAM is short of the grant's net need
+plus headroom. The judge knew only the first, so a VRAM-held wait over
+900 s was blamed on a stopped tick loop. `judgements._vram_verdict` now
+applies the arbiter's own `VramReading.holds` comparison to the published
+`vram_floor` operands, and `_nothing_granted_cause` names the VRAM limb
+when it holds. 30 fixture tests plus one live shape guard; ten mutations,
+each red. Suite 4358 passed, 2 skipped; ruff and mypy clean. Daemon
+restarted at 21:10:16; the deploy check reads `ok`. Driven against the
+real 8400 payload forced into a starving state: today's reading (13,432 MiB
+free against 8,704 + 1,024) is `clear`, and the same reading at 6,000 MiB
+free names the VRAM limb.
+
+*Decided, and what was rejected.*
+- **The busy floor keeps precedence.** `Arbiter.tick` checks it first and
+  returns before asking the VRAM floor, so `over_threshold` keeps its
+  sentence even when VRAM would also hold. Both verdicts are still in
+  `details`.
+- **Anywhere else, a holding VRAM floor is enough on its own**, including
+  when the busy reading is null, unreadable or unrecognised. Either floor
+  holds a lease by itself.
+- **`state == "sampled"` is required although the producer's `holds`
+  tests no state.** Only `sampled` publishes a positive `need_mib` today,
+  so it is the same answer now, and it refuses a future state carrying
+  numbers we were not told about.
+- **A published but unrecognised `vram_floor` adds a caveat** instead of
+  leaving *"its tick loop has stopped"* standing: with a VRAM floor in
+  play the busy floor alone no longer supports that conclusion. An
+  *absent* `vram_floor` is a pre-ADR-0202 producer and gets today's
+  sentence untouched.
+- **Rejected: a separate verdict per open state** (`nothing_to_start`,
+  `undeclared`, …). The message only needs *held / did not hold / cannot
+  tell*; the state itself is in `details['vram_floor']` verbatim.
+- `_is_percent` was renamed `_is_integer`, since it now checks MiB too.
+
+*Noticed.* The restart's first unit sweep (21:11:20) resolved `Unmonitored
+systemd units: 5 findings` — Session 261's declaration taking effect.
+STATUS.md's alert claim now reads 4 and says why.
+
+---
+
+## Session 261 — the estate's membership-check timer is declared; the other two messages read against the judge
+
+*Its next action, to build `SNAG-GPU-006`, was taken by Session 262.*
 
 Since estate-manager's ADR-0202 the GPU arbiter holds a waiting lease for
 two reasons: the card is busy, or free VRAM is short of what the grant

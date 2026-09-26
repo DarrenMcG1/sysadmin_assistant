@@ -2472,6 +2472,19 @@ two-limb sentence; the reading's age is stated in the message and never
 thresholded, because the tick cadence is not published. The title does
 not move with the limb. `SNAG-GPU-003` carries the rest.
 
+**And a third limb since their ADR-0202** (2026-09-26, Session 262,
+`SNAG-GPU-006`, estate message `4ef705e8`): the arbiter also holds a waiter
+while `vram_floor.state == "sampled"`, `need_mib > 0` and `free_mib <
+need_mib + headroom_mib`. `judgements._vram_verdict` applies that predicate
+to the published operands — `headroom_mib` read, never transcribed — and
+`_nothing_granted_cause` follows the tick's order: `over_threshold` is
+asked first and keeps its sentence, and anywhere else a holding VRAM floor
+names itself. `_floor_verdict`'s absent-is-not-null and
+unrecognised-is-not-guessed rules transfer unchanged, with one addition: a
+`vram_floor` that is published and unreadable appends a caveat, because
+*"its tick loop has stopped"* is no longer a conclusion the busy floor can
+support alone.
+
 **The GPU figure this service publishes is the counter the GPU gate
 reads, and until 2026-09-22 it was a different instrument answering in
 the same vocabulary** (Session 248, `SNAG-GPU-004`). `sysadmin/monitor/gpu.py`

@@ -27,7 +27,7 @@
       `_floor_verdict`/`_nothing_granted_cause` confirmed against the
       code and the live payload; filed as `SNAG-GPU-006`, which is owed.
 - [x] 4327 passed, 2 skipped; ruff clean.
-- [ ] **Build `SNAG-GPU-006`: read `vram_floor` under `nothing_granted`.**
+- [x] **Build `SNAG-GPU-006`: read `vram_floor` under `nothing_granted`.**
       Since estate-manager's ADR-0202 the arbiter holds a waiter on short
       free VRAM as well as on a busy card, and the judge still blames every
       grantable `gpu_floor` reading on a stopped tick loop. Apply their
@@ -37,6 +37,10 @@
       Carry the object in `details`, and correct `_floor_verdict`'s
       docstring, which states the grant rule as busy-only. The title does
       not move. Its own sitting; no restart needed until it lands.
+- [x] **Built by Session 262** (same day): `_vram_verdict` and the
+      tick-ordered `_nothing_granted_cause`; 30 fixture tests plus a live
+      shape guard, ten mutations each red; 4358 passed, 2 skipped; ruff
+      and mypy clean. Daemon restarted, deploy check `ok`.
 
 ---
 

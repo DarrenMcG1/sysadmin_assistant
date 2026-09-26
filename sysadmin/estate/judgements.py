@@ -2142,29 +2142,41 @@ def _starvation_gauge(payload: dict[str, Any]) -> tuple[float | None, str]:
 GPU_FLOOR_KEY = "gpu_floor"
 
 #: The comparison's four outcomes.  Only the first puts the fault on the
-#: card; the other three are readings the arbiter grants on, so a waiter
-#: nothing is granting to means the tick loop has stopped.
+#: card's load; the other three are readings the busy floor grants on,
+#: so a waiter nothing is granting to means the tick loop has stopped —
+#: **unless the VRAM floor holds it**, which is :func:`_vram_verdict`'s
+#: question and was not one before ADR-0202 (``SNAG-GPU-006``).
 FLOOR_OVER_THRESHOLD = "over_threshold"
 FLOOR_WOULD_GRANT = "would_grant"
 FLOOR_UNREADABLE = "unreadable"
 FLOOR_UNSAMPLED = "unsampled"
 
 
-def _is_percent(value: Any) -> TypeGuard[int]:
-    """An integer percentage, refusing ``bool`` — ``isinstance(True, int)``."""
+def _is_integer(value: Any) -> TypeGuard[int]:
+    """An integer operand — a percent or a MiB figure — refusing ``bool``,
+    because ``isinstance(True, int)``."""
     return isinstance(value, int) and not isinstance(value, bool)
 
 
 def _floor_verdict(payload: dict[str, Any]) -> str | None:
     """Which limb of ``nothing_granted`` the arbiter's own reading names.
 
-    ``nothing_granted`` has two causes and until ADR-0189 no surface
+    ``nothing_granted`` had two causes and until ADR-0189 no surface
     could separate them: *the tick loop has stopped granting*, or *the
     sampler is pinned above threshold by undeclared load*.  The arbiter
     samples on every tick in which a waiter exists and nothing is
-    granted, and grants unless ``busy is not None and busy > threshold``
-    (``Arbiter.tick``) — so exactly one reading explains a waiter it
-    declines, and every other reading is one it would have granted on.
+    granted, and **the busy floor** declines only when ``busy is not
+    None and busy > threshold`` (``Arbiter.tick``) — so exactly one
+    reading of *this* floor explains a waiter it declines.
+
+    **It is no longer the only floor** (estate ADR-0202,
+    ``SNAG-GPU-006``).  The same tick then asks whether free VRAM
+    covers the waiter's net need plus headroom, and holds it if not.
+    This sentence read *"grants unless busy > threshold"* until
+    2026-09-26, which was the whole grant rule when written and became
+    half of it; a reading this function calls ``would_grant`` is one the
+    busy floor grants on, and whether the lease was granted is
+    :func:`_vram_verdict`'s to say as well.
 
     Four rules, three of them the opposite of the obvious reading:
 
@@ -2200,9 +2212,73 @@ def _floor_verdict(payload: dict[str, Any]) -> str | None:
     if reading != "sampled":
         return None
     percent, threshold = floor.get("percent"), floor.get("threshold_percent")
-    if not (_is_percent(percent) and _is_percent(threshold)):
+    if not (_is_integer(percent) and _is_integer(threshold)):
         return None
     return FLOOR_OVER_THRESHOLD if percent > threshold else FLOOR_WOULD_GRANT
+
+
+#: The arbiter's last VRAM floor reading, since estate message
+#: ``4ef705e8`` (their ADR-0202).  ``gpu_floor``'s posture exactly: the
+#: operands and the arbiter's own ``headroom_mib``, and no verdict.
+VRAM_FLOOR_KEY = "vram_floor"
+
+#: :class:`VramReading`'s published ``state`` vocabulary, and ``None``
+#: for "nothing read in this process".  Only ``sampled`` carries two
+#: numbers; the other four are floors the arbiter grants open on.
+VRAM_STATES = frozenset(
+    {None, "sampled", "nothing_to_start", "unreadable", "undeclared", "table_unreadable"}
+)
+
+#: The two answers to "did the VRAM floor hold the lease".  A reading
+#: that cannot answer it is ``None``, never a guess at either.
+VRAM_HOLDS = "holds"
+VRAM_CLEAR = "clear"
+
+
+def _vram_verdict(payload: dict[str, Any]) -> str | None:
+    """Whether the arbiter's VRAM floor is what holds the oldest waiter.
+
+    The predicate is the producer's, applied to the producer's operands:
+    ``VramReading.holds`` is ``free_mib < need_mib + headroom_mib`` with
+    ``need_mib > 0`` — the net need can be zero or negative, when a grant
+    frees at least what it starts, and then there is nothing to hold for.
+    ``headroom_mib`` is **read**, never transcribed, for
+    :func:`_floor_verdict` rule 2's reason.
+
+    ``holds`` itself tests no ``state``: it gates on ``need_mib`` being a
+    positive number, which only ``sampled`` publishes.  Requiring
+    ``state == "sampled"`` here is therefore the same answer on today's
+    producer and the only safe one on tomorrow's — a sixth state carrying
+    numbers is one this repository was not told about.
+
+    :func:`_floor_verdict`'s rules 3 and 4 transfer unchanged, and are
+    the reason there are three answers rather than two:
+
+    3. **An absent key is not a null reading.**  ``state: null`` is a
+       producer that has read nothing in this process, so the floor
+       cannot have held anything — ``clear``.  No ``vram_floor`` at all
+       is a producer predating ADR-0202, whose only floor was the busy
+       one — ``None``, and the message keeps what it said before.
+    4. **A shape it does not recognise is not guessed at.**  A ``state``
+       outside :data:`VRAM_STATES`, or ``sampled`` without three integer
+       operands, is ``None``.
+    """
+    floor = payload.get(VRAM_FLOOR_KEY)
+    if not isinstance(floor, dict) or "state" not in floor:
+        return None
+    state = floor["state"]
+    if state not in VRAM_STATES:
+        return None
+    if state != "sampled":
+        return VRAM_CLEAR
+    free, need, headroom = (
+        floor.get("free_mib"),
+        floor.get("need_mib"),
+        floor.get("headroom_mib"),
+    )
+    if not (_is_integer(free) and _is_integer(need) and _is_integer(headroom)):
+        return None
+    return VRAM_HOLDS if need > 0 and free < need + headroom else VRAM_CLEAR
 
 
 def _ago(read_at: Any, now: datetime) -> str:
@@ -2228,8 +2304,64 @@ def _ago(read_at: Any, now: datetime) -> str:
     return f", taken {_hours(seconds)} ago"
 
 
-def _nothing_granted_cause(verdict: str | None, floor: Any, now: datetime) -> str:
-    """The ``nothing_granted`` sentence with the limb named, when it can be."""
+#: Appended where the producer publishes a VRAM floor this repository
+#: cannot read: the busy-floor sentence may still be right, and a lease
+#: held for room on the card is the limb it can no longer rule out.
+_VRAM_UNRECOGNISED = (
+    " Its VRAM floor reading was not one this monitor recognises, so a "
+    "lease held for want of room on the card cannot be ruled out."
+)
+
+
+def _vram_holds_cause(vram: dict[str, Any], now: datetime) -> str:
+    """The third limb, in the producer's operands."""
+    profile = vram.get("profile")
+    subject = f" for {profile}" if isinstance(profile, str) and profile else ""
+    ago = _ago(vram.get("read_at"), now)
+    return (
+        f"Nothing holds a lease at all, and the arbiter's last VRAM floor "
+        f"reading{subject}{ago}{',' if ago else ''} found "
+        f"{vram['free_mib']:,} MiB free against a need of "
+        f"{vram['need_mib']:,} MiB plus {vram['headroom_mib']:,} MiB "
+        "headroom, so it is waiting for room on the card."
+    )
+
+
+def _nothing_granted_cause(
+    verdict: str | None,
+    floor: Any,
+    vram_verdict: str | None,
+    vram: Any,
+    vram_published: bool,
+    now: datetime,
+) -> str:
+    """The ``nothing_granted`` sentence with the limb named, when it can be.
+
+    The order is ``Arbiter.tick``'s: the busy floor is asked first and a
+    reading over threshold returns before the VRAM floor is consulted,
+    so ``over_threshold`` keeps its sentence whatever the VRAM floor
+    says (``details['vram_verdict']`` still records it).  Anywhere else
+    a holding VRAM floor is sufficient on its own to explain the wait —
+    whether or not the busy reading could be read — and names the limb.
+
+    A VRAM floor that did **not** hold leaves every busy-floor sentence
+    exactly as it was, because excluding the third limb is what makes
+    *"its tick loop has stopped granting"* true again.  One that was
+    published and could not be read appends :data:`_VRAM_UNRECOGNISED`
+    rather than silently keeping a conclusion it can no longer support;
+    one that was not published at all is a pre-ADR-0202 producer and
+    changes nothing.
+    """
+    if verdict != FLOOR_OVER_THRESHOLD and vram_verdict == VRAM_HOLDS:
+        return _vram_holds_cause(vram, now)
+    cause = _busy_floor_cause(verdict, floor, now)
+    if verdict != FLOOR_OVER_THRESHOLD and vram_published and vram_verdict is None:
+        cause += _VRAM_UNRECOGNISED
+    return cause
+
+
+def _busy_floor_cause(verdict: str | None, floor: Any, now: datetime) -> str:
+    """The sentence the busy floor alone supports."""
     if verdict is None:
         return _WAIT_CAUSES["nothing_granted"]
     ago = _ago(floor.get("read_at"), now)
@@ -2368,6 +2500,17 @@ def judge_queue_invariants(
     second fault.  ``details['gpu_floor']`` carries the object verbatim
     and ``details['floor_verdict']`` the comparison, which is ``None``
     wherever the disjunction is still what the message says.
+
+    **And a third limb since ADR-0202** (estate message ``4ef705e8``,
+    ``SNAG-GPU-006``).  The arbiter holds a waiter when free VRAM is
+    short of its net need plus headroom, so a game left open overnight at
+    low busy reached this judgement as ``would_grant`` and was blamed on
+    a stopped tick loop — the right row with the wrong sentence.
+    :func:`_vram_verdict` reads ``vram_floor`` beside ``gpu_floor`` and
+    :func:`_nothing_granted_cause` lets a holding floor name itself;
+    ``details['vram_floor']`` and ``details['vram_verdict']`` sit beside
+    their busy-floor counterparts.  The title does not move, for the
+    reason above.
     """
     now = now or datetime.now(UTC)
     out: list[Judgement] = []
@@ -2397,15 +2540,20 @@ def judge_queue_invariants(
     reason = payload.get("waiting_reason")
     if waiting is not None and waiting > max_wait_seconds:
         floor = payload.get(GPU_FLOOR_KEY)
+        vram = payload.get(VRAM_FLOOR_KEY)
         verdict = None
+        vram_verdict = None
         cause = _starvation_cause(gauge, reason)
         # Only under ``nothing_granted``: with a lease active the tick
         # expires or waits on the holder and never samples, so a floor
         # reading beside ``holder_overdue`` is older than the state and
-        # explains nothing about it.
+        # explains nothing about it.  Both floors, for the same reason.
         if gauge == "unexplained" and reason == "nothing_granted":
             verdict = _floor_verdict(payload)
-            cause = _nothing_granted_cause(verdict, floor, now)
+            vram_verdict = _vram_verdict(payload)
+            cause = _nothing_granted_cause(
+                verdict, floor, vram_verdict, vram, VRAM_FLOOR_KEY in payload, now
+            )
         out.append(
             Judgement(
                 surface="queue_invariants",
@@ -2422,6 +2570,8 @@ def judge_queue_invariants(
                     "wait_gauge": gauge,
                     GPU_FLOOR_KEY: floor,
                     "floor_verdict": verdict,
+                    VRAM_FLOOR_KEY: vram,
+                    "vram_verdict": vram_verdict,
                     "max_wait_seconds": max_wait_seconds,
                     "depth": depth,
                     "active_lease": payload.get("active_lease"),

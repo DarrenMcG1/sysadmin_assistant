@@ -925,6 +925,38 @@ class TestTheKeysTheJudgeReadsAreStillServed:
             # may-not-evaluate: the same sampled branch as the line above.
             assert datetime.fromisoformat(floor["read_at"]).tzinfo is not None
 
+    def test_the_vram_floor_reading_is_still_published(self):
+        """``vram_floor``'s shape, from the side that compares it
+        (``SNAG-GPU-006``, their ADR-0202).
+
+        ``_vram_verdict`` survives this object vanishing — it keeps the
+        busy-floor sentence a pre-ADR-0202 producer earned — so its loss
+        would put the stopped-tick-loop blame back on every VRAM hold with
+        nothing red anywhere else.  ``state`` is the estate's vocabulary;
+        a seventh value is a conversation, not a guess."""
+        from sysadmin.estate.judgements import VRAM_STATES
+
+        floor = self._get("/api/queue/invariants")["vram_floor"]
+        assert set(floor) >= {
+            "profile",
+            "free_mib",
+            "need_mib",
+            "headroom_mib",
+            "read_at",
+            "state",
+        }
+        assert floor["state"] in VRAM_STATES
+        # The arbiter's constant, published whatever was read.
+        assert isinstance(floor["headroom_mib"], int)
+        if floor["state"] == "sampled":
+            # may-not-evaluate: the arbiter reads VRAM only while something
+            # waits and holds the reading in memory, so a restarted estate
+            # API reads null (their ADR-0202 §4).  The asserts above this
+            # branch say something either way.
+            assert isinstance(floor["free_mib"], int)
+            # may-not-evaluate: the same sampled branch as the line above.
+            assert isinstance(floor["need_mib"], int)
+
     def test_the_masked_gauge_never_exceeds_the_gauge_it_masks(self):
         """The producer's own invariant, asserted from this side.
 

@@ -53,6 +53,10 @@ from sysadmin.estate.judgements import (
     PORTS_CHECK,
     SURFACE_TITLE_PATTERNS,
     TRANSIENT_HOLDER_SEVERITY,
+    VRAM_CLEAR,
+    VRAM_FLOOR_KEY,
+    VRAM_HOLDS,
+    VRAM_STATES,
     WIRING_CHECK,
     judge_attention,
     judge_audit_findings,
@@ -1202,6 +1206,232 @@ class TestTheFloorNamesTheLimb:
         out = _judge_floor(_starving(gpu_floor=floor))
         assert out[0].details[GPU_FLOOR_KEY] == floor
 
+
+
+# The arbiter's VRAM reading as 8400 served it, 2026-09-26 00:01:00 +01:00,
+# off the wire with no write (a reading it grants on: 13,432 MiB free
+# against 8,704 + 1,024).  ``free_mib`` is varied below; the profile,
+# need, headroom and instant are the producer's.
+_VRAM_READ_AT = "2026-09-26T00:01:00.459483+01:00"
+
+
+def _vram(free=13432, need=8704, headroom=1024, state="sampled", **extra):
+    return {
+        "profile": "venture-nightly-24b",
+        "free_mib": free,
+        "need_mib": need,
+        "headroom_mib": headroom,
+        "read_at": _VRAM_READ_AT,
+        "state": state,
+        **extra,
+    }
+
+
+# 30 s after the VRAM reading, and after the busy reading too.
+_VRAM_NOW = datetime(2026, 9, 25, 23, 1, 30, 459483, tzinfo=UTC)
+
+
+def _judge_vram(payload):
+    return judge_queue_invariants(payload, 3, 900.0, now=_VRAM_NOW)
+
+
+def _both(percent=13, **vram):
+    """A starving payload carrying both floors, busy under threshold."""
+    return _starving(
+        gpu_floor=_floor(percent=percent, read_at=_VRAM_READ_AT), vram_floor=_vram(**vram)
+    )
+
+
+class TestTheVramFloorNamesItsOwnLimb:
+    """``SNAG-GPU-006``: since estate ADR-0202 the arbiter holds a waiter
+    for want of room on the card as well as for load on it, and the busy
+    floor alone blamed that wait on a stopped tick loop.
+
+    The predicate is the producer's ``VramReading.holds`` —
+    ``need_mib > 0 and free_mib < need_mib + headroom_mib`` — applied to
+    the producer's own operands.  No verdict is published; the
+    comparison is ours, for ADR-0189's reason.
+    """
+
+    def test_a_short_card_names_the_vram_limb_and_not_the_tick_loop(self):
+        out = _judge_vram(_both(free=6000))[0]
+        assert out.details["vram_verdict"] == VRAM_HOLDS
+        # The busy floor still says what it said; it is not the cause.
+        assert out.details["floor_verdict"] == FLOOR_WOULD_GRANT
+        assert (
+            "VRAM floor reading for venture-nightly-24b, taken 30 seconds ago, "
+            "found 6,000 MiB free against a need of 8,704 MiB plus 1,024 MiB "
+            "headroom, so it is waiting for room on the card."
+        ) in out.message
+        assert "tick loop" not in out.message
+
+    def test_the_live_reading_has_room_so_the_tick_loop_is_blamed_as_before(self):
+        """The specimen as served: room on the card excludes the third
+        limb, which is what makes the busy-floor sentence true again —
+        so it is reproduced exactly, not re-worded."""
+        both = _judge_vram(_both())[0]
+        busy_only = _judge_vram(
+            _starving(gpu_floor=_floor(percent=13, read_at=_VRAM_READ_AT))
+        )[0]
+        assert both.details["vram_verdict"] == VRAM_CLEAR
+        assert both.message == busy_only.message
+        assert "tick loop has stopped granting" in both.message
+
+    def test_the_operator_is_strictly_less_than(self):
+        """At ``free == need + headroom`` the arbiter grants."""
+        at = _judge_vram(_both(free=8704 + 1024))[0]
+        under = _judge_vram(_both(free=8704 + 1024 - 1))[0]
+        assert at.details["vram_verdict"] == VRAM_CLEAR
+        assert under.details["vram_verdict"] == VRAM_HOLDS
+
+    @pytest.mark.parametrize("need", [0, -2048])
+    def test_a_net_need_of_nothing_holds_nothing(self, need):
+        """``need_mib`` is net of what the grant stops, so it can be zero
+        or negative — and then an empty card still has room for it."""
+        out = _judge_vram(_both(free=0, need=need))[0]
+        assert out.details["vram_verdict"] == VRAM_CLEAR
+
+    def test_the_headroom_is_the_producers_not_ours(self):
+        """9,000 MiB free covers the need alone and not the need plus the
+        published headroom; move the published headroom and the verdict
+        follows it."""
+        assert _judge_vram(_both(free=9000))[0].details["vram_verdict"] == VRAM_HOLDS
+        assert (
+            _judge_vram(_both(free=9000, headroom=0))[0].details["vram_verdict"]
+            == VRAM_CLEAR
+        )
+
+    def test_a_busy_card_is_named_first_because_the_tick_asks_it_first(self):
+        """``Arbiter.tick`` returns on the busy floor before it consults
+        the VRAM floor, so that is the limb the arbiter logged.  Both
+        verdicts are still recorded."""
+        out = _judge_vram(_both(percent=39, free=6000))[0]
+        assert out.details["floor_verdict"] == FLOOR_OVER_THRESHOLD
+        assert out.details["vram_verdict"] == VRAM_HOLDS
+        assert "declining on GPU load no lease declares" in out.message
+        assert "waiting for room" not in out.message
+
+    @pytest.mark.parametrize(
+        "gpu_floor",
+        [
+            _floor(percent=None, reading="unreadable"),
+            _floor(percent=None, reading=None, read_at=None),
+            None,
+            _floor(reading="cached"),
+        ],
+        ids=["unreadable", "unsampled", "absent", "unrecognised"],
+    )
+    def test_a_holding_vram_floor_suffices_whatever_the_busy_floor_read(
+        self, gpu_floor
+    ):
+        """Either floor holds a lease on its own, so a holding VRAM floor
+        explains the wait without the busy reading's help."""
+        payload = _starving(vram_floor=_vram(free=6000))
+        if gpu_floor is not None:
+            payload[GPU_FLOOR_KEY] = gpu_floor
+        out = _judge_vram(payload)[0]
+        assert out.details["vram_verdict"] == VRAM_HOLDS
+        assert "waiting for room on the card" in out.message
+        assert "tick loop" not in out.message
+
+    @pytest.mark.parametrize(
+        "vram_floor",
+        [
+            _vram(free=13432, need=0, state="nothing_to_start"),
+            _vram(free=None, need=None, state="unreadable"),
+            _vram(need=None, state="undeclared"),
+            _vram(need=None, state="table_unreadable"),
+            _vram(free=None, need=None, state=None, profile=None, read_at=None),
+        ],
+        ids=lambda v: str(v["state"]),
+    )
+    def test_the_open_states_and_the_null_state_do_not_hold(self, vram_floor):
+        """Four states the arbiter grants open on, and ``null`` — nothing
+        read in this process, so nothing held.  None of them changes the
+        busy-floor sentence."""
+        out = _judge_vram(_both() | {VRAM_FLOOR_KEY: vram_floor})[0]
+        busy_only = _judge_vram(
+            _starving(gpu_floor=_floor(percent=13, read_at=_VRAM_READ_AT))
+        )[0]
+        assert out.details["vram_verdict"] == VRAM_CLEAR
+        assert out.message == busy_only.message
+
+    def test_the_vocabulary_is_the_five_published_states_and_null(self):
+        assert VRAM_STATES == {
+            None,
+            "sampled",
+            "nothing_to_start",
+            "unreadable",
+            "undeclared",
+            "table_unreadable",
+        }
+
+    def test_an_absent_key_keeps_the_sentence_a_pre_adr_0202_producer_earned(self):
+        """``_floor_verdict`` rule 3.  No ``vram_floor`` is a producer
+        whose only floor was the busy one, so the tick-loop sentence was
+        right for it and stays — with no caveat appended."""
+        out = _judge_vram(
+            _starving(gpu_floor=_floor(percent=13, read_at=_VRAM_READ_AT))
+        )[0]
+        assert VRAM_FLOOR_KEY not in _starving()
+        assert out.details["vram_verdict"] is None
+        assert out.details[VRAM_FLOOR_KEY] is None
+        assert "tick loop has stopped granting" in out.message
+        assert "VRAM" not in out.message
+
+    @pytest.mark.parametrize(
+        "vram_floor",
+        [
+            None,
+            "sampled",
+            {},
+            _vram(state="cached"),
+            _vram(free=None),
+            _vram(need=True),
+            _vram(headroom="1024"),
+        ],
+        ids=["null", "string", "empty", "state", "free", "bool-need", "str-headroom"],
+    )
+    def test_a_published_shape_it_cannot_read_is_not_guessed_at(self, vram_floor):
+        """``_floor_verdict`` rule 4 — and the busy-floor conclusion is no
+        longer one this side can support on its own, so it says so."""
+        out = _judge_vram(_both() | {VRAM_FLOOR_KEY: vram_floor})[0]
+        assert out.details["vram_verdict"] is None
+        assert "tick loop has stopped granting" in out.message
+        assert "VRAM floor reading was not one this monitor recognises" in out.message
+
+    def test_no_caveat_where_the_busy_floor_already_names_the_card(self):
+        out = _judge_vram(_both(percent=39) | {VRAM_FLOOR_KEY: _vram(state="cached")})[0]
+        assert out.details["floor_verdict"] == FLOOR_OVER_THRESHOLD
+        assert "recognises" not in out.message
+
+    def test_the_title_does_not_move_with_the_limb(self):
+        vram = _judge_vram(_both(free=6000))[0]
+        busy = _judge_vram(_both(percent=39))[0]
+        loop = _judge_vram(_both())[0]
+        assert vram.title == busy.title == loop.title == "Estate queue starved"
+
+    def test_neither_floor_is_read_beside_an_overdue_holder(self):
+        payload = _both(free=6000) | {"waiting_reason": "holder_overdue"}
+        out = _judge_vram(payload)[0]
+        assert out.details["vram_verdict"] is None
+        assert "past its hold deadline" in out.message
+        assert "VRAM" not in out.message
+        assert out.details[VRAM_FLOOR_KEY] == _vram(free=6000)
+
+    def test_the_object_is_carried_verbatim(self):
+        vram = _vram(free=6000)
+        out = _judge_vram(_both() | {VRAM_FLOOR_KEY: vram})[0]
+        assert out.details[VRAM_FLOOR_KEY] == vram
+
+    def test_the_age_is_stated_and_never_judged(self):
+        fresh = _judge_vram(_both(free=6000))[0]
+        stale = judge_queue_invariants(
+            _both(free=6000), 3, 900.0, now=_VRAM_NOW + timedelta(hours=3)
+        )[0]
+        assert "taken 30 seconds ago" in fresh.message
+        assert "taken 3.0 hours ago" in stale.message
+        assert fresh.details["vram_verdict"] == stale.details["vram_verdict"]
 
 class TestAuditFindings:
     """Rule 3's one exception: the ``ports`` check, judged per finding."""
