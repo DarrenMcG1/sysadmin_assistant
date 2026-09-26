@@ -551,6 +551,32 @@ services:
     log: { type: journalctl, unit: estate-manager-audit.service,
            severity_filter: warning, format: json }
 
+  # The membership check (their ADR-0205, announced as message `6d3dbf47`),
+  # declared 2026-09-26: every ten minutes it asks whether the registry
+  # changed since the newest scan and runs the full scan only if it did.
+  # The block is the estate's suggestion taken as written, and witnessed
+  # rather than assumed: `--if-changed` is a flag on the same
+  # `estate-organiser` entry point the 04:30 scan runs, which calls the
+  # prefixing `configure_logging` (their `projects/cli.py`), so `json` and
+  # the `warning` filter hold for the reason they hold one entry up. 551
+  # application records in its journal at declaration, all JSON, none
+  # opening with a literal `<N>`, none yet above INFO — so this too ships
+  # **untriggered**. Its one warning site, `membership_check_registry_empty`,
+  # is a walk that found no tree and exits 1 without scanning: a check
+  # that could not look, which the timer check below reports as a failed
+  # run.
+  #
+  # No `agent:` — `project_organiser`'s handover is the 04:30 timer's, and
+  # this unit adds a trigger for the same work rather than taking any.
+  - project: estate-manager
+    name: estate-manager-scan-check-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: estate-manager-scan-check.timer, scope: user }
+    controllable: false
+    log: { type: journalctl, unit: estate-manager-scan-check.service,
+           severity_filter: warning, format: json }
+
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any
   # repository, which is what the unit sweep already calls a host unit.

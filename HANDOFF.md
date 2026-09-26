@@ -1,8 +1,58 @@
-# Handoff — 2026-09-26 (Session 260)
+# Handoff — 2026-09-26 (Session 261)
 
 ## Next action
 
-Declare `estate-manager-scan-check.timer` in services.yaml per estate message `6d3dbf47`, then check the other two open messages against the judge. *(For: session)*
+Build `SNAG-GPU-006`: read `vram_floor` under `nothing_granted` so a lease the VRAM floor holds is not blamed on a stopped tick loop. *(For: session)*
+
+Since estate-manager's ADR-0202 the GPU arbiter holds a waiting lease for
+two reasons: the card is busy, or free VRAM is short of what the grant
+needs. The judge only knows the first. A wait over 900 s held back by
+VRAM gets a message saying the tick loop has stopped, which is wrong. The
+alert itself is right; only its explanation is. The entry gives the shape
+of the fix. `_floor_verdict`'s rules 3 and 4 (an absent key is not a null
+reading; an unknown value is not guessed at) carry over unchanged. Live
+population today is zero. The Monday 2026-09-28 reading stays under
+`## Scheduled action`.
+
+*What this sitting did.* Acted on the three open estate messages.
+
+- **`6d3dbf47` — declared and closed.** `estate-manager-scan-check-timer`
+  is in `services.yaml`: the ten-minute membership check behind their
+  ADR-0205. Its `log:` block reads the `.service` rather than the timer,
+  as `json` at `warning`. That was witnessed first, not copied from the
+  suggestion: `--if-changed` is a flag on the same `estate-organiser`
+  entry point the 04:30 scan uses, which calls the prefixing
+  `configure_logging`. The journal held 551 records, all JSON. Loaded by
+  `POST /api/sysadmin/reload` with no restart. `/api/sysadmin/status`
+  showed it `ok` at 18:45:15. The message's second half — `run_type` may
+  now read `membership` — was checked: the judge only prints it (three
+  sites in `judgements.py`), so nothing changes.
+- **`a4d70802` — nothing owed, closed.** venture-assistant now measures an
+  unlinked item's age from its arrival. `stalled` is still the top-level
+  boolean our `expect:` reads, and the comment beside `venture-pipeline`
+  already defers to their definition. Read live: `stalled: false`.
+- **`4ef705e8` — confirmed, filed as `SNAG-GPU-006`, closed.** The
+  estate's reading of our judge, made by hand and not run, is right. It
+  is filed here rather than built because it changes the judge, and this
+  sitting's scope was one declaration and a reading.
+
+*Decided, and what was rejected.*
+- **No `agent:` key on the new entry.** `project_organiser`'s handover
+  belongs to the 04:30 timer. This unit is a second trigger for the same
+  work, and declaring the agent twice would state the handover twice.
+- **Closed `4ef705e8` although its fix is still owed.** A message is not
+  a finding. The work now lives in our register, where the next action
+  names it. Leaving the message open would state that one fact twice.
+
+*Noticed.* `test_readme_claims` went red on README's "34 declared
+services" (now 35). That guard caught exactly what it exists for, and
+the figure was corrected.
+
+---
+
+## Session 260 — the two settings.json readers are compared on which file they read
+
+*Its next action, to declare `estate-manager-scan-check.timer` and check the other two messages, was taken by Session 261.*
 
 The timer is enabled on the box (`systemctl --user is-enabled` answers
 `enabled`) and `services.yaml` has no entry for it, and the

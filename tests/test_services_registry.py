@@ -41,13 +41,17 @@ LIVE_SERVICES_YAML = REPO_ROOT / "services.yaml"
 #: ``resolve_format`` picks the prefixing formatter by a tty test, 378
 #: JSON records carry that formatter's exact key order, no text record
 #: follows the first JSON one, and no record begins with a literal
-#: ``<N>`` — which excludes ``SyslogLevelPrefix=no``.
+#: ``<N>`` — which excludes ``SyslogLevelPrefix=no``.  The membership
+#: check joined 2026-09-26 (their ADR-0205, message ``6d3dbf47``): a
+#: flag on the scan's own entry point, so the same formatter by
+#: construction, and 551 JSON records of 551 when declared.
 DECLARED_JSON_SOURCES = {
     "sysadmin-service",
     "estate-manager-api",
     "estate-manager-scan-timer",
     "estate-manager-audit-timer",
     "estate-manager-review-timer",
+    "estate-manager-scan-check-timer",
 }
 
 #: The members of :data:`DECLARED_JSON_SOURCES` whose cadence is a
@@ -60,6 +64,7 @@ SCHEDULED_JSON_SOURCES = {
     "estate-manager-scan-timer",
     "estate-manager-audit-timer",
     "estate-manager-review-timer",
+    "estate-manager-scan-check-timer",
 }
 
 
@@ -626,7 +631,8 @@ class TestLiveServicesYaml:
 
 
 class TestTheEstateTimersAreReadAtTheirService:
-    """The three estate oneshots' journals, added 2026-09-13 (Session 224).
+    """The estate oneshots' journals: three added 2026-09-13 (Session 224),
+    the membership check 2026-09-26 (their ADR-0205).
 
     The entries are ``kind: timer`` and their ``systemd.unit`` is the
     **timer**, because the sweep reports a oneshot under the half
@@ -643,6 +649,7 @@ class TestTheEstateTimersAreReadAtTheirService:
         "estate-manager-scan-timer": "estate-manager-scan.service",
         "estate-manager-audit-timer": "estate-manager-audit.service",
         "estate-manager-review-timer": "estate-manager-review.service",
+        "estate-manager-scan-check-timer": "estate-manager-scan-check.service",
     }
 
     @pytest.fixture(scope="class")
@@ -650,7 +657,7 @@ class TestTheEstateTimersAreReadAtTheirService:
         sources = log_sources(load_services(LIVE_SERVICES_YAML))
         return {s.name: s for s in sources}
 
-    def test_all_three_are_ingested(self, by_name):
+    def test_all_of_them_are_ingested(self, by_name):
         """The premise: without this the assertions below pass vacuously."""
         missing = sorted(set(self.TIMER_SOURCES) - set(by_name))
         assert not missing, (

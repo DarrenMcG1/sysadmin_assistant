@@ -8,6 +8,28 @@
 
 ---
 
+## Session 261: the estate's membership-check timer is declared; the other two messages read against the judge ✅ (2026-09-26)
+
+- [x] **`estate-manager-scan-check-timer` in `services.yaml`** (estate
+      message `6d3dbf47`). `log.unit` names the `.service`, and the
+      `json`/`warning` declaration was witnessed at the shared
+      `estate-organiser` entry point. Added to `DECLARED_JSON_SOURCES`,
+      `SCHEDULED_JSON_SOURCES` and `TIMER_SOURCES`. Falsified: with those
+      constants reverted, `test_only_measured_sources_declare_a_format`
+      goes red. README's service count went from 34 to 35.
+- [x] **Loaded by `POST /api/sysadmin/reload`** and verified `ok` on
+      `/api/sysadmin/status` at 18:45:15, per the contract.
+- [x] **`last_scan.run_type: membership` checked**: printed only, three
+      sites, so nothing changes.
+- [x] **venture-assistant `a4d70802` checked**: the `expect:` path and
+      shape are unchanged; nothing owed.
+- [x] **estate-manager `4ef705e8` checked**: their reading of
+      `_floor_verdict`/`_nothing_granted_cause` confirmed against the
+      code and the live payload; filed as `SNAG-GPU-006`, which is owed.
+- [x] 4327 passed, 2 skipped; ruff clean.
+
+---
+
 ## Session 260: the two settings.json readers are compared on which file they read ✅ (2026-09-26)
 
 - [x] **Owner's decision: build `SNAG-CFG-007`'s comparison rather than
