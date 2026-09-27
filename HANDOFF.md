@@ -1,14 +1,63 @@
-# Handoff — 2026-09-27 (Session 265)
+# Handoff — 2026-09-27 (Session 266)
 
 ## Next action
 
-Re-measure the 54 unticked items in tasks.md against the register and the later blocks, ticking only what the evidence shows was done. *(For: session)*
+Choose the next piece of work from the three P2 snag entries and the 13 open items in tasks.md, all of which now carry a dated re-read note. *(For: owner, ~10 min)*
 
-This is the task in the Session 263 block. Four of the five items Session
-263 checked were already done, so the rest are probably stale too. Leave
-the 2026-09-28 reading out of it; that one is known to be open.
+Session 266 cleared the backlog of stale items, so for the first time
+the unticked list is exactly the open work. Preflight prints the snag
+entries by priority, and the Session 266 block lists the 13 open tasks.
+The largest are the MQTT alert publisher and a `Type=notify` watchdog;
+the most visible is that `:8500` serves `/health` and not
+`/api/health`. **Monday's `llm_used`/`grants_total` reading is not this
+line.** It sits under "Scheduled action" below, preflight flags it when
+it is due, and its result may re-rank the GPU entries. So the choice is
+best made after reading it.
+
+## Session 266: the 54 stale unticked items in tasks.md re-measured — 20 done, 21 not work, 13 open
+
+Every unticked item except this task and the 2026-09-28 reading was
+checked against the message register (all 269 rows), the later blocks,
+`snag_list.md`, git history, and the code or the box itself. Each item now
+carries a dated note saying what showed it. Documentation only: no code
+changed, so no restart is owed.
+
+- **20 ticked as done.** Eight are Session 35's registry checklist, done
+  on 2026-08-08 in this repository and moved to estate-lib on 2026-08-13,
+  never ticked. The rest include three "restart to pick this up" items
+  (the daemon has been active since 2026-09-27 06:11:40 and the tray since
+  2026-09-23) and the `SNAG-AGENT-011` fix that Session 145 built. One
+  item was done this sitting: the `/api/projects/momentum` re-read, now
+  at `:8400`, where `unverified` is a minority on every row.
+- **21 lost their checkbox and kept their bullet.** This follows Session
+  235's precedent (a decision that is not work owed keeps its bullet
+  without a box). 10 are **moot**: the premise went away undone, mostly
+  with the projects domain (ADR-0005), and one was refuted by the
+  estate's close note on `5c3258a4`. 11 are **standing** limits,
+  cautions or directives.
+- **13 left open, each re-read with a note.** None is small or urgent.
+  The largest are the MQTT alert publisher and a `Type=notify` watchdog;
+  the most visible is that `:8500` still serves `/health` and not
+  `/api/health`.
+
+*Why not tick the moot ones.* A tick asserts that the work was done. A
+moot item was not done, so ticking it would repeat the error
+`8c6da00e`'s item made, a record wrong on the day it was written.
+Deleting the item was rejected too, because it would lose the reason.
+
+*Two ticks are qualified in their notes.* The "extract the pure layer"
+item landed as estate-lib rather than a package here. The CLI item closed
+its stated gap (a scan without the web service), but the `check`/`brief`
+subcommands it listed were never built.
+
+*One concern held.* The re-measure was the next action and nothing else
+was worked. No snag was filed, because nothing broken was found.
+
+---
 
 ## Session 265: venture-assistant's new failure lines fork titles by cause only; message closed
+
+*Its next action, re-measuring the 54 stale unticked items, was taken by Session 266.*
 
 Estate message `5d9a2d03-e74e-422b-b257-7bd839380cd4` from
 venture-assistant is **closed**. From their restart at 22:51:38 on

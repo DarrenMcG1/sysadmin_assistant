@@ -8,6 +8,35 @@
 
 ---
 
+## Session 266: the 54 stale unticked items re-measured — 20 done, 21 not work, 13 open (2026-09-27)
+
+_Session 263's deferred task and Session 265's next action. Documentation
+only; no code changed._
+
+- [x] **Each item was checked against the register (all 269 messages), the
+      later blocks, `snag_list.md`, git history, and the code or the box**,
+      not against a later sentence alone. Every one now carries a dated note
+      with its evidence.
+- [x] **20 ticked as done.** Eight are Session 35's registry checklist,
+      done on 2026-08-08 and never ticked. The other twelve include three
+      "restart to pick this up" items that many restarts since have
+      discharged, and the `SNAG-AGENT-011` fix (Session 145).
+- [x] **21 had their checkbox removed and kept their bullet**, following
+      Session 235's precedent for a decision that is not work owed. 10 are
+      **moot**: the premise went away without the item being done, and
+      mostly moved to estate-manager with the projects domain (ADR-0005).
+      11 are **standing** notes, limits or directives that nothing can
+      complete. Ticking either kind would record work that was never done.
+- [x] **13 re-read and left open**, each with a note saying why: the MQTT
+      alert publisher and its alfred-glance topic, `Type=notify` +
+      `WatchdogSec=`, serving `/api/health`, the three notification limits
+      (recovery unannounced, presence signal, page-1 churn), the two
+      Session 24 disk-review limits, `projects_root` promotion, the
+      `_record_outcome` details overwrite, `total` being unwindowed, and
+      the self-pinning-block question.
+
+---
+
 ## Session 264: `pointers` refused under ADR-0006, and its only source is guarded here (2026-09-27)
 
 _Session 263's next action. The owner chose ADR + guard + reply._
@@ -44,13 +73,14 @@ as the next action. Documentation only._
       Session 201 block. `JUDGED_AUDIT_CHECKS` still reads `ports` and
       `wiring` only, and no ADR or snag entry records a refusal. It is the
       next action.
-- [ ] **Re-measure the other 54 unticked items in this file the same way.**
+- [x] **Re-measure the other 54 unticked items in this file the same way.**
       This sitting checked only the five the handoff pointed at, and four
       were already done — one of them (`8c6da00e`) was wrong on the day it
       was written — so the rest are likely stale too. Check each against
       the register and the later blocks, and tick only what the evidence
       shows was done. Leave the 2026-09-28 reading out of it; it is known
       to be open. (The `pointers` decision was taken by Session 264.)
+      *Done by Session 266, 2026-09-27; see its block above.*
 - [x] **Read venture-assistant's message `5d9a2d03` against our log titles,
       then close it.** It arrived at 21:47 on 2026-09-26, after Session
       262's inbox check. From their next backend restart, only a record's
@@ -6432,15 +6462,17 @@ forbids._
       against an empty population; keyed on the argument now, and
       asserting it matches exactly one
 
-- [ ] **The prediction has not yet been read at its moment.** The claim
+- [x] **The prediction has not yet been read at its moment.** The claim
       goes `unknown` on 2026-09-17 and a sitting has to go and look —
       which is the family working, not a defect, but nothing schedules
       the looking and the register has no reader for a passed boundary
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Read by Session 243, 2026-09-21, four days after its moment: retention had emptied the population as predicted (0 duplicates), and `SNAG-LOG-014` closed with its `expires` claim retired.)*
 - [ ] **The block is its own regression test and nothing measures that.**
       Writing this prediction put its own needle into the region five
       more times; the pin is unaffected because it reads one sentence,
       but no check asserts that a *future* block cannot pin a marker
       against a clock the same block introduced elsewhere
+      *(Re-read by Session 266, 2026-09-27, and left open: nothing later asserts that a future block cannot pin a marker against a clock of its own; `SNAG-DOCS-008`'s sentence narrowing is the only thing built, and this item already says it leaves this unaddressed.)*
 
 ---
 
@@ -6472,11 +6504,12 @@ said to measure whether a per-marker anchor is even expressible first._
       shared-locator mutation red across both narrowings. Suite 3526 →
       3534
 
-- [ ] **The narrowing is only as good as the terminators.** A block with
+- **The narrowing is only as good as the terminators.** A block with
       no full stop at all is one sentence, so the pin degrades to the old
       wide search there rather than failing — stated in `_sentence_at`
       and pinned by an existing test, not fixed, because a region with no
       sentence boundaries genuinely has one sentence
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. A stated limit kept on purpose — a region with no sentence boundaries genuinely has one sentence — and a test already pins it.)*
 - [x] **The `expires` population is still zero.** Every claim above is
       driven at planted markers and at the live region; the block has
       never carried a prediction, so the family ships untriggered — the
@@ -6619,9 +6652,10 @@ debts that landing deliberately left behind._
             and restarted through `wait-for-dgpu` onto the GPU, 37/37 and
             41/41 layers asserted from the startup log; `venture-embed` runs
             `-ngl 0` and was never on the card
-      - [ ] `SNAG-SYSD-008` has stopped being a forecast — the daemon
+      - [x] `SNAG-SYSD-008` has stopped being a forecast — the daemon
             exceeded `MemoryMax=512M` at 10:50:15 mid-sitting and systemd
             restarted it. Rank it against `SNAG-LOG-015`
+            *(Ticked by Session 266, 2026-09-27, re-measuring the file: Ranked by Session 167, 2026-09-04: P3 → P4 after decomposing the resident set, which is mostly page cache the file organiser faulted in. `SNAG-LOG-015` had been fixed by Session 166.)*
 
 - [x] **Session 164 — the monitor could not say the GPU had been reset.**
       *(2026-09-03, three opened — `SNAG-LOG-015`, `SNAG-CFG-006`,
@@ -7274,7 +7308,7 @@ debts that landing deliberately left behind._
       the surface this repository judges **does** gain the key on the
       next grant. It reads `null` live and always has, so only the
       source could witness the key set.
-- [ ] **Pre-stage the `started_units` assertion.** Nothing here asserts
+- **Pre-stage the `started_units` assertion.** Nothing here asserts
       that `active_lease` gains `started_units` when a lease is granted,
       and the population is empty until one is — this repository's
       idiom for cross-repo work it cannot trigger is a pre-staged
@@ -7285,6 +7319,7 @@ debts that landing deliberately left behind._
       already reports an unpublished field as an absence rather than
       raising. Offered to Session 150 as a next action and **refused a
       sitting**, not forgotten.
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. The premise was refuted. Estate-manager's close note on `5c3258a4` (2026-09-02) shows `/api/queue/invariants` projects `active_lease` to five named columns, so `started_units` never reaches the wire; `tests/test_arbitrated_stops_live.py` already pins that key set.)*
 - [x] **Session 151 — the fold's leading step names a remedy that cannot
       work, and the fix is one field wide.** *(2026-09-02.)*
       `SNAG-SVC-003` **fixed**: `STEP_SUPERSEDES` and the promotion in
@@ -7505,7 +7540,7 @@ debts that landing deliberately left behind._
         prose specimen gained a **non-docstring** mention and the
         exclusion gained a pathological witness of its own, after which
         each mutation lands red on its own test.
-      - [ ] **Build the fix.** Two calls on the raise path, both failing
+      - [x] **Build the fix.** Two calls on the raise path, both failing
         open, rung `judgements.TRANSIENT_HOLDER_SEVERITY`. **Placement is
         deliberately open**: the service family must consult a fact and
         the estate judge must not acquire a say in a service's rung
@@ -7513,6 +7548,7 @@ debts that landing deliberately left behind._
         `tests/test_import_boundary.py` decides whether
         `SysAdminAgent` may read `sysadmin/estate/client.py` or needs a
         reader of its own.
+            *(Ticked by Session 266, 2026-09-27, re-measuring the file: Built by Session 145, 2026-08-31 (`9f73627`): the second call is `read_arbitrated_stops` in `sysadmin/monitor/agent.py`. `SNAG-AGENT-011` closed by Session 146, 2026-09-01 (`40900f0`).)*
 
 - [x] **Session 140 — the measurement named the wrong contender, and the
       box had already recorded the right one.** *(2026-08-30.)*
@@ -8823,6 +8859,7 @@ then chose a **shape** the entry does not name._
       a finished run's `details` belongs to the run and this would be the
       first field in it that does not. Not a defect — nothing is worse
       than before — so a task rather than a SNAG
+      *(Re-read by Session 266, 2026-09-27, and left open: `_record_outcome` still replaces `details` wholesale (`sysadmin/core/agent.py`), and its docstring still states that choice.)*
 
 
 ## Session 127 — the grace period the box already knew (2026-08-29) ✅
@@ -9198,6 +9235,7 @@ was deleted — the remedy judgement was re-read and stands._
       field behaving as documented, and the question is whether
       `LogSignatureTrendInfo` should say which of its three counts is
       window-bounded. Left for the owner
+      *(Re-read by Session 266, 2026-09-27, and left open: `LogSignatureTrendInfo.total` in `sysadmin/core/contracts.py` still says nothing about being unwindowed, and no later block takes the question.)*
 
 ## Session 122 — a cut identity is not an identity (2026-08-29) ✅
 
@@ -9489,11 +9527,12 @@ owner's to rank._
       `notifications.tray.reminder_hours` from the same `config.yaml`,
       ships in this wheel, and is already imported across the seam by
       `tests/test_desktop_notifier.py`. The guard reads the real leaf
-- [ ] Decide whether anything should check the snag_list header
+- [x] Decide whether anything should check the snag_list header
       paragraph. `check-snag-claims.sh` reads entry claims and
       `check-ops-claims.sh` reads STATUS.md's block; the paragraph whose
       whole job is to record movement is read by neither, which is how
       it went six sittings without being written
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Decided by Session 120, 2026-08-29 (`bc43986`), on the owner's ruling: derive the figure rather than check the prose. `convention:movement` now ends every `sysadmin-check-snags` report.)*
 
 
 ## Session 117 — the ban is asymmetric, and its reason is what permits the reverse (2026-08-28) ✅
@@ -11693,11 +11732,12 @@ change safe rather than merely permitted.**
       recommendations including the 2 `noise` rows** — both Bluetooth
       firmware signatures at 39,921. `SNAG-LOG-002` closed
 - [x] Full suite **1,984 passed**, ruff clean, mypy clean
-- [ ] **The name/unit seam is still open** — `details['truncated_sources']`
+- **The name/unit seam is still open** — `details['truncated_sources']`
       keys on the `services.yaml` name while `log_entries.source` keys on
       the unit, and only `kernel` collides. Anything joining the two must
       map first. Untouched here because the gate is global by run, not by
       source, so it never needs the join
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. A caution about a join nothing has built, not a task: `truncated_sources` still keys on the name because the confidence gate is still global. If a per-source join is ever built, `stored_source_name` (Session 116, `d38c2c8`) is the mapping it should use.)*
 
 ### Session 62 — SNAG-LOG-002, the ceiling half (2026-08-17) ✅
 
@@ -11722,9 +11762,10 @@ change safe rather than merely permitted.**
       `LOW` for a fortnight. **Done by Session 63 above**, which also found
       that this session's `-p` already removes the catch-up truncation
       itself, leaving only its history to gate against
-- [ ] **The name/unit seam** — `details['truncated_sources']` keys on the
+- **The name/unit seam** — `details['truncated_sources']` keys on the
       `services.yaml` name while `log_entries.source` keys on the unit, and
       only `kernel` collides. Anything joining the two must map first
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. The same caution one session earlier than the item at the end of Session 63's block; see the note there.)*
 
 ### ✅ Session 61: The priority half, and a premise settled by one `systemctl show` (done 2026-08-17)
 
@@ -12227,7 +12268,8 @@ and spoken once.
 - [x] Plumb the knob through `config.py` → `tray_icon.py` → `app.py` → `config.yaml`
 - [x] Correct `estate/agent.py` and `core/escalation.py`, whose docstrings said the omission was deliberate and now say why the alternative was refused
 - [x] 12 tests; suite 1802 green, ruff and mypy clean
-- [ ] Deploy: `systemctl --user restart sysadmin-tray.service` (no `sudo`; re-announces the open row as new, which is the in-memory-state limit working as documented)
+- [x] Deploy: `systemctl --user restart sysadmin-tray.service` (no `sudo`; re-announces the open row as new, which is the in-memory-state limit working as documented)
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: The running tray started 2026-09-23 16:54 (`systemctl --user show sysadmin-tray`), five weeks after `3752c78` (2026-08-16), so `reminder_hours` is live.)*
 
 **Follow-up opened**: `SNAG-TRAY-007` — the desktop understudy
 (`monitor/desktop.py`) is event-driven off `alert.raised` and shares
@@ -12613,11 +12655,13 @@ Still open:
       figures — but the briefing section is longer than intended.
       Truncating mid-sentence would be worse; a summarise-again pass or
       a smaller `n_predict` would be the fix
+      *(Re-read by Session 266, 2026-09-27, and left open: neither proposed fix exists — no `n_predict`/`max_tokens` anywhere in `sysadmin/`, no second summarise pass — and `files/review.py` still only instructs the 150-word limit. Not re-measured: the stored narrative includes the facts section, so its word count says nothing about the model's prose.)*
 - [ ] A single large cleanup flattens the 30-day disk fit for a month
       (usage fell 92.8 % → 67.3 % in late July, so every threshold reads
       `not_growing` and no risk can fire). Inherent to a least-squares
       fit over a fixed window; a shorter secondary window, or fitting
       only since the last sharp drop, would catch a resumption sooner
+      *(Re-read by Session 266, 2026-09-27, and left open: `sysadmin/files/forecast.py` is unchanged since `512af01` (2026-08-08): still one fixed-window least-squares fit. The late-July drop has aged out of the window, but the limit stands.)*
 
 ### ✅ Session 25: Service reliability scoring (done 2026-08-25)
 
@@ -12955,7 +12999,7 @@ monitor own a cross-repo convention document, against the estate rules.
       than alerting — squarely the audit's remit, beside
       `unclaimed_listener` in the check that already exists
       *(Closed 2026-09-14, Session 235: `SNAG-ESTATE-004` was fixed by estate-manager 2026-08-27 and closed here the same day. Verified in their tree rather than from our register — `estate_service/audit/checks/ports.py` emits `claimed_tool_default`, citing monitorable-project.md §2.1, and carries the narrowing this item did not ask for: a port is only a finding when the tool that defaults to it is **not** what is listening.)*
-- [ ] **Collision / near-miss** — two registry rows claiming one port, or
+- [x] **Collision / near-miss** — two registry rows claiming one port, or
       a configured port already held by a different cgroup. **The one
       genuinely-ours remainder, and now Session 26c.** The estate is
       *structurally* blocked from the interesting half: its
@@ -12963,6 +13007,7 @@ monitor own a cross-repo convention document, against the estate rules.
       ("process names need privileges for other users' sockets"), so it
       can say a port is taken and never by whom. Duplicate registry rows
       also slip through it — `claimed_ports` is a `set`
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Built by Session 26c, 2026-08-15 (`491059b`): `duplicate_claim` covers two registry rows on one port, `wrong_unit`/`port_shared` a configured port held by another cgroup (`sysadmin/units/ports.py`).)*
 
 ### ✅ Session 26c: Port collision detection (done 2026-08-15)
 
@@ -13323,11 +13368,12 @@ project at a time is the unit.
 
 **Left for a later session** (found while building, deliberately not fixed):
 
-- [ ] The eligible population is **2 of 23** fresh projects — 20 inactive,
+- The eligible population is **2 of 23** fresh projects — 20 inactive,
       1 with no stated action, 2 stating there is nothing queued. The
       endpoint is correct and the estate is the constraint; whether
       `says_no_action` should itself become a nudge ("write a next action")
       belongs with Session 31, not here
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. Session 31 reused this eligibility without taking the question up, and nudges left for estate-manager with the projects domain on 2026-08-13 (ADR-0005). Whether a no-action next action nudges is theirs to decide.)*
 
 ### Session 30: Next action → an Alfred work item — declined by the consumer 2026-08-11
 
@@ -13357,20 +13403,23 @@ written, 5 now. The board carries 3 stalled projects among the 20
 inactive ones, which the trigger deliberately does not count — declaring
 a project dormant *was* the decision, so it cannot also be a stall.
 
-- [ ] **Do not build this here or in Alfred until a trigger fires.** Both
+- **Do not build this here or in Alfred until a trigger fires.** Both
       are one `curl` against an endpoint that already ships, which is the
       point of writing them as numbers:
       `curl -s 'localhost:8500/api/projects/board?sort=neglect' | jq '{count, stalled_count}'`
-- [ ] When one does fire, ADR-0064 §2 says the build instruction is
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. The board left for estate-manager on 2026-08-13 (ADR-0005). `:8500/api/projects/board` now returns 404, so there is nothing here to build or not build. The Alfred half is Alfred's ADR-0064.)*
+- When one does fire, ADR-0064 §2 says the build instruction is
       [guides/alfred-projects-page.md](../guides/alfred-projects-page.md)
       as written — "good and should be followed rather than redesigned".
       The `sysadmin_name` column on `trackables.Project` belongs to *that*
       triggered ADR, not to this row and not to ADR-0064
-- [ ] The boundary survives either way and is now recorded on both sides:
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. The build instruction is Alfred's (ADR-0064), against estate-manager's guide and producer since ADR-0005. Nothing is left for this repository.)*
+- The boundary survives either way and is now recorded on both sides:
       sysadmin stays read-only, the write happens in Alfred pulling, and
       the board is never written into `trackables.projects` — a curated
       list of life projects against every directory on disk carrying a
       marker (§3 here, ADR-0064 §3 there)
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. This records a boundary already written on both sides; nothing is left to complete.)*
 
 **One premise of the decline has since expired, and it fires nothing.**
 ADR-0064 §3 declines to design against `GET /api/projects/next` because
@@ -13523,13 +13572,15 @@ confirms zero commits that day. `Alfred` is 4 of 4. Suite 1776 → 1824.
       updated its handoff in the same commit as the code, and its 0 is
       the baseline rule working, not a failure
       *(Closed 2026-09-14, Session 235 on the trigger this item names. `SNAG-PROJ-013` was fixed on ImbaBots by 2026-08-24 and closed here 2026-08-25 by Session 82; `~/projects/ImbaBots/HANDOFF.md` today heads `# Handoff — 2026-09-10 · M5 (Tier 2) …`, so the dated handoff this item was waiting for has appeared and is three weeks old.)*
-- [ ] Re-read `/api/projects/momentum` after the next organiser run, when
+- [x] Re-read `/api/projects/momentum` after the next organiser run, when
       `handoff_date_source` starts arriving. Every session is currently
       `unverified` by absence of the field, which is honest but makes the
       hedge unconditional and therefore unreadable
-- [ ] No consumer renders this yet. It is a `GET` with a `reason`
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Re-read by Session 266, 2026-09-27, at estate-manager's `:8400` (the route's home since ADR-0005): `unverified` is now a minority on every row (5 of 42 here, 0 of 21 for portfolio), so `handoff_date_source` arrives and the hedge reads.)*
+- No consumer renders this yet. It is a `GET` with a `reason`
       sentence built for a one-line surface; alfred-glance is the
       obvious reader, and Session 30's fate says to ask before assuming
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. The route left for estate-manager with ADR-0005 (2026-08-13), so finding it a consumer is theirs. Alfred's projects page still lists `momentum` among the estate routes that render nowhere.)*
 
 ### Session 33: Seam drift detection
 
@@ -13619,10 +13670,11 @@ authoring another repository's convention.
 - [x] Consumer registry in config: which repo, which fixture path, which
       producer endpoint. Two entries today; the point is that adding a
       third consumer is a config line, not code
-- [ ] **Do not** build a shared contract package or a monorepo. Three repos
+- **Do not** build a shared contract package or a monorepo. Three repos
       in three languages, two seams — a shared library would couple three
       release cycles to solve what two files and a test already cover.
       Considered and rejected 2026-08-06
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. A standing refusal from 2026-08-06, not work owed. Re-read by Session 239 (ADR-0014) and left as it stands.)*
 **This was discharged on the day it was written and stood unticked for 40
 days** (established 2026-09-15, Session 240, which had drafted a message
 reporting it as a gap and measured the claim before sending). The sentence
@@ -13749,11 +13801,12 @@ let it run that long are not, and are the real work. In order of value:
       `alerts` via `_check_agent_health`, and the handover between them is
       automatic — an agent that fails and then stops being scheduled has its
       failure row resolved as the stall row opens, so one fault shows one alert
-- [ ] **A live-database test path for the shared snapshot query.** The suite
+- **A live-database test path for the shared snapshot query.** The suite
       mocks every session, so the freshness filter's *effect* is unobservable
       — `tests/test_project_snapshots_query.py` asserts the predicate compiles
       into the statement, which is not the same as Postgres evaluating it.
       Worth one integration test against a real database
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. The query and its test left with ADR-0005 (`7467d2c`, 2026-08-13), and migration 014 dropped `project_snapshots` on 2026-08-24. Nothing here queries it.)*
 
 ### Session 35: The inspection library and the `.project.yaml` manifest
 
@@ -13819,43 +13872,53 @@ Routes unchanged (55 → 55), suite 1509 → 1512. The registry is still unwired
 > as reversed rather than rejected; the remaining work is to remove that import
 > in favour of the registry, which is Phase 3.
 
-- [ ] **Extract the pure inspection layer** into a top-level package in this
+- [x] **Extract the pure inspection layer** into a top-level package in this
       repository, installed as a path dependency: `utils/git.py`,
       `discover_projects`, `services/roadmap.py`, and the manifest reader
       below. No database, no config, no FastAPI, no scoring. Dependency is
       `gitpython` plus the grep binary
-- [ ] Replace `from sysadmin.agents.project_organiser import discover_projects`
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Built as `sysadmin/registry/` (`680ae56`, 2026-08-07), then moved to estate-lib as `estate.registry` on 2026-08-13 (ADR-0004, ADR-0005) and installed as a path dependency from `estate-manager/lib`. The git and roadmap half went to estate-manager's service rather than to the library.)*
+- [x] Replace `from sysadmin.agents.project_organiser import discover_projects`
       in `agents/service_discovery.py` with the library import — resolving the
       drift the existing comment warns about, rather than relying on convention
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 35 Phase 4, 2026-08-08 (`e4165f6`): both agents call `load_registry`, and nothing in `sysadmin/` or `tests/` imports `discover_projects`.)*
 - [ ] Promote `agents.project_organiser.projects_root` to a **top-level config
       key**. Three consumers read it (`service_discovery`, `routers/files` as a
       safety confinement rule, `branch_actions`) and only one is the organiser
-- [ ] Define and implement the `.project.yaml` manifest — `schema`, `id`,
+      *(Re-read by Session 266, 2026-09-27, and left open: still `agents.project_organiser.projects_root` in `config.yaml` and `sysadmin/core/config.py`. The organiser has left, so none of the key's seven readers is the section it sits under, and the case is stronger than when this was written. No refusal is recorded.)*
+- [x] Define and implement the `.project.yaml` manifest — `schema`, `id`,
       `name`, `category`, `status`, `summary`, `supersedes`, `alert_threshold`,
       `decisions[]`. Reader **and** validator live in the library
-- [ ] **Normalise project ids first**, or the current inconsistency is baked
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 35 (`680ae56`, `81af41a`, 2026-08-07/08). Reader and validator are `estate.registry` in estate-lib since 2026-08-13 (`read_manifest`, `ProjectManifest`, `ManifestError`).)*
+- [x] **Normalise project ids first**, or the current inconsistency is baked
       into twenty files: `sysadmin-service` points at `sysadmin_assistant`,
       `sports_analyser` at `SportsAnalyser`, `terrible` at what the docs call
       `TERRRIBLE`
-- [ ] Write the migration generating `.project.yaml` from `projects.yaml` and
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 35 Phase 3a, 2026-08-08 (`81af41a`): ids are derived by `derive_id` and read `sysadmin-assistant`, `sports-analyser` and `terrible` in the manifests and in `services.yaml`.)*
+- [x] Write the migration generating `.project.yaml` from `projects.yaml` and
       emitting `services.yaml`. **Dry run by default**, and it must report both
       registry entries whose path does not exist and repos under the root the
       registry has never known about
-- [ ] Transfer `projects.yaml`'s comments into `decisions:` blocks **by hand,
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 35 (`81af41a`, `e4165f6`, 2026-08-08): `scripts/migrate_registry.py` is a dry run unless `--apply`, reports dead paths and undeclared repositories, and emits `services.yaml` as a completeness check.)*
+- [x] Transfer `projects.yaml`'s comments into `decisions:` blocks **by hand,
       one project at a time**. Do not automate it and do not delete the file —
       move it to `docs/projects-registry-legacy.yaml`
-- [ ] Replace the runtime half of `projects.yaml` with `services.yaml`, keyed
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 35 Phase 4, 2026-08-08 (`e4165f6`): 20 decisions moved by hand into 15 manifests, and the file kept at `docs/projects-registry-legacy.yaml`.)*
+- [x] Replace the runtime half of `projects.yaml` with `services.yaml`, keyed
       by project id and containing no paths: N services per project rather than
       one backend and one frontend, `kind` (`http`/`timer`/`oneshot`/`static`),
       and `monitor: false` with a **required reason**. Fold in the units
       currently exiled to `agents.sysadmin.services` in config.yaml
-- [ ] Once ids are the join key, replace `ProjectsConfig._setting_for`'s
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 35 Phase 3, 2026-08-08 (`81af41a`, `1960a11`): `services.yaml` is keyed by project id, holds no paths, and refuses `monitor: false` without a reason.)*
+- [x] Once ids are the join key, replace `ProjectsConfig._setting_for`'s
       three-way name matching with an id lookup, and make an unknown id a
       **load-time error**
-- [ ] Add a CLI. There is no way to run a project scan without starting the web
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 35 Phase 4, 2026-08-08 (`e4165f6`): `ProjectsConfig` is gone, thresholds come from the manifest, and an unknown id is a load-time `UnknownProjectError`.)*
+- [x] Add a CLI. There is no way to run a project scan without starting the web
       service, and the only console script is `sysadmin-tray`. With the library
       separated, `estate scan`, `estate check <path>` and `estate brief` are
       thin wrappers
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 35 Phase 6, 2026-08-08 (`47cffd0`), for the gap it names: a scan runs without the web service. That is now estate-manager's `estate-organiser`, run by `estate-manager-scan.service`. The `check` and `brief` subcommands were never built, and nothing has asked for them.)*
 
 **Two things considered and rejected 2026-08-07**, both worth re-reading before
 anyone re-proposes them:
@@ -14093,7 +14156,7 @@ realistic case is the one where the age comes from the weaker clock.
 
 ### Follow-ups this session opened
 
-- [ ] `handoff_path` is still read only inside the duplicate
+- `handoff_path` is still read only inside the duplicate
       recommendation's detail line, so in a repo with one handoff — every
       repo on the estate today — it remains consumed by nothing. Putting
       it on `ProjectBoardEntry` would let any consumer rendering a
@@ -14102,18 +14165,21 @@ realistic case is the one where the age comes from the weaker clock.
       it touches `contracts.py`, the board builder,
       `alfred-projects-page.md` and Alfred's expectations, and that is a
       sitting of its own rather than a rider on this one
-- [ ] The recommendation is waived for non-active projects, inheriting
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. The board and its recommendations left for estate-manager with ADR-0005 (2026-08-13) before this was taken up. `handoff_path` is still read only in the duplicate recommendation there; it is theirs to decide.)*
+- The recommendation is waived for non-active projects, inheriting
       `_roadmap_recommendations`' blanket rule. Defensible — nobody is
       misled by an unread handoff in a repo nobody opens — but it is an
       inherited default here rather than a decision taken for this item,
       and a dormant repo mid-migration is exactly where a stray handoff
       survives longest. Revisit if a dormant project is ever found
       holding two
-- [ ] Nothing asserts the widened `handoff_duplicates` shape at the
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. `_roadmap_recommendations` left for estate-manager with ADR-0005 (2026-08-13).)*
+- Nothing asserts the widened `handoff_duplicates` shape at the
       storage boundary. The recommendation tolerates both shapes and the
       scanner emits the new one, so a third shape would degrade quietly
       rather than fail — acceptable for advisory JSONB, worth a schema
       guard if a second consumer appears
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. The scanner and its tests left for estate-manager with ADR-0005 (2026-08-13).)*
 
 ---
 
@@ -14217,14 +14283,17 @@ work:
       Remaining here: an MQTT client dependency (Alfred uses `aiomqtt`),
       config keys for host/username/topic, the publisher itself wired to
       the severity gate, and the topic scheme under `estate/…`)*
+      *(Re-read by Session 266, 2026-09-27, and left open: no MQTT client anywhere in `sysadmin/`, `sysadmin_tray/`, `pyproject.toml` or `config.yaml`. Only the broker side exists (the estate's, 2026-08-11).)*
 - [ ] **Register the topic in alfred-glance** — `BusEvents.kt` renderer,
       `BusPayloads.kt` shape. Separate repo, separate session if it needs
       an Android release
+      *(Re-read by Session 266, 2026-09-27, and left open: blocked on the item above: nothing is published, so there is no topic to register.)*
 - [ ] **`Type=notify` + `WatchdogSec=` on `sysadmin.service`**, with the
       ping issued from the async loop. **Risk to rehearse before enabling**:
       if `READY=1` is never sent, systemd treats startup as failed and kills
       the service — so the rollback must be written down before the unit is
       edited
+      *(Re-read by Session 266, 2026-09-27, and left open: `systemctl show sysadmin.service` reads `Type=simple`, `WatchdogUSec=0`.)*
 - [x] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
       reaches `failed`, then an `OnFailure=` unit that says so — done
       2026-08-11, `StartLimitBurst=5` / `StartLimitIntervalSec=600` plus
@@ -14339,7 +14408,7 @@ shipped before (a retention row with no `TABLE_TIMESTAMP_MAP` entry).
       was proven over the wire — a publish as `sysadmin-publisher` on
       `estate/alerts/test` reached a subscriber-role client. The
       publisher code here remains open, above)*
-- [ ] **Persist an `OnFailure=` firing where the tray can see it.** The
+- [x] **Persist an `OnFailure=` firing where the tray can see it.** The
       handler notifies and writes to journald; neither survives as an
       *alert row*, so a failure that happened while nobody was logged in is
       invisible to `GET /api/sysadmin/alerts` afterwards. Blocked on a
@@ -14347,9 +14416,11 @@ shipped before (a retention row with no `TABLE_TIMESTAMP_MAP` entry).
       CHECK constraint, so an external writer either lies about provenance
       (`agent='sysadmin'`, when the whole point is that the sysadmin
       service was dead) or needs a migration adding a value for it.
-- [ ] **Off-box remains the known gap.** Listeners are `127.0.0.1` and
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 39 itself, 2026-08-11 (`4d93226`): `sysadmin/core/unit_failure.py` writes a critical row through the sync engine, as `agent='sysadmin'` with `details['source'] = 'systemd_onfailure'`. That was the owner's choice over a sixth `chk_alert_agent` value (the `[x]` item above).)*
+- **Off-box remains the known gap.** Listeners are `127.0.0.1` and
       `192.168.1.2` only, so nothing built this session survives the box
       being off. Recorded, not closed.
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. The item says "recorded, not closed": a known gap, not work owed. Still no off-box channel.)*
 
 ### Rejected, and why
 
@@ -14417,7 +14488,8 @@ Conformance (noticed 2026-09-05, Session 175):
       Measured while restarting for an unrelated reason: `/health`
       answers 200, `/api/health` 404, and this repository's own
       `services.yaml` row points at `/health`
-- [ ] **It is already counted and not separately filed.**
+      *(Re-read by Session 266, 2026-09-27, and left open: measured today: `:8500/api/health` returns 404 and `/health` 200. Since estate message `3f2a0e0a` (2026-08-29) the estate's registry marks 8500 `health:legacy`, so the contract records the gap, but the route is still not served.)*
+- **It is already counted and not separately filed.**
       `SNAG-UNITS-003` measured every hand-written entry on 2026-08-16
       and found `/api/health` correct for **4** of the 11 declaring a
       port and a unit and wrong for **7**, naming `sysadmin-service`
@@ -14427,12 +14499,14 @@ Conformance (noticed 2026-09-05, Session 175):
       guess (that entry's own candidate fix), and whether this service
       should add `/api/health` beside `/health` so the party enforcing
       the contract conforms to it
-- [ ] **Nothing here should be done unilaterally.** The path is the
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. An observation that the gap is already counted under `SNAG-UNITS-003`. Nothing to complete.)*
+- **Nothing here should be done unilaterally.** The path is the
       estate's contract, so changing what this repository *emits* is a
       recommendation to every other project; adding a second route here
       is ours alone and is the cheaper half. Not started, and recorded
       so the next sitting to notice the 404 finds the measurement rather
       than repeating it
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. A directive about how the health-path item above may be acted on, not work owed.)*
 
 Notifications (from SNAG-CFG-001, 2026-08-11):
 - [ ] **The daemon announces an outage's start and never its end.**
@@ -14443,6 +14517,7 @@ Notifications (from SNAG-CFG-001, 2026-08-11):
       is `"Project % health critical"`. A recovery toast needs the
       resolve events to name what recovered, which means changing the
       three resolve paths, not the notifier
+      *(Re-read by Session 266, 2026-09-27, and left open: `sysadmin/monitor/desktop.py` still subscribes to `alert.raised` only, and its docstring still says recovery is deliberately not announced.)*
 - [ ] **The presence signal cannot tell the tray from any other client.**
       Any GET of `/api/sysadmin/alerts` counts as "somebody is watching",
       including a `curl`. It errs towards silence, which is the safe
@@ -14451,7 +14526,8 @@ Notifications (from SNAG-CFG-001, 2026-08-11):
       be exact. Deferred because an older tray build would then go
       unrecognised and both would toast — the duplicate this design
       exists to prevent
-- [ ] **The tray re-announces the open alert set on every start**, because
+      *(Re-read by Session 266, 2026-09-27, and left open: `tray_presence.mark_seen()` fires on any GET of `/api/sysadmin/alerts`, and the tray's client sends no identifying header, only `Authorization`.)*
+- **The tray re-announces the open alert set on every start**, because
       `NotificationPolicy`'s fingerprint state is in-memory. Now that
       `sysadmin-tray.service` starts at login this happens every login.
       Measured 2026-08-11 against the live set — six distinct
@@ -14462,6 +14538,7 @@ Notifications (from SNAG-CFG-001, 2026-08-11):
       high. No action while the numbers hold; recorded so the next
       "why did it just announce everything?" is a lookup, not an
       investigation
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. The item says "no action while the numbers hold": expected behaviour, recorded. The tray's policy state is still in memory.)*
 - [ ] **Page-1 churn can re-notify a standing alert.** The tray fetches
       the newest 50 unresolved alerts; with 547,814 of them, a burst of
       new rows pushes an older title off the page, `_close_inactive`
@@ -14471,6 +14548,7 @@ Notifications (from SNAG-CFG-001, 2026-08-11):
       makes it a second consequence of SNAG-AGENT-002 rather than a tray
       defect. A fix belongs on the volume, not on `limit=50`
       *(Read 2026-09-14 by Session 235 and **left open**, which is the reading this item most needed. Its own remedy — *"a fix belongs on the volume"* — landed as `SNAG-AGENT-005` on 2026-08-12 and did **not** remove the mechanism: replaying `created_at`/`resolved_at` as a running open-row count, the table held **95** unresolved rows at once on 2026-08-13, peaking the day **after** that fix and staying over the 50-row page for 2 h 41 m. It has been clear since — max **34** between 08-14 and 08-29, **19** in the last seven days — but clear is a property of today's fault load, not of the code: `GET /api/sysadmin/alerts` still defaults to `limit=50` newest-first (`sysadmin/monitor/routers/sysadmin.py:288`) and `_close_inactive` still resets a fingerprint absent from a poll (`sysadmin_tray/notifications.py:913`). Naming a closed entry was not proof this was done.)*
+      *(Re-read by Session 266, 2026-09-27, and left open: re-read by Session 235 on 2026-09-14 and still unchanged: `limit=50` on the route and `_close_inactive` in the tray's notifications module.)*
 - [x] **547,814 unresolved `Log error: kernel` rows** were found in the
       table while measuring notification volume. That is SNAG-AGENT-002's
       damage rather than a new defect, and the notifier's incident gate
@@ -15024,18 +15102,21 @@ the same newest `scanned_at`.
 
 ### Left open
 
-- [ ] **`sysadmin.service` must be restarted** for any of this to reach
+- [x] **`sysadmin.service` must be restarted** for any of this to reach
       the live API — the sweep runs on a 6-hourly interval *inside* the
       daemon, so a restart is the whole deploy. Two restarts are now
       owed: this and the SearXNG entry from 2026-08-14
-- [ ] **The `host` tier still prints `deadlock-api-ingest.service`
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: The daemon has restarted many times since (active from 2026-09-27 06:11:40), and the live `GET /api/units/actions` serves the restart family with scope-suffixed titles.)*
+- **The `host` tier still prints `deadlock-api-ingest.service`
       twice with identical titles.** Pre-existing and untouched — its
       snippets disambiguate via `_service_name`, so only the heading is
       ambiguous. Filed nowhere; it is one line in `_host_recommendation`
       if it ever annoys anyone
-- [ ] **Nothing re-checks a unit after the snippet is pasted.** The
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is moot, not done. Since Session 48, 2026-08-15 (`82b8824`), the user-scope copy is wired as `deadlock-api-ingest-user`, so only the system unit reaches the host tier and no duplicate heading prints. `_host_recommendation`'s title is still unsuffixed, so the duplicate would come back if both copies were ever unwired.)*
+- **Nothing re-checks a unit after the snippet is pasted.** The
       family clears on the next sweep, which is up to 6 hours later, and
       there is no "you fixed 3 of 13" signal anywhere
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. The closed `SNAG-UNITS-002` records this as the tier's advice-only design, not a defect. If an on-reload re-sweep is ever wanted it is an idea, not owed work.)*
 
 ## Session 46: The unit sweep learns to speak ✅ (2026-08-14)
 
@@ -15116,10 +15197,11 @@ wrote **2** rows — raise, dedup, escalate, hold, resolve once on clearing
       of 20 by the time it was** — the population grows with every
       service the estate adds, because the defect is what a
       correctly-written unit gets by default here
-- [ ] **`sysadmin.service` must be restarted to pick this up**, and the
+- [x] **`sysadmin.service` must be restarted to pick this up**, and the
       **organiser** is a separate deploy path — this agent is on a
       6-hourly interval inside the daemon, so a restart is the whole
       deploy
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: The daemon has restarted many times since 2026-08-14 (active from 2026-09-27 06:11:40), and the armed-orphan family is live in `GET /api/units/status`. The organiser half left with the projects domain on 2026-08-13 (ADR-0005).)*
 
 ## Archive
 
@@ -15225,14 +15307,16 @@ variable parts removed.
 
 ### Left open
 
-- [ ] **The host fault is untouched and is now harder to stop.**
+- **The host fault is untouched and is now harder to stop.**
       `BT_RAM_CODE_MT6639_2_1_hdr.bin` is still absent from
       `/lib/firmware/mediatek/mt7927/`, and `rfkill list` now prints
       **nothing** — the adapter no longer registers a soft-block switch,
       so the one reversible workaround the handoff recorded is gone. This
       is deliberately not this repository's to fix; the point of Session
       42 is that the storm now costs 2 alert rows instead of 43,000 a day
-- [ ] **`sysadmin.service` must be restarted to pick this up.** It is a
+      *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. The item says this is deliberately not this repository's to fix, and that still holds: the MT6639 Bluetooth firmware is still absent from `/lib/firmware/mediatek/mt7927/`.)*
+- [x] **`sysadmin.service` must be restarted to pick this up.** It is a
       **system** unit (`systemctl`, not `--user`) running from this
       working tree, so the running daemon serves start-time code and is
       still on the old raise rule
+      *(Ticked by Session 266, 2026-09-27, re-measuring the file: Every restart since the merge at `0444644` (2026-08-12) serves the signature raise rule. The daemon is active from 2026-09-27 06:11:40, and log alerts carry signature titles.)*
