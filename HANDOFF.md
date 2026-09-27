@@ -30,8 +30,18 @@ Documentation only: no code changed, so no restart is owed.
 - No SNAG is marked owed, the inbox is empty, and every ops claim
   preflight re-measured matched the box.
 
-*One concern held.* The choice and its scope were the whole session.
-Nothing stacked.
+- **A second concern arrived after the handoff and was recorded, not
+  worked.** The owner saw the live notification test's probe toast
+  ("SNAG-SYSD-004 probe") again in Plasma's notification list. It is filed
+  as `SNAG-TEST-014`. The test's cleanup counts `CloseNotification`
+  returning 0 as the toast being gone, so the suite stays green while the
+  toast stays in the list. The leading hypothesis is that Plasma keeps a
+  critical notification in its history after it is closed. That is
+  unmeasured, and the entry names the one observation that decides it.
+
+*One concern held, then a second recorded.* The choice and its scope were
+the session's concern. The reappearing probe toast stacked on top and went
+to the snag list as `SNAG-TEST-014`.
 
 ---
 
