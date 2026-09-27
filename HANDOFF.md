@@ -1,17 +1,43 @@
-# Handoff — 2026-09-27 (Session 270)
+# Handoff — 2026-09-27 (Session 271)
 
 ## Next action
 
-Choose the next work; the memory and CLAUDE.md review is recorded under tasks.md's "Maintenance" and needs its scope set before it starts. *(For: owner, ~20 min)*
+Move CLAUDE.md's design narrative (lines 451–4391) into docs/ by domain, leaving a one-line pointer per topic, as tasks.md's first Maintenance item scopes it. *(For: session)*
 
-The instance-stamp task is done and deployed, so no open next action is
-left over. The review was asked for in Session 269 and recorded rather
-than worked, with its sizes measured. Two alternatives from Session 269's
-choice are still open: capping the weekly disk review, whose live check
-needs a GPU lease that `SNAG-GPU-003` says the arbiter is not granting,
-and promoting `projects_root` to a top-level config key.
+The owner chose this over three alternatives and set its scope. The
+narrative is about 3,940 of `CLAUDE.md`'s 4,623 lines and about 71k tokens
+loaded into every session, which is why it came first. The Maintenance
+item names the two guards the move must respect: the registry tables stay
+in `CLAUDE.md`, and every new `docs/` file gets a row in `docs/README.md`.
+
+## Session 271: the owner chose the CLAUDE.md review and set its scope
+
+Documentation only: no code changed, so no restart is owed.
+
+- **The review was chosen over three alternatives.** Capping the weekly
+  disk review stays behind tomorrow's `grants_total` reading. That is the
+  GPU arbiter's grant counter, stuck at 67 under `SNAG-GPU-003`, and a
+  live check of the cap needs a lease. Promoting `projects_root` and
+  adding a systemd watchdog stay open in tasks.md.
+- **The scope is `CLAUDE.md` only.** Measured today: the "Contract
+  Registry" heading covers lines 168–4395, but the tables end near 450,
+  and the rest is per-session design reasoning. Only
+  `tests/test_claude_md_registry.py` parses the file. The other five
+  tests that name it do so in docstrings.
+- **The memory index was split into its own Maintenance item**, so it is
+  recorded rather than dropped by the narrower scope. It is still at
+  21,748 of 24,400 bytes.
+- No SNAG is marked owed, the inbox is empty, and every ops claim
+  preflight re-measured matched the box.
+
+*One concern held.* The choice and its scope were the whole session.
+Nothing stacked.
+
+---
 
 ## Session 270: a finished agent run names the process that ran it
+
+*Its next action, choosing the next work, was taken by Session 271: the owner chose the CLAUDE.md review, scoped to moving its narrative out.*
 
 One `sysadmin/` concern. The restart it owed was paid once: the daemon
 restarted at 2026-09-27 18:25:31.

@@ -14607,14 +14607,32 @@ Config / ops:
 _Not numbered sessions — config/upkeep work that doesn't warrant one.
 Completed maintenance is in the archive._
 
-- [ ] **Review the memory index and CLAUDE.md, as their own session.**
-      Asked for by the owner on 2026-09-27 (Session 269). It arrived as a
-      second concern and was recorded here rather than worked. Measured on
-      that date: `MEMORY.md` is **21,748 bytes**, 89 % of its **24,400**-byte
-      load budget, which it truncates from the tail, and the memory
-      directory holds **183** entries, the index included. `CLAUDE.md` is **285,504
-      bytes** and loads into every session. Scope and outcome are the
-      owner's to set at the start of that session
+- [ ] **Move `CLAUDE.md`'s design narrative into `docs/`, leaving a pointer
+      per topic.** Asked for by the owner on 2026-09-27 (Session 269) as a
+      review of the memory index and `CLAUDE.md`. Session 271 set the scope
+      with the owner: `CLAUDE.md` only, with the memory index split out as
+      the item below. Measured 2026-09-27: `CLAUDE.md` is **285,504 bytes**,
+      4,623 lines, about 71k tokens loaded into every session. The
+      "Contract Registry" heading runs from line 168 to line 4395, but the
+      registry tables and their membership rules end near line 450. Lines
+      **451–4391** (about 3,940 lines) are design reasoning, starting at
+      "Two things speak on this box" and ending before "Tray-only
+      presentation". Keep Quick Context, the workflow rules, the Database
+      section, the registry tables and the ADR list. Move the narrative by
+      domain, and leave one line in `CLAUDE.md` saying what each moved
+      block covers and where it went (estate rule: a moved document leaves
+      a pointer, never a copy). Two guards constrain the move.
+      `tests/test_claude_md_registry.py` parses the registry tables out of
+      `CLAUDE.md`, so they must stay there. `tests/test_docs_index.py`
+      requires `docs/README.md` to list every file under `docs/`, so any
+      new file needs a row there. Target: `CLAUDE.md` at roughly 40 KB
+- [ ] **Bring the memory index back under its budget.** Split from the
+      item above by the owner's scope on 2026-09-27 (Session 271).
+      Measured that day: `MEMORY.md` is **21,748 bytes**, 89 % of its
+      **24,400**-byte load budget, and truncates from the tail. It holds
+      153 index lines over **183** files in the memory directory, the index
+      included. The index's own header names the next lever: delete stale
+      lines, or fold near-duplicate memories into one file
 
 ### ⚠️ Pending: restart the live daemon
 
