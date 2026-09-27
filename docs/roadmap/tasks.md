@@ -8860,6 +8860,7 @@ then chose a **shape** the entry does not name._
       first field in it that does not. Not a defect — nothing is worse
       than before — so a task rather than a SNAG
       *(Re-read by Session 266, 2026-09-27, and left open: `_record_outcome` still replaces `details` wholesale (`sysadmin/core/agent.py`), and its docstring still states that choice.)*
+      *(Chosen by the owner on 2026-09-27, Session 269, as the next work, over capping the disk review and promoting `projects_root`. The cap was passed over because its live check needs the arbiter to grant, which `SNAG-GPU-003` says it currently does not.)*
 
 
 ## Session 127 — the grace period the box already knew (2026-08-29) ✅
@@ -14604,6 +14605,15 @@ Config / ops:
 
 _Not numbered sessions — config/upkeep work that doesn't warrant one.
 Completed maintenance is in the archive._
+
+- [ ] **Review the memory index and CLAUDE.md, as their own session.**
+      Asked for by the owner on 2026-09-27 (Session 269). It arrived as a
+      second concern and was recorded here rather than worked. Measured on
+      that date: `MEMORY.md` is **21,748 bytes**, 89 % of its **24,400**-byte
+      load budget, which it truncates from the tail, and the memory
+      directory holds **183** entries, the index included. `CLAUDE.md` is **285,504
+      bytes** and loads into every session. Scope and outcome are the
+      owner's to set at the start of that session
 
 ### ⚠️ Pending: restart the live daemon
 

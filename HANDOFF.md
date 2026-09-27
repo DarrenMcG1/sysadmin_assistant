@@ -1,17 +1,43 @@
-# Handoff — 2026-09-27 (Session 268)
+# Handoff — 2026-09-27 (Session 269)
 
 ## Next action
 
-Choose the next piece of work from the 12 open tasks; Session 267's runners-up were stamping the instance id on finished runs and capping the disk review. *(For: owner, ~20 min)*
+Keep `details["instance"]` when `_record_outcome` finishes an agent run, so a completed row names the process that ran it. *(For: session)*
 
-The tasks.md item this sitting closed was one of Session 266's 13, so 12
-remain. None of the three P2 snags has work owed here: the reason is
-unchanged from Session 267's block below, and the GPU reading stays under
-"Scheduled action". Estate message `37ac5331` is open at estate-manager.
-Their closing it (dropping `health:legacy` from 8500 in
-`monitorable-project.md`) needs nothing from this repository.
+The task is in tasks.md under Session 159b's block ("A finished run does
+not record which process ran it"). `_record_outcome` in
+`sysadmin/core/agent.py` replaces `details` wholesale, so the stamp the
+startup sweep uses disappears the moment a run finishes. That is what
+forced Session 159b to join `started_at` against journal PIDs by hand.
+The docstring states the current choice and must change with the code.
+The change is under `sysadmin/`, so a restart is owed once.
+
+## Session 269: the owner chose the instance stamp, and a second concern was recorded
+
+Documentation only: no code changed, so no restart is owed.
+
+- **The instance stamp was chosen over two alternatives.** One was capping
+  the weekly disk review at its 150-word limit. It was passed over because
+  checking it live needs the GPU arbiter to grant a lease, and
+  `SNAG-GPU-003` says it has granted nothing since `grants_total` reached
+  67. Monday's `llm_used` reading will say whether that still holds. The
+  other was promoting `projects_root` to a top-level config key, which is
+  a medium-sized change touching seven readers.
+- **The owner asked to review the memory index and CLAUDE.md "next
+  session" as well.** That is a second concern, so it is recorded as its
+  own task under "Maintenance" in tasks.md, with sizes measured today:
+  `MEMORY.md` 21,748 bytes against a 24,400-byte budget, and `CLAUDE.md`
+  285,504 bytes. The owner can take it before the instance stamp by
+  starting that session on it instead.
+
+*One concern held.* The choice was the whole session. The memory and
+CLAUDE.md review stacked on top and went to tasks.md.
+
+---
 
 ## Session 268: `GET /api/health` served beside `/health`, and our own row polls it
+
+*Its next action, choosing the next piece of work, was taken by Session 269: the owner chose the instance stamp.*
 
 One `sysadmin/` concern, and the restart it owed was paid once: the daemon
 restarted at 2026-09-27 15:59:12. The monitor's first poll of
