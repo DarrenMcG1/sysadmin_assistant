@@ -1,15 +1,52 @@
-# Handoff — 2026-09-27 (Session 272)
+# Handoff — 2026-09-27 (Session 273)
 
 ## Next action
 
-Bring MEMORY.md back under its 24,400-byte load budget by deleting stale lines or folding near-duplicate memories, as tasks.md's next Maintenance item scopes it. *(For: session)*
+Find out why the live notification test's probe stays in Plasma's history after its close call, by sending it once with the owner watching. *(For: session)*
 
-It is the item the owner split from this one on the same day, so it is
-already scoped. `MEMORY.md` was 21,748 of 24,400 bytes when measured
-(Session 271) and truncates from the tail. Its own header names the lever:
-delete stale lines, or fold near-duplicate memories into one file.
+The owner saw the probe in Plasma's notification list again, and the full
+suite runs at every session close, so it costs them one entry per sitting.
+The snag list records it as `SNAG-TEST-014`: the test's cleanup counts
+`CloseNotification` returning 0 as the notification being gone. The
+leading hypothesis, still unmeasured, is that Plasma keeps a closed
+critical notification in its history. The entry names the observation
+that decides it, and that observation needs the owner at the screen.
+
+## Session 273: the memory index given back its headroom
+
+Memory-directory maintenance only. No code or tracked source changed, so
+no restart is owed.
+
+- **`MEMORY.md` went from 21,748 to 20,333 bytes**, 89 % to 83 % of the
+  24,400-byte budget, and from 153 to 143 lines over 181 files. The task
+  said "back under its budget", but the file was never over. What it was
+  close to was the Stop hook's 90 % warning, 0.9 points away.
+- **Every cut was checked before it was made.** `sysadmin.project_snapshots`
+  no longer exists, so the memory about querying it was deleted.
+  `estate-manager/mqtt/dynsec.yaml` now declares the broker schema, so the
+  memory saying Alfred owns it was corrected, and so was the hub line
+  repeating it. The `cp` restore memory was folded into the `stash pop`
+  one, which already covered it.
+- **Index lines were dropped only where something else reaches the
+  file**: three technique memories with four or more inbound links, which
+  the index's own rule excuses; two memories superseded by rules the
+  global `CLAUDE.md` now loads every session; and three journalctl traps,
+  now reached through one hub.
+- **Rejected:** merging the four journalctl files into one. The hub gives
+  the same saving without rewriting four evidenced bodies. The two
+  flapping-value memories stayed separate, because they are two lessons
+  (a test's assertion and a document's count), each with its own inbound
+  links.
+- Every index target exists and no `[[link]]` dangles, checked after the
+  edit.
+
+*One concern held.*
+
+---
 
 ## Session 272: CLAUDE.md's design narrative moved to docs/design/
+
+*Its next action, the memory index's headroom, was taken by Session 273.*
 
 Documentation only: no code changed, so no restart is owed.
 

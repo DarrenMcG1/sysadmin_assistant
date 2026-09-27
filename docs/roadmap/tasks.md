@@ -8,6 +8,40 @@
 
 ---
 
+## Session 273: the memory index given back its headroom ✅ (2026-09-27)
+
+The second Maintenance item. The memory index lives outside this
+repository, so no tracked file changed apart from these notes. `MEMORY.md`
+went from 21,748 to **20,333 bytes**, 89 % to 83 % of its 24,400-byte
+budget. It was under budget throughout. What mattered was the Stop hook's
+90 % warning, which it was 0.9 points short of. Every cut was checked
+against the box or the tree first:
+
+- **One memory deleted as falsified.** `probe-snapshot-findings-nested`
+  queried `sysadmin.project_snapshots`, which `to_regclass` now returns
+  null for (migration 014, 2026-08-24).
+- **One folded into its duplicate.** `cp-from-bak-rewrites-mtime` said in
+  its own body that it was `stash-pop-reports-a-restart-owed` by another
+  tool. Its `os.utime` recipe moved across, and its one inbound link was
+  retargeted.
+- **Two corrected and taken off the index.** The broker memory said Alfred
+  owns dynsec and its `reconcile()` deletes foreign clients.
+  `estate-manager/mqtt/dynsec.yaml` now declares the schema through an
+  add-only provisioner, and Alfred's ADR-0068 narrowed `reconcile()`. The
+  one-roadmap-session memory is superseded by the global "One concern per
+  session" rule. Both stay reachable from the hubs that link them.
+- **Four journalctl lines became one hub line**, and the hub file links
+  the other three.
+- **Three technique lines were dropped under the index's own rule**, which
+  excuses any technique memory four or more others link to.
+- **The header lost its dated history** and now lists the three levers,
+  cheapest first.
+- **One memory re-anchored**: the first-run delay is set in
+  `sysadmin/core/jobs.py`, not `main.py`. Its claim still holds, since
+  `sysadmin_health_check` still gets no delay.
+
+---
+
 ## Session 272: `CLAUDE.md`'s design narrative moved to `docs/design/` ✅ (2026-09-27)
 
 The first Maintenance item, as Session 271 scoped it with the owner. Lines
@@ -14640,13 +14674,16 @@ Completed maintenance is in the archive._
       `CLAUDE.md`, so they must stay there. `tests/test_docs_index.py`
       requires `docs/README.md` to list every file under `docs/`, so any
       new file needs a row there. Target: `CLAUDE.md` at roughly 40 KB
-- [ ] **Bring the memory index back under its budget.** Split from the
+- [x] **Bring the memory index back under its budget.** Split from the
       item above by the owner's scope on 2026-09-27 (Session 271).
       Measured that day: `MEMORY.md` is **21,748 bytes**, 89 % of its
       **24,400**-byte load budget, and truncates from the tail. It holds
       153 index lines over **183** files in the memory directory, the index
       included. The index's own header names the next lever: delete stale
-      lines, or fold near-duplicate memories into one file
+      lines, or fold near-duplicate memories into one file —
+      **done 2026-09-27 (Session 273)**: 20,333 bytes (83 %), 143 lines
+      over 181 files. It was never over budget, only 0.9 points under the
+      Stop hook's 90 % warning
 
 ### ⚠️ Pending: restart the live daemon
 
