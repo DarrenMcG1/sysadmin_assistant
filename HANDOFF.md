@@ -1,20 +1,56 @@
-# Handoff — 2026-09-27 (Session 264)
+# Handoff — 2026-09-27 (Session 265)
 
 ## Next action
 
-Check whether venture-assistant's new failure-line shape (message `5d9a2d03`) forks alert titles here, then close that message with what the check found. *(For: session)*
+Re-measure the 54 unticked items in tasks.md against the register and the later blocks, ticking only what the evidence shows was done. *(For: session)*
 
-Their message says each failing record's first line (the only one carrying
-the level prefix) now ends with the exception's first line in brackets.
-The same failure can then produce different exception text, for example a
-different URL or status code. If `log_signature`'s normalisation doesn't
-fold those differences, one fault opens a new row per distinct error text.
-That is `SNAG-AGENT-005`'s pile-up, which the signature title exists to
-end. Their backend has restarted since, so real lines should now be in
-`log_entries`. Read those before reasoning about the regex. It is already
-a task in the Session 263 block of `tasks.md`.
+This is the task in the Session 263 block. Four of the five items Session
+263 checked were already done, so the rest are probably stale too. Leave
+the 2026-09-28 reading out of it; that one is known to be open.
 
-## Session 264 is complete — `pointers` refused under ADR-0006, and the only source of its findings is guarded here
+## Session 265: venture-assistant's new failure lines fork titles by cause only; message closed
+
+Estate message `5d9a2d03-e74e-422b-b257-7bd839380cd4` from
+venture-assistant is **closed**. From their restart at 22:51:38 on
+2026-09-26, a failing record's first line ends with the exception's first
+line in brackets, and only that first line carries the level prefix.
+
+- **Measured population: zero.** No `error` or `critical` line from
+  `venture-assistant-backend.service` has reached `log_entries` since the
+  restart, only 88 warnings (rate-limit backoffs and the embed-rejection
+  notice), which carry no exception and are byte-identical to before.
+- **So the new shape was rebuilt, not observed.** Each of their 25
+  pre-change failure records was rebuilt as headline + ` [` + the
+  traceback's last exception line + `]`, per their message, and run
+  through the real `log_signature.alert_title()`.
+- **Headline titles went from 23 to 25.** Two feeds (`manually reconcile`,
+  `per seat pricing`) each failed once with a 502 and once with a
+  `ReadTimeout`, and now get one title per cause. That is the distinction
+  they meant to carry.
+- **No pile-up.** Nothing inside the bracket varies per occurrence after
+  normalisation: digits become `N`, and the URL is the same feed the
+  headline already names. So titles are bounded by feed, exception class
+  and reason phrase. `SNAG-AGENT-005` (the one-row-per-line pile-up that
+  the signature title exists to end) does not recur.
+- **`HTTPStatusError` titles go over the 255-character title column,**
+  because of the doubled URL. They get cut and carry a digest of the
+  whole signature, so they stay distinct. The only cost is readability:
+  the cut lands at `Server error 'N Bad …`.
+- **The bigger effect is the other half of their change.** Over 30 days
+  their traceback continuation lines (frames, `^^^^` markers,
+  `Traceback (most recent call last):`) held **90 of 113** distinct error
+  titles and **224 of 250** alert rows. At priority 6 our `-p 4` read
+  stops storing them.
+
+*No code changed.* The check needed no fix, so there is no restart, no
+test and no snag. Rejected: adding a test that pins the bracket folding.
+It would only restate that `signature()` maps digits to `N`, which the
+existing suite already pins.
+
+*One concern held.* The message was the next action and nothing else was
+worked.
+
+## Session 264 — `pointers` refused under ADR-0006, and the only source of its findings is guarded here
 
 **Decided: `pointers` does not join `JUDGED_AUDIT_CHECKS`.** Recorded as
 `docs/adr/0015-pointers-has-an-owner-and-the-cause-is-here.md`, with a

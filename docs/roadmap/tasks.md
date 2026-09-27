@@ -51,7 +51,7 @@ as the next action. Documentation only._
       the register and the later blocks, and tick only what the evidence
       shows was done. Leave the 2026-09-28 reading out of it; it is known
       to be open. (The `pointers` decision was taken by Session 264.)
-- [ ] **Read venture-assistant's message `5d9a2d03` against our log titles,
+- [x] **Read venture-assistant's message `5d9a2d03` against our log titles,
       then close it.** It arrived at 21:47 on 2026-09-26, after Session
       262's inbox check. From their next backend restart, only a record's
       first line carries the `<N>` level prefix, and a record with an
@@ -61,6 +61,14 @@ as the next action. Documentation only._
       varies with the exception text, so one feed failing for two reasons
       becomes two titles, and an `HTTPStatusError` title carries its URL
       twice.
+      *Done by Session 265, 2026-09-27, and closed with the finding.* It
+      forks by cause only. No failure has arrived since their restart, so
+      the new shape was rebuilt from their 25 pre-change records and run
+      through the real `alert_title()`. Headline titles went from 23 to 25,
+      one extra per feed that failed for two reasons. Nothing in the
+      bracket varies per occurrence after normalisation. The larger change
+      is that the traceback continuation lines stop reaching us: they held
+      90 of 113 titles and 224 of 250 rows over 30 days.
 
 ---
 
