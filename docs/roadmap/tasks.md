@@ -14489,6 +14489,7 @@ Conformance (noticed 2026-09-05, Session 175):
       answers 200, `/api/health` 404, and this repository's own
       `services.yaml` row points at `/health`
       *(Re-read by Session 266, 2026-09-27, and left open: measured today: `:8500/api/health` returns 404 and `/health` 200. Since estate message `3f2a0e0a` (2026-08-29) the estate's registry marks 8500 `health:legacy`, so the contract records the gap, but the route is still not served.)*
+      *(Chosen by the owner on 2026-09-27, Session 267, as the next work: the cheaper half only, adding `/api/health` beside `/health`. The snippet generator's half stays with `SNAG-UNITS-003`.)*
 - **It is already counted and not separately filed.**
       `SNAG-UNITS-003` measured every hand-written entry on 2026-08-16
       and found `/api/health` correct for **4** of the 11 declaring a

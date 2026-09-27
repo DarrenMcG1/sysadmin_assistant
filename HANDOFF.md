@@ -1,20 +1,42 @@
-# Handoff — 2026-09-27 (Session 266)
+# Handoff — 2026-09-27 (Session 267)
 
 ## Next action
 
-Choose the next piece of work from the three P2 snag entries and the 13 open items in tasks.md, all of which now carry a dated re-read note. *(For: owner, ~10 min)*
+Add `GET /api/health` beside `/health` on :8500, point our own `services.yaml` row at it, and tell estate-manager so its registry can drop `health:legacy`. *(For: session)*
 
-Session 266 cleared the backlog of stale items, so for the first time
-the unticked list is exactly the open work. Preflight prints the snag
-entries by priority, and the Session 266 block lists the 13 open tasks.
-The largest are the MQTT alert publisher and a `Type=notify` watchdog;
-the most visible is that `:8500` serves `/health` and not
-`/api/health`. **Monday's `llm_used`/`grants_total` reading is not this
-line.** It sits under "Scheduled action" below, preflight flags it when
-it is due, and its result may re-rank the GPU entries. So the choice is
-best made after reading it.
+The owner chose this on 2026-09-27 from Session 266's list of 13 open
+tasks. It is the cheaper half of the tasks.md item "This service does
+not serve the health path it enforces on everyone else", and the half
+that is ours alone. The other half, whether the snippet generator in
+`units/recommendations.py` should probe for a health path rather than
+guess `/api/health`, stays with `SNAG-UNITS-003` and is not this line.
+A new route owes a row in CLAUDE.md's contract registry
+(`tests/test_claude_md_registry.py` computes membership), and a restart
+to serve it. The estate message comes after the route is live, citing
+`3f2a0e0a`, the message that marked 8500 `health:legacy`.
+
+## Session 267: the owner chose `/api/health` as the next work
+
+Documentation only: no code changed, so no restart is owed.
+
+- **None of the three P2 snags has work owed here today.** `SNAG-GPU-001`
+  waits on the 2026-09-28 reading under "Scheduled action".
+  `SNAG-GPU-003`'s build was refused by the owner on 2026-09-23.
+  `SNAG-ESTATE-002` is delegated to estate-manager.
+- **So the choice was among the 13 tasks, and none of them is about the
+  GPU.** Choosing before Monday's reading therefore loses nothing,
+  whatever that reading shows.
+- **Offered alongside it:** stamping the instance id on finished runs,
+  capping the disk review's length, and waiting for Monday.
+
+*One concern held.* The choice was the next action and nothing else was
+worked.
+
+---
 
 ## Session 266: the 54 stale unticked items in tasks.md re-measured — 20 done, 21 not work, 13 open
+
+*Its next action, choosing the next piece of work, was taken by Session 267: the owner chose `/api/health`.*
 
 Every unticked item except this task and the 2026-09-28 reading was
 checked against the message register (all 269 rows), the later blocks,
