@@ -158,9 +158,9 @@ class TestTheSweepClosesWhatADeadProcessLeft:
     def test_a_completed_row_is_never_touched(self):
         """The status filter, which the instance filter does not imply.
 
-        A finished run's ``details`` is replaced whole by
-        ``_record_outcome``, so it carries no stamp — but a run that
-        failed *before* that replacement can, and closing it would
+        A finished run's ``details`` keeps its stamp since 2026-09-27
+        (``_record_outcome`` re-writes it), so the instance filter alone
+        would reach a dead process's *completed* rows.  Closing one would
         overwrite a real outcome with a guess.
         """
         async def work(session):

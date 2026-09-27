@@ -8847,7 +8847,7 @@ then chose a **shape** the entry does not name._
       `status == CANCELLED_STATUS` compared the constant to itself; and
       **nothing drove `_record_start`**, so deleting the stamp passed all
       twenty tests
-- [ ] **A finished run does not record which process ran it, and this
+- [x] **A finished run does not record which process ran it, and this
       sitting wanted exactly that.** `_record_outcome` replaces `details`
       wholesale, so the instance stamp lives only while the row is a
       sweep candidate. Correct for the sweep and a near miss for
@@ -8861,6 +8861,7 @@ then chose a **shape** the entry does not name._
       than before — so a task rather than a SNAG
       *(Re-read by Session 266, 2026-09-27, and left open: `_record_outcome` still replaces `details` wholesale (`sysadmin/core/agent.py`), and its docstring still states that choice.)*
       *(Chosen by the owner on 2026-09-27, Session 269, as the next work, over capping the disk review and promoting `projects_root`. The cap was passed over because its live check needs the arbiter to grant, which `SNAG-GPU-003` says it currently does not.)*
+      *(Done 2026-09-27, Session 270: `_record_outcome` writes `{**details, INSTANCE_DETAIL_KEY: INSTANCE_ID}`. The proposed `||` was refused, because it keeps every stored key, including the sweep's `cancelled_by` on a hand-driven run that the sweep closed and the drive then finished. Live, 0 of 180 finished rows carried the stamp before the restart and every row after it does.)*
 
 
 ## Session 127 — the grace period the box already knew (2026-08-29) ✅

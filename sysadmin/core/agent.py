@@ -213,10 +213,11 @@ class BaseAgent(ABC):
         invented constant to express a fact the row can simply carry.
         See :mod:`sysadmin.core.abandoned_runs`.
 
-        ``details`` is otherwise untouched here and is *replaced* whole
-        by :meth:`_record_outcome`, so the stamp lives exactly as long as
-        the row is a candidate for the sweep and no longer.  That is not
-        a leak: a finished run's details belong to the run.
+        ``details`` is otherwise untouched here.  :meth:`_record_outcome`
+        replaces the rest of it with the run's own details and writes the
+        stamp again, so a finished row still names the process that ran
+        it — see that method for why the stamp is re-stated rather than
+        concatenated.
         """
         run_id = uuid.uuid4()
         async with get_scheduler_session() as session:
@@ -247,6 +248,35 @@ class BaseAgent(ABC):
         session is still recordable — which is the whole point.  An
         ``UPDATE`` by id rather than a mutated ORM object, because the
         object belongs to a session that has already committed and closed.
+
+        **The instance stamp is kept on the finished row.** Until
+        2026-09-27 ``details`` was replaced whole, so the stamp
+        :meth:`_record_start` writes disappeared the moment a run
+        finished.  The sweep never needed it on a finished row.  Forensics
+        did: dating ``SNAG-DB-006``'s seven stuck rows took a hand-built
+        join of ``started_at`` against journal ``_PID``s, which the stamp
+        on the neighbouring ``completed`` rows would have answered
+        directly.
+
+        It is written as ``{**details, INSTANCE_DETAIL_KEY: INSTANCE_ID}``
+        rather than as SQL ``details || :new``, for two reasons:
+
+        1. ``||`` keeps *every* stored key, not only the stamp.  The one
+           case where the stored row holds more than the stamp is
+           :func:`~sysadmin.core.abandoned_runs.close_abandoned_runs`'
+           named hazard.  An agent driven by hand is still running when
+           the daemon restarts, so its row is closed as ``cancelled``.
+           The drive then finishes here.  A concatenation would carry
+           ``cancelled_by: startup_sweep`` onto a ``completed`` row, and
+           the row would claim a cancellation that its status denies.
+        2. The stamp comes last, so a run whose result happens to carry an
+           ``instance`` key cannot overwrite which process ran it.  The
+           row's identity is not the run's to rewrite, for the same reason
+           ``Alert.title`` does not move.  No result carries the key today.
+
+        The value is the same constant :meth:`_record_start` wrote, not a
+        second opinion.  Both are called from one :meth:`run`, in one
+        process, so a stamp read back from the row could not differ.
         """
         from sqlalchemy import update
 
@@ -260,7 +290,7 @@ class BaseAgent(ABC):
                     duration_seconds=round(duration, 2),
                     findings_count=findings_count,
                     alerts_raised=alerts_raised,
-                    details=details,
+                    details={**details, INSTANCE_DETAIL_KEY: INSTANCE_ID},
                 )
             )
 

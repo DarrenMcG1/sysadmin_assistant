@@ -1,18 +1,49 @@
-# Handoff — 2026-09-27 (Session 269)
+# Handoff — 2026-09-27 (Session 270)
 
 ## Next action
 
-Keep `details["instance"]` when `_record_outcome` finishes an agent run, so a completed row names the process that ran it. *(For: session)*
+Choose the next work; the memory and CLAUDE.md review is recorded under tasks.md's "Maintenance" and needs its scope set before it starts. *(For: owner, ~20 min)*
 
-The task is in tasks.md under Session 159b's block ("A finished run does
-not record which process ran it"). `_record_outcome` in
-`sysadmin/core/agent.py` replaces `details` wholesale, so the stamp the
-startup sweep uses disappears the moment a run finishes. That is what
-forced Session 159b to join `started_at` against journal PIDs by hand.
-The docstring states the current choice and must change with the code.
-The change is under `sysadmin/`, so a restart is owed once.
+The instance-stamp task is done and deployed, so no open next action is
+left over. The review was asked for in Session 269 and recorded rather
+than worked, with its sizes measured. Two alternatives from Session 269's
+choice are still open: capping the weekly disk review, whose live check
+needs a GPU lease that `SNAG-GPU-003` says the arbiter is not granting,
+and promoting `projects_root` to a top-level config key.
+
+## Session 270: a finished agent run names the process that ran it
+
+One `sysadmin/` concern. The restart it owed was paid once: the daemon
+restarted at 2026-09-27 18:25:31.
+
+- **`_record_outcome` writes `{**details, INSTANCE_DETAIL_KEY: INSTANCE_ID}`**
+  in place of `details`. Before the restart, 0 of 180 finished rows since
+  15:59 carried the stamp. After it, `service_discovery` and `estate_judge`
+  finished with the new process's id beside their own 11 and 8 keys.
+- **The task's proposed SQL `details || :new` was refused.** It keeps every
+  stored key, not only the stamp. The sweep's own named hazard is a hand
+  drive whose row the startup sweep closes as `cancelled` while it runs;
+  under `||` its finished row would carry `cancelled_by: startup_sweep`.
+  Shown on the live table in a transaction that rolled back, with 0 rows
+  left behind. The stamp is also written last, so a result carrying an
+  `instance` key cannot overwrite it. No result carries one today.
+- **Five tests, each falsified.** Reverting to `details=details` fails four
+  of them. Putting the stamp first fails the overwrite test. A working
+  `||` fails all five and leaves the eight older tests green. My first
+  `||` mutation hit a `NameError` and failed all 13 tests for the wrong
+  reason, so I re-drove it with a version that compiles. The suite went
+  from 4,369 to 4,374.
+- `tests/test_abandoned_runs.py`'s docstring for "a completed row is never
+  touched" said finished rows carry no stamp. It now says that the status
+  filter is what keeps a dead process's completed rows out of the sweep.
+
+*One concern held.* Nothing stacked.
+
+---
 
 ## Session 269: the owner chose the instance stamp, and a second concern was recorded
+
+*Its next action, keeping the instance stamp on finished runs, was taken by Session 270.*
 
 Documentation only: no code changed, so no restart is owed.
 

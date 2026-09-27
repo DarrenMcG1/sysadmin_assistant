@@ -28,6 +28,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.dialects import postgresql
 
+from sysadmin.core.abandoned_runs import INSTANCE_DETAIL_KEY, INSTANCE_ID
 from sysadmin.core.agent import AgentResult, BaseAgent
 
 
@@ -166,3 +167,82 @@ class TestTheIdSurvivesTheGap:
 
         assert inserted.id is not None
         assert inserted.id in bound.values()
+
+
+def _outcome_details(recorder: _Recorder) -> dict:
+    """The ``details`` the outcome ``UPDATE`` binds, read off the statement."""
+    return (
+        recorder.sessions[2]
+        .execute.await_args.args[0]
+        .compile(dialect=postgresql.dialect())
+        .params["details"]
+    )
+
+
+class _Claims(BaseAgent):
+    """An agent whose result carries the stamp's key for reasons of its own."""
+
+    name = "file_organiser"
+
+    async def _execute(self, session):
+        return AgentResult(details={INSTANCE_DETAIL_KEY: "not-a-process"})
+
+
+@pytest.mark.asyncio
+class TestAFinishedRowNamesItsProcess:
+    """The instance stamp outlives the run, not only the ``running`` row.
+
+    Before 2026-09-27 ``_record_outcome`` replaced ``details`` whole, so
+    every finished row lost the stamp ``_record_start`` wrote, and dating
+    ``SNAG-DB-006``'s seven stuck rows took a join against journal PIDs.
+    """
+
+    async def test_a_completed_row_keeps_the_stamp_beside_its_details(
+        self, recorder
+    ):
+        await _run(_Agent(), recorder)
+
+        assert _outcome_details(recorder) == {
+            "reclaimable_mb": 34844,
+            INSTANCE_DETAIL_KEY: INSTANCE_ID,
+        }
+
+    async def test_a_failed_row_keeps_it_too(self, recorder):
+        """The ``except`` branch builds ``details`` itself.  A fix placed in
+        the success branch would pass the completed test and not this one."""
+        await _run(_Agent(boom=RuntimeError("connection is closed")), recorder)
+
+        assert _outcome_details(recorder) == {
+            "error": "connection is closed",
+            INSTANCE_DETAIL_KEY: INSTANCE_ID,
+        }
+
+    async def test_it_is_the_stamp_the_running_row_carried(self, recorder):
+        """One process, one value: the finished row agrees with the insert."""
+        await _run(_Agent(), recorder)
+
+        inserted = recorder.sessions[0].add.call_args.args[0]
+        assert (
+            _outcome_details(recorder)[INSTANCE_DETAIL_KEY]
+            == inserted.details[INSTANCE_DETAIL_KEY]
+        )
+
+    async def test_a_result_cannot_overwrite_which_process_ran_it(self, recorder):
+        """The stamp is written last.  No result carries the key today."""
+        await _run(_Claims(), recorder)
+
+        assert _outcome_details(recorder)[INSTANCE_DETAIL_KEY] == INSTANCE_ID
+
+    async def test_it_is_not_a_concatenation_with_the_stored_row(self, recorder):
+        """``details || :new`` was refused.
+
+        A concatenation keeps every stored key.  The sweep's own named
+        hazard is a hand-driven run closed as ``cancelled`` while it is
+        still running, then finished here.  Under ``||`` that row would
+        end ``completed`` carrying ``cancelled_by: startup_sweep``.
+        """
+        await _run(_Agent(), recorder)
+
+        sql = recorder.statements[-1]
+        assert "||" not in sql
+        assert "details=%(details)s" in sql
