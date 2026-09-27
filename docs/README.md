@@ -21,6 +21,7 @@ and read the bullets beneath it.
 | know what is being worked on now | [`roadmap/STATUS.md`](roadmap/STATUS.md) (first 50 lines) |
 | follow the session-by-session record | [`roadmap/tasks.md`](roadmap/tasks.md) |
 | see the shape of the system | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| know why a module is built the way it is | [`design/`](design/) |
 | set up bearer-token auth | [`guides/api_auth.md`](guides/api_auth.md) |
 | work in this repository with Claude Code | [`../CLAUDE.md`](../CLAUDE.md) |
 
@@ -51,6 +52,31 @@ measured and refused, not only the option taken.
 ADR-0009 and ADR-0010 together are the record of the publication decision: the
 secrets audit over all 348 commits, what was found, and why two of the three
 options a previous session had written down turned out not to exist.
+
+## Design reasoning — `design/`
+
+Fourteen documents, one per domain, moved verbatim out of
+[`../CLAUDE.md`](../CLAUDE.md) on 2026-09-27. An ADR states a decision; these
+state why the code under it is shaped as it is — which rules each module
+encodes, which of them are the opposite of the obvious implementation, and what
+was measured to settle them.
+
+| | |
+|---|---|
+| [`notifications.md`](design/notifications.md) | who speaks on the box, the escalation ladder, and reminders for a standing fault |
+| [`logs.md`](design/logs.md) | the log aggregator: signatures, trends, advice, incident correlation, and how the journal is read |
+| [`alerts.md`](design/alerts.md) | how alert rows open, deduplicate, refresh, quieten and close |
+| [`agent-runs.md`](design/agent-runs.md) | how an agent run is recorded, and what happens to one that dies |
+| [`schema-and-storage.md`](design/schema-and-storage.md) | the schema guard, autogenerate's configuration, and retention |
+| [`status-claims.md`](design/status-claims.md) | how `roadmap/STATUS.md`'s opening block is checked against the live box |
+| [`estate.md`](design/estate.md) | judging what `estate-manager` publishes, including its port audit |
+| [`gpu.md`](design/gpu.md) | where the GPU busy figure comes from, and why not `rocm-smi` |
+| [`files.md`](design/files.md) | the file organiser, its actions and its weekly disk review |
+| [`units-and-ports.md`](design/units-and-ports.md) | the systemd unit sweep and the three registries that claim a port |
+| [`services.md`](design/services.md) | the service reliability score and its advice |
+| [`health-review.md`](design/health-review.md) | the weekly narrated health review |
+| [`config.md`](design/config.md) | unread config keys, the reload, and the job plan |
+| [`briefing.md`](design/briefing.md) | the morning briefing's envelope |
 
 ## The roadmap — `roadmap/`
 
@@ -106,6 +132,6 @@ The caveat that stands in its place is narrower, and it is about *kind* rather
 than *currency*. The file describes the system's **shape** — the request path,
 the schedule, the seams — and is deliberately thin on the reasoning: which rules
 each module encodes, and which of them were the opposite of the obvious
-implementation, is in [`../CLAUDE.md`](../CLAUDE.md), which is long and is the
-long account on purpose. For the short one, see the
+implementation, is in [`design/`](design/), one document per domain, which is
+long and is the long account on purpose. For the short one, see the
 [README](../README.md#what-it-does).

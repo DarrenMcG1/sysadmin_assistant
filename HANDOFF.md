@@ -1,16 +1,60 @@
-# Handoff — 2026-09-27 (Session 271)
+# Handoff — 2026-09-27 (Session 272)
 
 ## Next action
 
-Move CLAUDE.md's design narrative (lines 451–4391) into docs/ by domain, leaving a one-line pointer per topic, as tasks.md's first Maintenance item scopes it. *(For: session)*
+Bring MEMORY.md back under its 24,400-byte load budget by deleting stale lines or folding near-duplicate memories, as tasks.md's next Maintenance item scopes it. *(For: session)*
 
-The owner chose this over three alternatives and set its scope. The
-narrative is about 3,940 of `CLAUDE.md`'s 4,623 lines and about 71k tokens
-loaded into every session, which is why it came first. The Maintenance
-item names the two guards the move must respect: the registry tables stay
-in `CLAUDE.md`, and every new `docs/` file gets a row in `docs/README.md`.
+It is the item the owner split from this one on the same day, so it is
+already scoped. `MEMORY.md` was 21,748 of 24,400 bytes when measured
+(Session 271) and truncates from the tail. Its own header names the lever:
+delete stale lines, or fold near-duplicate memories into one file.
+
+## Session 272: CLAUDE.md's design narrative moved to docs/design/
+
+Documentation only: no code changed, so no restart is owed.
+
+- **Lines 451–4391 of `CLAUDE.md` moved verbatim into fourteen files under
+  `docs/design/`**, one per domain (notifications, logs, alerts, agent
+  runs, schema and storage, STATUS.md claims, estate, GPU, files, units and
+  ports, services, health review, config, briefing). `CLAUDE.md` went from
+  285,504 bytes and 4,623 lines to 46,237 bytes and 727 lines. A section
+  headed "Design reasoning — moved to `docs/design/`" holds one line per
+  file naming the modules it covers, so `grep` in `CLAUDE.md` still finds a
+  symbol's home.
+- **Verbatim was checked both ways against `HEAD`**, not only by the move
+  script: every non-blank original line is present, counted with
+  multiplicity, in the new files plus `CLAUDE.md`, and no line inside the
+  moved text is new. Each file adds only a title and a short note on where
+  it came from.
+- **Two paragraphs stayed in `CLAUDE.md` because they are instructions,
+  not reasoning:** `uv sync --all-extras` (now under Step 4) and the list of
+  places a new agent touches (now "Adding an agent", which
+  `tests/test_estate_judge_wiring.py`'s docstring cites as being in
+  `CLAUDE.md`).
+- **One paragraph was out of place and was regrouped:** the note that a
+  service name is not filtered through the digit gate sat between two config
+  topics. It is health-review reasoning and went to `health-review.md`.
+- **The registry guard now reads less.** `tests/test_claude_md_registry.py`
+  parses from `## Contract Registry` to `## Detailed Documentation`, and the
+  narrative used to sit inside that region. The two sentences the guard
+  asserts are at lines 255 and 381, inside the tables' half, so they stayed.
+- **Indexes updated:** `docs/README.md` names `design/` with a row per file,
+  the root `README.md` points at `docs/design/` for the design account, and
+  `CLAUDE.md`'s documentation map has a row for it. References to
+  `CLAUDE.md` in the roadmap, ADRs and insights were left as they are,
+  because they are history; the pointer lines are what keep them followable.
+- **Measured and not pursued:** the 40 KB target was approximate. What
+  remains over it is the registry's membership-rule prose (lines ~223–450),
+  which the guard reads and which sits beside the tables it describes.
+- Suite: 4,372 passed and 2 skipped, the same before and after. The two
+  tracked-file guards were run with `docs/design/` staged, because they
+  read `git ls-files` and would otherwise not have seen the new files.
+
+---
 
 ## Session 271: the owner chose the CLAUDE.md review and set its scope
+
+*Its next action, moving CLAUDE.md's design narrative into docs/, was taken by Session 272.*
 
 Documentation only: no code changed, so no restart is owed.
 

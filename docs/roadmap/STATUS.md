@@ -3,6 +3,12 @@
 **Last Updated**: 2026-09-27
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **`CLAUDE.md`'s design narrative lives in `docs/design/` now**
+> (2026-09-27, Session 272). About 3,940 lines of per-session reasoning
+> moved verbatim into one file per domain, and `CLAUDE.md` keeps a pointer
+> line per file. Every session loads `CLAUDE.md`, so each now starts with
+> about a sixth of what it used to read. Documentation only; no restart owed.
+
 > **A finished agent run names the process that ran it** (2026-09-27,
 > Session 270). `_record_outcome` used to replace `details` whole, so the
 > instance stamp the startup sweep reads disappeared the moment a run
@@ -7379,6 +7385,15 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 272 — `CLAUDE.md`'s design narrative moved to `docs/design/` (2026-09-27)
+
+- Fourteen files under `docs/design/`, one per domain, holding lines
+  451–4391 of the old `CLAUDE.md` verbatim.
+- `CLAUDE.md`: 285,504 → 46,237 bytes. The registry tables and their rules
+  stay; a "Design reasoning" section points at each new file.
+- `docs/README.md`, `README.md` and `CLAUDE.md`'s documentation map name
+  the new directory.
 
 ### Session 268 — `GET /api/health` served beside `/health` (2026-09-27)
 

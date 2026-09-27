@@ -8,6 +8,20 @@
 
 ---
 
+## Session 272: `CLAUDE.md`'s design narrative moved to `docs/design/` ✅ (2026-09-27)
+
+The first Maintenance item, as Session 271 scoped it with the owner. Lines
+451–4391 moved verbatim into fourteen domain files under `docs/design/`,
+with one pointer line per file in `CLAUDE.md` naming the modules it
+covers. `CLAUDE.md` is 46,237 bytes and 727 lines, down from 285,504 and
+4,623. The registry tables and their membership rules stayed, because
+`tests/test_claude_md_registry.py` parses them there; `docs/README.md`
+names every new file, because `tests/test_docs_index.py` requires it.
+Verbatim was checked against `HEAD` in both directions. Suite unchanged at
+4,372 passed and 2 skipped.
+
+---
+
 ## Session 266: the 54 stale unticked items re-measured — 20 done, 21 not work, 13 open (2026-09-27)
 
 _Session 263's deferred task and Session 265's next action. Documentation
@@ -14607,7 +14621,7 @@ Config / ops:
 _Not numbered sessions — config/upkeep work that doesn't warrant one.
 Completed maintenance is in the archive._
 
-- [ ] **Move `CLAUDE.md`'s design narrative into `docs/`, leaving a pointer
+- [x] **Move `CLAUDE.md`'s design narrative into `docs/`, leaving a pointer
       per topic.** Asked for by the owner on 2026-09-27 (Session 269) as a
       review of the memory index and `CLAUDE.md`. Session 271 set the scope
       with the owner: `CLAUDE.md` only, with the memory index split out as

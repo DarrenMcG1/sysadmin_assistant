@@ -189,7 +189,8 @@ This is the part that is unusual, and it is meant to be read.
 | [`docs/roadmap/STATUS.md`](docs/roadmap/STATUS.md) | current priorities and recently completed work |
 | [`docs/roadmap/tasks.md`](docs/roadmap/tasks.md) | session-by-session working record |
 | [`docs/roadmap/ideas.md`](docs/roadmap/ideas.md) | unbuilt features, no commitment implied |
-| [`CLAUDE.md`](CLAUDE.md) | working conventions, and the densest single account of why the code is shaped as it is |
+| [`docs/design/`](docs/design/) | the densest account of why the code is shaped as it is, one document per domain |
+| [`CLAUDE.md`](CLAUDE.md) | working conventions and the contract registry |
 
 A few conventions run through all of it, and knowing them makes the entries
 readable:
