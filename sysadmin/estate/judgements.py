@@ -1130,6 +1130,16 @@ WIRING_CHECK = "wiring"
 #: declarations against the file are still theirs.  Which half went, and
 #: why moving the whole check would have restored nothing, is
 #: ``docs/adr/0008-the-file-half-of-the-wiring-check.md``.
+#:
+#: **``pointers`` was proposed and refused on 2026-09-27** (estate message
+#: ``d93a1882``, a recommendation).  Its minter half fails the first
+#: clause as ``docs`` does: the subject is estate-manager's *own* snag
+#: list and the remedy a marker in their entry.  And every finding it can
+#: file is opened by a write *here* — the estate mints above every
+#: ``SNAG-ESTATE-*`` id this repository holds — so judging it would be
+#: this service alerting on its own conduct.  The speaker is
+#: ``tests/test_snag_estate_series_is_closed.py`` instead, at the only
+#: source that can cause it: ``docs/adr/0015-pointers-has-an-owner-and-the-cause-is-here.md``.
 JUDGED_AUDIT_CHECKS: dict[str, str] = {PORTS_CHECK: "breach", WIRING_CHECK: "warn"}
 
 #: The producer's own severity for the ``ports`` check, used as its filter.

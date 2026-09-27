@@ -1,8 +1,76 @@
-# Handoff — 2026-09-27 (Session 263)
+# Handoff — 2026-09-27 (Session 264)
 
 ## Next action
 
-Decide whether the estate's `pointers` audit check joins `JUDGED_AUDIT_CHECKS` under ADR-0006's ownership test, and record the answer either way. *(For: session)*
+Check whether venture-assistant's new failure-line shape (message `5d9a2d03`) forks alert titles here, then close that message with what the check found. *(For: session)*
+
+Their message says each failing record's first line (the only one carrying
+the level prefix) now ends with the exception's first line in brackets.
+The same failure can then produce different exception text, for example a
+different URL or status code. If `log_signature`'s normalisation doesn't
+fold those differences, one fault opens a new row per distinct error text.
+That is `SNAG-AGENT-005`'s pile-up, which the signature title exists to
+end. Their backend has restarted since, so real lines should now be in
+`log_entries`. Read those before reasoning about the regex. It is already
+a task in the Session 263 block of `tasks.md`.
+
+## Session 264 is complete — `pointers` refused under ADR-0006, and the only source of its findings is guarded here
+
+**Decided: `pointers` does not join `JUDGED_AUDIT_CHECKS`.** Recorded as
+`docs/adr/0015-pointers-has-an-owner-and-the-cause-is-here.md`, with a
+pointer at the point of use in `sysadmin/estate/judgements.py`. The owner
+chose *ADR + guard + reply*.
+
+- **It fails ADR-0006's first clause.** The check's minter half
+  (`check_snag_minters`) says in its own docstring that its subject is
+  estate-manager's own `snag_list.md`, and the remedy is a marker in
+  their entry. That's the same clause `docs` failed on 2026-09-12.
+- **Judging it would mean this service judging itself.** Only two
+  repositories define `SNAG-ESTATE-*` ids: the estate (206) and us (15:
+  001–014 and 016). The estate mints above all of ours, so only a write
+  to *our* snag list can open either of its codes. Both windows the
+  estate measured were our commits (`6330e40`, `270e401`).
+- **What speaks instead:** `tests/test_snag_estate_series_is_closed.py`
+  pins our set to those fifteen, read with the estate's own parser
+  (`estate.snags.read_snags`). It fails at `270e401`'s text (added 017)
+  and when 016 is renamed in memory (removed 016). Both directions were
+  run before shipping.
+- **Population today is zero.** Their `pointers.run_check` was run
+  read-only in their venv against the live tree.
+- **Answered at estate-manager** as message
+  `93d3e028-8289-4490-8336-074518121513`, `in_reply_to` `d93a1882`.
+  Nothing is asked of them.
+
+*A measurement corrected on the way.* The list-item regex in this
+repository's memory counts **14** of our ids and **211** of theirs. The
+producer's parser counts **15** and **206**: our `SNAG-ESTATE-016` is an
+archive *table* row, and the estate had already marked it. So the guard
+reads with their parser, not a regex of ours. The memory file is corrected.
+
+*Knock-ons the suite caught:* `docs/README.md`'s ADR index and both
+stated ADR counts (now fifteen), and `tests/document_claims.py`'s
+`NUMBER_WORDS`, which covers only the words the documents use and now
+includes `fifteen`.
+
+*Deployed.* The `judgements.py` comment is comment-only, but the deploy
+check compares mtimes, so the daemon was restarted once at 06:11:40
+after every `sysadmin/` edit. `/health` returned 200 and the deploy check
+read `ok`. Full suite 4362 passed, ruff and mypy clean.
+
+*Rejected:* admitting `pointers` at `warn` (the estate's recommendation);
+admitting it scoped by code or by `detail['repository']`, which changes
+which rows arrive but not whose document the subject is; a preflight
+carrier like `docs`', which would print a collision that already exists
+and give one fact a second speaker. Reasons are in ADR-0015 §5.
+
+*One concern held.* venture-assistant's `5d9a2d03` was noticed at start
+and left as the next action. It was already a task.
+
+---
+
+## Session 263 — four stale open items were done; the `pointers` decision handed off
+
+*Its next action, the `pointers` decision, was taken by Session 264.*
 
 The question is the one unticked item in `tasks.md`'s Session 201 block,
 from estate message `d93a1882` (2026-09-09), which the estate filed as a

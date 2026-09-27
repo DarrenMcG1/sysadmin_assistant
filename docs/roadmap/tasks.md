@@ -8,6 +8,24 @@
 
 ---
 
+## Session 264: `pointers` refused under ADR-0006, and its only source is guarded here (2026-09-27)
+
+_Session 263's next action. The owner chose ADR + guard + reply._
+
+- [x] **Decided and recorded: `pointers` stays out of `JUDGED_AUDIT_CHECKS`**
+      — `docs/adr/0015-pointers-has-an-owner-and-the-cause-is-here.md`.
+      Its minter half checks estate-manager's own snag list, so it fails
+      ADR-0006's first clause, and every finding it can raise is opened by
+      a write to ours.
+- [x] **Guard added**: `tests/test_snag_estate_series_is_closed.py` pins
+      this repository's `SNAG-ESTATE-*` ids to the fifteen the estate
+      marks, read with `estate.snags.read_snags`. Tested in both directions
+      (at `270e401`'s text, and with 016 renamed) before shipping.
+- [x] **Answered the estate**: message
+      `93d3e028-8289-4490-8336-074518121513`, in reply to `d93a1882`.
+
+---
+
 ## Session 263: five stale open items re-measured; four were done and one was not (2026-09-26)
 
 _Session 262's next action left the pick open. This sitting checked the
@@ -31,8 +49,8 @@ as the next action. Documentation only._
       were already done — one of them (`8c6da00e`) was wrong on the day it
       was written — so the rest are likely stale too. Check each against
       the register and the later blocks, and tick only what the evidence
-      shows was done. Leave the 2026-09-28 reading and the `pointers`
-      decision out of it; both are known to be open.
+      shows was done. Leave the 2026-09-28 reading out of it; it is known
+      to be open. (The `pointers` decision was taken by Session 264.)
 - [ ] **Read venture-assistant's message `5d9a2d03` against our log titles,
       then close it.** It arrived at 21:47 on 2026-09-26, after Session
       262's inbox check. From their next backend restart, only a record's
@@ -4154,7 +4172,7 @@ for — so half of it crossed and half deliberately did not._
       estate accepted it and closed the message at 10:43:15 that day,
       having built `in_reply_to` as an optional edge and nothing more —
       `GET /api/estate/messages/{id}` serves `replies` beside the message
-- [ ] **Decide whether `pointers` joins `JUDGED_AUDIT_CHECKS`, and the
+- [x] **Decide whether `pointers` joins `JUDGED_AUDIT_CHECKS`, and the
       deciding clause is the one that looks least likely to transfer.**
       estate message `d93a1882`, filed mid-sitting and **a
       recommendation, never a ruling** — they say so, on the estate rule
@@ -4190,7 +4208,13 @@ for — so half of it crossed and half deliberately did not._
       refuse. Their driver and both reports are committed at
       `docs/adr/drivers/0142-*.py` if the two windows they measured
       (50 minutes on 2026-09-04, 3 minutes on 2026-09-08, ~30 minutes of
-      two sittings' cost) want re-running rather than trusting
+      two sittings' cost) want re-running rather than trusting.
+      **Discharged 2026-09-27 by Session 264: refused**, in
+      `docs/adr/0015-pointers-has-an-owner-and-the-cause-is-here.md`. The
+      minter half's subject is the estate's own snag list (first clause
+      fails), and only a write to ours can open either code, so
+      `tests/test_snag_estate_series_is_closed.py` guards that write
+      instead. Answered as message `93d3e028`
 - [x] **The overdue scheduled reading** — the first Monday under lease,
       `llm_used` on `health_reviews`, `log_reviews` and `disk_reviews`,
       and the grant order in `estate-manager-api`'s journal. Scheduled

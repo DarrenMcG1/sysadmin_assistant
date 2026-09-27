@@ -7351,6 +7351,18 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 264 — `pointers` refused, and its only source guarded here (2026-09-27)
+
+- ADR-0015: the estate's `pointers` audit check does not join
+  `JUDGED_AUDIT_CHECKS`. Its minter half checks estate-manager's own snag
+  list (ADR-0006's first clause fails), and only a write to this
+  repository's snag list can open either of its codes, so judging it would
+  be this service alerting on its own act a day late.
+- `tests/test_snag_estate_series_is_closed.py` pins our fifteen
+  `SNAG-ESTATE-*` ids using the estate's parser, so a new, renamed or
+  removed id fails the suite before the estate's 05:00 run. Answered at
+  estate-manager as message `93d3e028`.
+
 ### Session 262 — a VRAM-held lease names its own cause (2026-09-26)
 
 - `SNAG-GPU-006` closed: under `nothing_granted` the estate judge reads
