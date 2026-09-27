@@ -14479,7 +14479,7 @@ deferred them. Hoisted here 2026-08-05 when Sessions 10–23 were archived,
 so nothing was buried with them.
 
 Conformance (noticed 2026-09-05, Session 175):
-- [ ] **This service does not serve the health path it enforces on
+- [x] **This service does not serve the health path it enforces on
       everyone else.** `GET :8500/api/health` answers **404**; the
       contract in `monitorable-project.md` §2.2 requires it, and
       `units/recommendations.py` emits `url: http://localhost:<port>/api/health`
@@ -14490,6 +14490,7 @@ Conformance (noticed 2026-09-05, Session 175):
       `services.yaml` row points at `/health`
       *(Re-read by Session 266, 2026-09-27, and left open: measured today: `:8500/api/health` returns 404 and `/health` 200. Since estate message `3f2a0e0a` (2026-08-29) the estate's registry marks 8500 `health:legacy`, so the contract records the gap, but the route is still not served.)*
       *(Chosen by the owner on 2026-09-27, Session 267, as the next work: the cheaper half only, adding `/api/health` beside `/health`. The snippet generator's half stays with `SNAG-UNITS-003`.)*
+      *(Done 2026-09-27, Session 268: `GET /api/health` is served by the same handler as `/health`, measured 200 on the restarted daemon, and this service's own `services.yaml` row polls it. `/health` stays for the tray's liveness probe. The access-log exclusion covers both paths. Announced to estate-manager so its registry can drop `health:legacy` from 8500.)*
 - **It is already counted and not separately filed.**
       `SNAG-UNITS-003` measured every hand-written entry on 2026-08-16
       and found `/api/health` correct for **4** of the 11 declaring a

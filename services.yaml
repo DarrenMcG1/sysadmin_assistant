@@ -329,7 +329,7 @@ services:
     name: sysadmin-service
     role: backend
     kind: http
-    url: http://localhost:8500/health
+    url: http://localhost:8500/api/health
     port: 8500
     systemd: { unit: sysadmin.service, scope: system }
     # `format: json` because this daemon logs one JSON document per record,

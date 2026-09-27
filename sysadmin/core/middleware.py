@@ -15,11 +15,14 @@ from starlette.responses import Response
 logger = logging.getLogger("sysadmin.access")
 
 # Paths excluded from access logging:
-#   /health               — high-frequency polling (SNAG-API-002)
+#   /health, /api/health  — high-frequency polling (SNAG-API-002); the
+#                           second is the contract path services.yaml
+#                           polls, so excluding only the first would bring
+#                           the duplicate line back under a new name
 #   /api/sysadmin/events  — long-lived SSE streams; logging them at open
 #                           time is noise, and the whole point of the
 #                           stream is to remove polling log spam
-_EXCLUDED_PATHS = frozenset({"/health", "/api/sysadmin/events"})
+_EXCLUDED_PATHS = frozenset({"/health", "/api/health", "/api/sysadmin/events"})
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):

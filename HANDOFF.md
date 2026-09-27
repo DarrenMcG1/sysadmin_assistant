@@ -1,21 +1,56 @@
-# Handoff — 2026-09-27 (Session 267)
+# Handoff — 2026-09-27 (Session 268)
 
 ## Next action
 
-Add `GET /api/health` beside `/health` on :8500, point our own `services.yaml` row at it, and tell estate-manager so its registry can drop `health:legacy`. *(For: session)*
+Choose the next piece of work from the 12 open tasks; Session 267's runners-up were stamping the instance id on finished runs and capping the disk review. *(For: owner, ~20 min)*
 
-The owner chose this on 2026-09-27 from Session 266's list of 13 open
-tasks. It is the cheaper half of the tasks.md item "This service does
-not serve the health path it enforces on everyone else", and the half
-that is ours alone. The other half, whether the snippet generator in
-`units/recommendations.py` should probe for a health path rather than
-guess `/api/health`, stays with `SNAG-UNITS-003` and is not this line.
-A new route owes a row in CLAUDE.md's contract registry
-(`tests/test_claude_md_registry.py` computes membership), and a restart
-to serve it. The estate message comes after the route is live, citing
-`3f2a0e0a`, the message that marked 8500 `health:legacy`.
+The tasks.md item this sitting closed was one of Session 266's 13, so 12
+remain. None of the three P2 snags has work owed here: the reason is
+unchanged from Session 267's block below, and the GPU reading stays under
+"Scheduled action". Estate message `37ac5331` is open at estate-manager.
+Their closing it (dropping `health:legacy` from 8500 in
+`monitorable-project.md`) needs nothing from this repository.
 
-## Session 267: the owner chose `/api/health` as the next work
+## Session 268: `GET /api/health` served beside `/health`, and our own row polls it
+
+One `sysadmin/` concern, and the restart it owed was paid once: the daemon
+restarted at 2026-09-27 15:59:12. The monitor's first poll of
+`sysadmin-service` after that read `ok`.
+
+- **One handler under both paths**, rather than a second function, so
+  `/health` and `/api/health` cannot answer differently. A test asserts
+  they don't. `/health` was kept because the tray's liveness probe
+  (`sysadmin_tray/client.py`) requests it. Moving the tray was not part of
+  this concern and is not owed.
+- **The access-log exclusion had to move with the route.** `SNAG-API-002`'s
+  exclusion matched `/health` exactly. Repointing `services.yaml` alone
+  would have brought back one structured access line per poll under the
+  new path. On the restarted daemon: 0 lines for `/api/health` against 8
+  for other paths.
+- **Three documents state the route count, and all three moved 51 → 52.**
+  They are CLAUDE.md's contract registry (a new row; the registry guard
+  failed until it existed), README's API table (a new prefix row, 56 with
+  FastAPI's four), and STATUS.md's `<!--check:routes-->` claim. The test
+  count went 4364 → 4369.
+- **Estate-manager was told before the commit**, in message
+  `37ac5331-76d9-45f3-9d05-97a13f4ededc`, in reply to their `3f2a0e0a`.
+  That message had marked 8500 `health:legacy`. It also said their audit
+  check 12 reads our `services.yaml`, so the repointed row is a change to
+  something they read, not only a courtesy.
+- **Found, not caused:** `tests/test_handoff_shape.py` was red on the
+  committed handoff. Session 267's heading contained the word "next", and
+  estate-manager's reader takes the first heading containing "next" as the
+  board line. Fixed by rewording that heading.
+
+*One concern held.* The pre-existing handoff failure was fixed because the
+handoff is rewritten at every close anyway. The snippet generator's
+health-path guess stays with `SNAG-UNITS-003`.
+
+---
+
+## Session 267: the owner chose `/api/health` as the work to take
+
+*Its next action, adding `/api/health`, was done by Session 268.*
 
 Documentation only: no code changed, so no restart is owed.
 

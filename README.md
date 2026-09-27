@@ -93,13 +93,14 @@ them — use `uv sync --all-extras`.
 
 ### API
 
-51 application routes across eight routers (55 including the four FastAPI
+52 application routes across eight routers (56 including the four FastAPI
 generates for its own documentation), counted per method — so a path serving
 both `GET` and `POST` is two:
 
 | Prefix | Routes | What is there |
 |--------|--------|---------------|
-| `/health` | 1 | liveness, unauthenticated |
+| `/health` | 1 | liveness, unauthenticated — the tray's probe |
+| `/api/health` | 1 | the same handler at the monitorable-project contract's path, which `services.yaml` polls |
 | `/api/sysadmin/*` | 18 | services, resources, alerts, DND, SSE events, self-monitor, health review |
 | `/api/files/*` | 15 | audit results, trends, recommendations, clean/organise actions |
 | `/api/logs/*` | 10 | recent entries, stats, trends, ranked advice |

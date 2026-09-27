@@ -177,6 +177,7 @@ Round-trip guarded by `tests/test_contracts.py`.
 | Endpoint | Contract model | Enforcement |
 |----------|----------------|-------------|
 | `GET /health` | `HealthResponse` | response_model |
+| `GET /api/health` | `HealthResponse` | response_model (the contract's path, one handler with `/health`; `services.yaml` polls this one, the tray probes the other) |
 | `GET /api/sysadmin/status` | `StatusResponse` / `ServiceStatus` | response_model |
 | `GET /api/sysadmin/resources` | `ResourceResponse` (+`RamInfo`, `DiskInfo`) | parse-side only (union "no data yet" shape; disk dict→sorted list) |
 | `GET /api/sysadmin/resources/history` | `ResourceHistoryResponse` | response_model |

@@ -163,6 +163,14 @@ class TestRequestLoggingMiddleware:
             assert resp.status_code == 200
             mock_logger.info.assert_not_called()
 
+    async def test_excludes_the_contract_health_path(self, client):
+        """``/api/health`` is the path services.yaml polls, so excluding
+        only ``/health`` would bring SNAG-API-002's line back renamed."""
+        with patch("sysadmin.core.middleware.logger") as mock_logger:
+            resp = await client.get("/api/health")
+            assert resp.status_code == 200
+            mock_logger.info.assert_not_called()
+
     async def test_logs_post_requests(self, client):
         with patch("sysadmin.core.middleware.logger") as mock_logger:
             await client.post("/api/sysadmin/scan-all")
