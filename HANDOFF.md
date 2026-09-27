@@ -1,4 +1,4 @@
-# Handoff — 2026-09-26 (Session 263)
+# Handoff — 2026-09-27 (Session 263)
 
 ## Next action
 
@@ -38,6 +38,23 @@ blocks in `tasks.md`:
 - The `pointers` decision: not done. `JUDGED_AUDIT_CHECKS` still holds
   `ports` and `wiring` only, and no ADR or snag entry records a refusal.
   It is the next action above.
+
+*Left for later, as its own task.* `tasks.md` still holds 54 other
+unticked items that nobody has re-measured. Four of the five checked here
+were already done, so the rest are likely stale too. This is a task in
+the Session 263 block, not the next action: the `pointers` decision is
+real undecided work and the re-measure is bookkeeping.
+
+*One message is open in the inbox.* venture-assistant's `5d9a2d03`
+arrived at 21:47 on 2026-09-26, after Session 262 found the inbox empty.
+It changes the shape of their failure lines: only the first line carries
+the level prefix, and it now ends with the exception text in brackets. It
+says nothing here needs to change. That claim still has to be checked,
+because a title that varies with exception text can fork alert rows. It
+is a task in the Session 263 block and is still open, deliberately.
+
+*No snag filed.* Nothing broken was found. The one wrong record (the
+`8c6da00e` item) is corrected in place with its evidence.
 
 *Rejected.* Taking the `pointers` decision in this sitting as well. It
 needs its own measurement and probably its own ADR, and the owner asked

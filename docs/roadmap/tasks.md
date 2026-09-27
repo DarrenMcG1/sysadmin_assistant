@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-26
+> **Last Updated**: 2026-09-27
 
 ---
 
@@ -26,6 +26,23 @@ as the next action. Documentation only._
       Session 201 block. `JUDGED_AUDIT_CHECKS` still reads `ports` and
       `wiring` only, and no ADR or snag entry records a refusal. It is the
       next action.
+- [ ] **Re-measure the other 54 unticked items in this file the same way.**
+      This sitting checked only the five the handoff pointed at, and four
+      were already done — one of them (`8c6da00e`) was wrong on the day it
+      was written — so the rest are likely stale too. Check each against
+      the register and the later blocks, and tick only what the evidence
+      shows was done. Leave the 2026-09-28 reading and the `pointers`
+      decision out of it; both are known to be open.
+- [ ] **Read venture-assistant's message `5d9a2d03` against our log titles,
+      then close it.** It arrived at 21:47 on 2026-09-26, after Session
+      262's inbox check. From their next backend restart, only a record's
+      first line carries the `<N>` level prefix, and a record with an
+      exception ends that line with the exception's first line in
+      brackets. They say nothing here needs to change. Check that claim
+      against `log_signature`/`alert_title` before closing: a title now
+      varies with the exception text, so one feed failing for two reasons
+      becomes two titles, and an `HTTPStatusError` title carries its URL
+      twice.
 
 ---
 
