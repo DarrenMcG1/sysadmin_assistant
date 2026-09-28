@@ -1,16 +1,49 @@
-# Handoff — 2026-09-28 (Session 276)
+# Handoff — 2026-09-28 (Session 277)
 
 ## Next action
 
-Read estate message de339441: check what estate-manager-api's one-record tracebacks do to the log aggregator's stored rows and alerts, then close it. *(For: session)*
+Choose how SNAG-LOG-019 keeps an ASGI traceback's cause in the stored log row: raise the cap, lift its last line into metadata, or carry it whole. *(For: owner, ~10 min)*
 
-It is recorded as a task under Session 274 in `tasks.md`. The message
-says estate-manager's ADR-0211 now sends an unhandled ASGI exception from
-`estate-manager-api` as **one** priority-3 (error) journal record carrying
-its traceback, where it used to be one priority-6 plain-text record per
-traceback line. Session 256 did the same reading for venture-assistant.
-`SNAG-TEST-014` is no longer a candidate: it is `Open — decided` and owes
-nothing until the popup recurs.
+The entry lists the three options. After any of them a sitting makes the
+change with tests, and restarting `sysadmin.service` to deploy it is owed.
+Until then an unhandled 500 on :8400, or on this daemon, raises an alert
+whose stored row keeps uvicorn's first frames and not the exception line.
+The journal still holds the whole record.
+
+## Session 277: estate-manager-api's one-record tracebacks, read against what we store
+
+No code changed, so no restart is owed.
+
+- **Read estate message `de339441` and closed it.** Estate-manager's
+  ADR-0211 sends an unhandled 500 on :8400 as one priority-3 JSON record
+  with the traceback under `exc_info`. There is no live one yet (the unit
+  last started 11:49 today, no priority-3 records since). Their own probe
+  record from the transient `estate-098-probe` unit was still in the
+  journal. Driven through `unwrap_json_message`, `signature` and
+  `alert_title`, it gives: severity `error` (raises), message
+  `Exception in ASGI application`, title
+  `Log error: estate-manager-api.service — Exception in ASGI application`.
+  So the 2026-09-24 outage's 45 tracebacks would have been 45 rows under
+  **one** alert. That is the shape Session 256 asked venture-assistant for,
+  so nothing is owed on the estate's side.
+- **The finding is ours: `SNAG-LOG-019`.** `raw_line` holds the
+  `journalctl -o json` record cut at 2,000 characters, and `MESSAGE` starts
+  260–1,024 characters in. The probe's three-frame traceback was cut at
+  `RuntimeError: probe 0`. A real one (the 2026-09-24 manifest traceback,
+  rebuilt from its old per-line records) is about 5,600 characters, so only
+  uvicorn's first frames would be kept. Of the 4 stored rows with
+  `exc_info`, the two ASGI tracebacks, both this daemon's own from
+  2026-09-24, lost their exception line. The two short arbiter ones did not.
+- **Not done, and why:** the fix changes what the aggregator keeps, and
+  which envelope field to keep is a choice, so it is the owner's. Putting
+  the exception text in the title was left off the list: every distinct
+  error message would become its own alert.
+- **Also noted, no action:** the message's remark that our own journal
+  publishes uvicorn's `color_message` (36 records in 7 days). The estate
+  said it was an observation, not a request.
+- The other open message, `438b6a67` (the estate's new session notice when
+  a `psql` command reads another repository's rows), was left open. It asks
+  nothing, and it is a second concern.
 
 ## Session 276: the live notification probe waits for Plasma's answer
 

@@ -7387,6 +7387,19 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 277 — estate-manager-api's one-record tracebacks, read against what we store (2026-09-28)
+
+- Read estate message `de339441` (estate-manager's ADR-0211: an unhandled
+  500 on :8400 now arrives as one priority-3 JSON record carrying its
+  traceback) against the log aggregator, using their own probe record
+  from the journal, and closed it. It stores as one `error` row and one
+  alert per open incident, which is the shape Session 256 asked
+  venture-assistant for. Nothing is owed on their side.
+- Found on ours: `SNAG-LOG-019`. `raw_line` is cut at 2,000 characters, so
+  the stored row keeps a traceback's first frames and loses its cause.
+  Two of two stored ASGI tracebacks, both this daemon's own, already show
+  it. No code changed; no restart owed.
+
 ### Session 276 — the live notification probe waits for Plasma's answer (2026-09-28)
 
 - `tests/test_notify_guard_live.py`: the live witness asserts on Plasma's

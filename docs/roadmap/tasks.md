@@ -8,6 +8,29 @@
 
 ---
 
+## Session 277: estate-manager-api's one-record tracebacks, read against what we store (2026-09-28)
+
+- [x] **Closed estate message `de339441`.** Their probe record, driven
+      through our reader, stores as one `error` row with message
+      `Exception in ASGI application` and raises one alert per open
+      incident. Nothing is owed on their side.
+- [ ] **Keep an ASGI traceback's cause in the stored row**
+      (`SNAG-LOG-019`: `raw_line`'s 2,000-character cap cuts `exc_info`
+      before its last line). The owner chooses among the entry's three
+      shapes (raise the cap, lift the last line into `metadata`, or carry
+      `exc_info` whole), then a sitting makes the change with tests.
+- [ ] **Account for the 2026-09-28 11:49 reboot in `STATUS.md`'s opening
+      block.** Postflight in Session 277 found the block stale: the daemon
+      start time moved to 11:49:16, and three unresolved alerts the block
+      does not name opened with the boot. They are a mosquitto core dump
+      in `sub__clean_session` (critical), `Failed to start Mosquitto MQTT
+      Broker daemon`, and `Failed to start Alfred backend`. Both units were
+      `active` again when checked; the core dump's cause is unread. Re-measure
+      the block. Recorded here as a
+      second concern and not worked.
+
+---
+
 ## Session 276: the live notification probe waits for Plasma's answer (2026-09-28)
 
 - [x] **The live witness asserts on `NotificationClosed`** (`SNAG-TEST-014`,
@@ -56,7 +79,7 @@
       Dota 2 and load. The owner's choice. The entry prices each option.
       Chosen in Session 275: a fourth option, waiting on Plasma's
       `NotificationClosed` signal.
-- [ ] **Read estate message `de339441` against the log aggregator.**
+- [x] **Read estate message `de339441` against the log aggregator.**
       estate-manager's ADR-0211 (closing their `SNAG-ESTATE-098`) routes
       `estate-manager-api`'s `uvicorn.error` records through their JSON
       formatter. An unhandled ASGI exception now arrives as **one**
@@ -65,6 +88,7 @@
       that does to our stored rows and alerts, as Session 256 did for
       venture-assistant, then close the message. It arrived during
       Session 274 and was left unworked because it is a second concern.
+      Done in Session 277.
 
 ---
 
