@@ -8,6 +8,29 @@
 
 ---
 
+## Session 279: the 11:49 reboot's three alerts, accounted for (2026-09-28)
+
+- [x] **Read the mosquitto core dump and accounted for the reboot's three
+      alerts in `STATUS.md`.** Both failures were boot-order races, and
+      systemd's first retry healed each about 5 s later. Mosquitto could
+      not bind 192.168.1.2 before `eno1` held it, then segfaulted in its
+      own shutdown path (`sub__clean_session`). Alfred's `alembic upgrade`
+      reached 5432 four seconds before PostgreSQL listened. All three rows
+      closed themselves at 12:06:19.
+- [ ] **Decide whether mosquitto's boot-race core dump should keep
+      raising a `critical` alert.** It has opened and closed on nine boots
+      since 2026-08-17, every time with the bind error beside it and the
+      broker running 5 s later. Noted in Session 279 as a second concern
+      and not worked; which alert rung it deserves is a monitor judgement.
+- [ ] **Tell estate-manager that today's broker crash lost its retained
+      messages.** The start after the 11:49:14 crash restored 0 retained
+      messages and 0 subscriptions, where every earlier boot restored 2 and
+      8. The broker and its boot drop-in are theirs. What the two retained
+      messages were is unread (the database is readable only by the
+      `mosquitto` user). Noted in Session 279 and not filed.
+
+---
+
 ## Session 278: a long traceback keeps its cause in the stored row (2026-09-28)
 
 - [x] **Raised `raw_line`'s cap from 2,000 to 32,000 characters**
@@ -27,7 +50,7 @@
       before its last line). The owner chooses among the entry's three
       shapes (raise the cap, lift the last line into `metadata`, or carry
       `exc_info` whole), then a sitting makes the change with tests.
-- [ ] **Account for the 2026-09-28 11:49 reboot in `STATUS.md`'s opening
+- [x] **Account for the 2026-09-28 11:49 reboot in `STATUS.md`'s opening
       block.** Postflight in Session 277 found the block stale: the daemon
       start time moved to 11:49:16, and three unresolved alerts the block
       does not name opened with the boot. They are a mosquitto core dump
@@ -38,6 +61,7 @@
       second concern and not worked.
       Session 278's restart record replaced the stale start time; the
       three alerts are still unaccounted for.
+      Done in Session 279.
 
 ---
 

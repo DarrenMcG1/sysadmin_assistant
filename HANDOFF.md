@@ -1,16 +1,59 @@
-# Handoff — 2026-09-28 (Session 278)
+# Handoff — 2026-09-28 (Session 279)
 
 ## Next action
 
-Read the mosquitto core dump from the 2026-09-28 11:49 boot, and account for that boot's three unresolved alerts in STATUS.md's opening block. *(For: session)*
+File estate-manager a message that mosquitto's 2026-09-28 11:49 boot crash lost its 2 retained messages and 8 subscriptions. *(For: session)*
 
-It is the one open task in `tasks.md` (Session 277's block). The reboot at
-11:49 today opened three alerts that STATUS.md does not name: a mosquitto
-core dump in `sub__clean_session` (critical), `Failed to start Mosquitto
-MQTT Broker daemon`, and `Failed to start Alfred backend`. Both units were
-active again when Session 277 checked. The core dump's cause is unread.
-The stale daemon start time that task also named is no longer stale:
-Session 278's restart record replaced it.
+It is the second of Session 279's two new tasks in `tasks.md`, and it
+comes first because the loss has already happened: whatever those two
+retained messages were, subscribers joining since 11:49:19 have not
+received them. The broker and its boot drop-in
+(`/etc/systemd/system/mosquitto.service.d/override.conf`) are
+estate-manager's, so the message goes to them and the fix is theirs. The
+other new task, whether the boot-race core dump should still raise a
+`critical` alert, is ours and can wait.
+
+## Session 279: the 11:49 reboot's three alerts, accounted for
+
+Documentation only (`STATUS.md`, `tasks.md`); no `sysadmin/` change, no
+restart owed. The claims checker (`scripts/check-ops-claims.sh`) reads
+15 of 15 `ok` after the edit.
+
+- **Mosquitto's core dump.** `coredumpctl info 1933`: SIGSEGV in
+  `sub__clean_session` ← `context__cleanup` ← `main`. The journal gives
+  the cause: the second listener (`listener 1883 192.168.1.2`) failed
+  with `Cannot assign requested address` because `eno1` did not hold
+  the address yet, and mosquitto 2.1.2 crashed in its own shutdown after
+  "Saving in-memory database". The estate's drop-in (`RestartSec=5s`)
+  restarted it at 11:49:19 and it has run since. The core file itself
+  is unreadable (owned by uid 950), but the stack trace in the journal
+  was enough.
+- **It happens every boot.** The same bind error followed by the same
+  core dump is on all eight boots in the journal since 2026-09-03. On
+  2026-08-22 and 08-23 the bind error happened without a crash. The
+  `dumped core` critical has opened and closed on nine boots since
+  2026-08-17.
+- **New today:** the start after the crash restored 0 retained messages
+  and 0 subscriptions (4 clients). Every earlier crash-then-retry pair
+  restored 2 and 8 both times. So this crash's save lost them, and
+  earlier ones did not. Why it differed is not known.
+- **Alfred.** `alfred-backend`'s `ExecStartPre` (`alembic upgrade head`)
+  ran at 11:49:10 and was refused on 5432. PostgreSQL started at
+  11:49:14. The retry at 11:49:15 worked. Its startup then logged
+  `dynsec identity bootstrap failed (Connection refused)` at 11:49:17,
+  because mosquitto was still two seconds from its retry. Whether Alfred
+  recovers from that on its own was not checked, since that is Alfred's
+  concern. It was restarted at 12:42:33 by something not identified here.
+- **The three alerts were already resolved** at 12:06:19, after the log
+  aggregator's `alert_quiet_minutes: 15`. So the opening block's
+  unresolved count of 3 (disk and two idle-project rows) was right all
+  along. The block now names the three rows in a parenthetical, and a
+  headline at the top of `STATUS.md` gives the causes.
+- **Rejected:** declaring the boot core dump as known noise in this
+  session. It is a real crash in the broker, and demoting it is a
+  judgement about the alert ladder, so it is recorded as a task.
+- **Not done:** reading the two lost retained messages. `mosquitto.db`
+  is readable only by the `mosquitto` user.
 
 ## Session 278: a long traceback keeps its cause in the stored row
 

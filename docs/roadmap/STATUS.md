@@ -3,6 +3,26 @@
 **Last Updated**: 2026-09-28
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The 11:49 reboot's three alerts, accounted for** (2026-09-28, Session
+> 279). Each one was a boot-order race that systemd's first retry healed
+> about 5 seconds later, and all three closed on their own at 12:06:19,
+> after the log aggregator's 15-minute quiet window. Mosquitto started
+> before `eno1` held 192.168.1.2 and got `Cannot assign requested
+> address` binding that listener. It then crashed on the way out, in
+> `sub__clean_session` during `context__cleanup` (a segfault in 2.1.2's
+> error-path teardown, after the database save). That raised the
+> critical `dumped core` alert and the `Failed to start` warning. It
+> came up at 11:49:19. Alfred's backend ran its `alembic upgrade`
+> at 11:49:10, four seconds before PostgreSQL was listening, was refused
+> on 5432, and started at 11:49:16. **This is not new:** the same
+> core dump follows the same bind error on every boot in the journal
+> since 2026-09-03, eight of them, and the critical alert has opened and
+> closed on nine boots since 2026-08-17. **One thing was new today:** the
+> start after the crash restored 0 retained messages and 0 subscriptions,
+> where every earlier boot restored 2 and 8. That is recorded for the
+> broker's owner, estate-manager, not worked here. Documentation only;
+> no restart owed.
+
 > **A long traceback keeps its cause in the stored log row** (2026-09-28,
 > Session 278, `SNAG-LOG-019`). `raw_line`, the journal record kept beside
 > each log row as evidence, was cut at 2,000 characters, which dropped a
@@ -6853,6 +6873,16 @@
 > named here <!--check:open_titles-->.
 > *(`Project InvestingAssistant next action idle` resolved at 2026-09-28
 > 05:26:33.)*
+> *(The 11:49 reboot opened three rows at 11:50:19, mosquitto's
+> `dumped core` critical and its `Failed to start` warning and Alfred's
+> `Failed to start` warning, and all three resolved at 12:06:19 by the
+> 15-minute quiet window. Both units had come up on their first retry;
+> the headline at the top of this file has the causes.)*
+> *(`alfred-evaluate-frequent-timer critical` opened at 15:56:48 while
+> Session 279 was writing this and resolved at 16:01:51. It was one
+> failed evaluator run at 15:55, `NameError:
+> CareerPracticeResurfaceEvent`, which looks like Alfred's code read
+> mid-edit. The 16:00 run succeeded. Alfred's to look at, if it recurs.)*
 > *(The unit-sweep row `Unmonitored systemd units: 5 findings`, opened
 > 2026-09-26 00:07 when estate-manager's `estate-manager-scan-check.timer`
 > went live undeclared, resolved at 21:11:20 — the first sweep after
@@ -7395,6 +7425,15 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 279 — the 11:49 reboot's three alerts, accounted for (2026-09-28)
+
+- Read mosquitto's core dump: a `Cannot assign requested address` on the
+  192.168.1.2 listener at boot, then a segfault in `sub__clean_session`
+  on the way out. It is the same pair on every boot since 2026-09-03.
+  Alfred's backend reached PostgreSQL four seconds early. Both came up
+  on the first retry, and the three alerts had closed on their own at
+  12:06:19. Named in the opening block. Documentation only.
 
 ### Session 278 — a long traceback keeps its cause in the stored row (2026-09-28)
 
