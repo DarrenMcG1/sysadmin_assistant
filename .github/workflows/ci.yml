@@ -11,8 +11,27 @@ jobs:
     env:
       # PyQt6 tray tests run headless
       QT_QPA_PLATFORM: offscreen
+    # pyproject.toml resolves estate-lib at ../estate-manager/lib, and
+    # actions/checkout will not write outside the workspace, so both
+    # repositories are checked out as siblings inside it (SNAG-TEST-015).
+    defaults:
+      run:
+        working-directory: sysadmin_assistant
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: sysadmin_assistant
+
+      # estate-manager is private. The secret is the private half of a
+      # read-only deploy key on that repository and reads nothing else;
+      # pull requests from forks are not given it.
+      - name: Check out estate-manager beside this repository
+        uses: actions/checkout@v4
+        with:
+          repository: DarrenMcG1/estate-manager
+          path: estate-manager
+          ssh-key: ${{ secrets.ESTATE_MANAGER_DEPLOY_KEY }}
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -29,10 +48,20 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev --extra tray
 
+      # The cross-repo pins skip only when the estate-manager tree is
+      # absent; with it present they need estate_service importable, as it
+      # is on the box. It is in no lockfile, so it goes in the way the box
+      # installs it, and the steps below run with --no-sync.
+      - name: Install estate_service for the cross-repo pins
+        run: uv pip install --no-deps -e ../estate-manager/service
+
       - name: Ruff
-        run: uv run ruff check .
+        run: uv run --no-sync ruff check .
 
       - name: Pytest
-        # The schema drift guard (tests/test_schema_drift.py) skips itself
-        # when the local postgres is unreachable, so no DB service is needed.
-        run: uv run pytest
+        # Still red (SNAG-TEST-015): about 80 tests read the box itself (the
+        # projects database's rows, ~/.claude/settings.json, the unit's
+        # WorkingDirectory) and fail rather than skip without it, and the
+        # estate-manager checked out here is what has been pushed, not what
+        # the box runs. A database service would not help the first group.
+        run: uv run --no-sync pytest
