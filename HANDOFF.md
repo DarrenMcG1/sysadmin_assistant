@@ -1,18 +1,63 @@
-# Handoff — 2026-09-27 (Session 273)
+# Handoff — 2026-09-28 (Session 274)
 
 ## Next action
 
-Find out why the live notification test's probe stays in Plasma's history after its close call, by sending it once with the owner watching. *(For: session)*
+Choose whether the probe popup that outlived its close under fullscreen Dota 2 waits for a recurrence, gets a delayed second close, or is reproduced. *(For: owner, ~5 min)*
 
-The owner saw the probe in Plasma's notification list again, and the full
-suite runs at every session close, so it costs them one entry per sitting.
-The snag list records it as `SNAG-TEST-014`: the test's cleanup counts
-`CloseNotification` returning 0 as the notification being gone. The
-leading hypothesis, still unmeasured, is that Plasma keeps a closed
-critical notification in its history. The entry names the observation
-that decides it, and that observation needs the owner at the screen.
+Three runs with the owner watching left nothing on screen, so the probe
+can't be reproduced on demand. The one known survivor happened under
+conditions none of those runs had. The snag list entry `SNAG-TEST-014`
+prices each option. Waiting costs nothing until the probe recurs. A second
+close costs a few lines, but is unevidenced. Reproducing it costs the
+owner a game session.
+
+## Session 274: the notification probe's history hypothesis, falsified
+
+Measurement and documentation only. No code changed, so no restart is owed.
+
+- **The probe was sent three times with the owner watching**: the test
+  alone; the full suite through `check-vacuous-guards.sh`, exactly as
+  postflight calls it; and the test alone under a focused fullscreen
+  window. The owner saw neither a popup nor a history entry any of the
+  three times. `dbus-monitor` showed the same each time: the close went to
+  the returned id 18–29 ms after the send, and Plasma answered with
+  `NotificationClosed` reason 3 ("closed by a call to CloseNotification").
+- **Plasma's own source agrees.** In plasma-workspace v6.7.4, only an
+  *expired* notification stays in history. A close from the app always
+  removes the row, and nothing in the close path depends on Do Not Disturb
+  or fullscreen. So the hypothesis that Plasma keeps closed critical
+  notifications in history is false both on screen and in the source.
+- **Yesterday's residue was a live popup, not a history entry.** The owner
+  said it was floating on screen, and a critical popup never expires, so
+  "15 min ago" was the popup's own header. The transcripts place its send
+  at Session 271's first postflight, about 19:31 BST, a green run whose
+  close was made. At that moment Dota 2 was fullscreen and focused, and an
+  Alfred benchmark was loading the box.
+- **Not reproduced.** An ordinary fullscreen window didn't bring it back.
+  Dota 2 and the load were each present in none of the runs. The source
+  offers no mechanism for a popup to outlive a close, so the fault may be
+  in Plasma or KWin. That is inferred, not measured.
+- **Rejected:** the `transient` hint the entry proposed. It keeps an entry
+  out of history, and the survivor was a popup. Also rejected: asking the
+  owner to reproduce under Dota 2 tonight, because that is their choice to
+  make, not an experiment to spring on them.
+- **Corrected in the entry:** its cost ("at least one per session", which
+  tonight's postflight-shaped run disproved) and its status word
+  (`unmeasured` is not one of the parser's four dispositions).
+
+*One concern held.* Estate message `de339441`, about `estate-manager-api`'s
+journal changing shape, arrived at session start. It was recorded as a
+task under Session 274 in `tasks.md` and not worked. Postflight also
+flagged `STATUS.md`'s unresolved-alert count: it says 4 and the box has
+3, because "Unusual CPU usage", which the block already marks as
+flapping, had resolved at the time. The count moves with the alert, so it
+was left alone.
+
+---
 
 ## Session 273: the memory index given back its headroom
+
+*Its next action, finding out why the notification probe stays on screen, was taken by Session 274.*
 
 Memory-directory maintenance only. No code or tracked source changed, so
 no restart is owed.

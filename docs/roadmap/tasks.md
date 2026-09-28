@@ -4,7 +4,32 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-27
+> **Last Updated**: 2026-09-28
+
+---
+
+## Session 274: the notification probe's history hypothesis, falsified on the owner's screen (2026-09-28)
+
+- [x] **Sent the live witness's probe three times with the owner
+      watching** (`SNAG-TEST-014`, the entry for the probe popup that
+      stayed on the owner's screen): the test alone, the full suite exactly
+      as postflight runs it, and the test under a focused fullscreen
+      window. The owner saw nothing left behind any of the three times,
+      and the plasma-workspace 6.7.4 source removes a closed notification
+      from history too. The 2026-09-27 residue was a live popup under
+      fullscreen Dota 2 with the box under load. It was not reproduced.
+- [ ] **Choose how `SNAG-TEST-014` is handled**: wait for a recurrence,
+      add a delayed second `CloseNotification`, or reproduce it under
+      Dota 2 and load. The owner's choice. The entry prices each option.
+- [ ] **Read estate message `de339441` against the log aggregator.**
+      estate-manager's ADR-0211 (closing their `SNAG-ESTATE-098`) routes
+      `estate-manager-api`'s `uvicorn.error` records through their JSON
+      formatter. An unhandled ASGI exception now arrives as **one**
+      priority-3 record carrying its traceback, where until now it arrived
+      as one priority-6 plain-text record per traceback line. Check what
+      that does to our stored rows and alerts, as Session 256 did for
+      venture-assistant, then close the message. It arrived during
+      Session 274 and was left unworked because it is a second concern.
 
 ---
 
