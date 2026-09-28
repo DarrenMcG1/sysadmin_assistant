@@ -1,17 +1,47 @@
-# Handoff — 2026-09-28 (Session 274)
+# Handoff — 2026-09-28 (Session 275)
 
 ## Next action
 
-Choose whether the probe popup that outlived its close under fullscreen Dota 2 waits for a recurrence, gets a delayed second close, or is reproduced. *(For: owner, ~5 min)*
+Make the live notification test wait for Plasma's NotificationClosed signal, sending one more close and recording which happened if the signal does not come. *(For: session)*
 
-Three runs with the owner watching left nothing on screen, so the probe
-can't be reproduced on demand. The one known survivor happened under
-conditions none of those runs had. The snag list entry `SNAG-TEST-014`
-prices each option. Waiting costs nothing until the probe recurs. A second
-close costs a few lines, but is unevidenced. Reproducing it costs the
-owner a game session.
+The owner chose this for `SNAG-TEST-014`, the probe popup that stayed on
+screen under fullscreen Dota 2. The change is in
+`tests/test_notify_guard_live.py`, and the task under Session 275 in
+`tasks.md` spells it out. Once it lands, a recurrence tells two failures
+apart that look identical today: Plasma losing the close, or the popup
+staying after a close Plasma accepted.
+
+## Session 275: the owner chose how the surviving probe popup is handled
+
+A decision sitting only. No code changed, so no restart is owed.
+
+- **Chosen: a fourth option, not one of the three the entry priced.**
+  The test waits for `NotificationClosed`. If the signal does not come
+  within a bound, it sends one more `CloseNotification`, and it records
+  the outcome somewhere that outlives the pytest run. This keeps
+  option (a)'s "wait for a recurrence", but with the capture set up
+  first. Today the pytest output is not kept, so a bare recurrence would
+  have shown the popup and nothing else. It also keeps (b)'s second
+  close, sent only when the first close shows no sign of working.
+- **Why the signal:** Session 274 saw Plasma send it 18–29 ms after
+  every close that worked. It is Plasma's own report that the
+  notification is gone, and it closes the gap the entry names: the test
+  asserted `busctl`'s exit status, not the effect.
+- **Rejected:** a blind delayed second close, because Plasma's source
+  says it does nothing when the first close worked, and if it hid the
+  fault nothing would be learned. Also rejected: reproducing under Dota 2,
+  because it costs the owner a game session, and the signal will tell
+  the two failures apart at the next recurrence without one.
+
+*One concern held.* Nothing stacked. Estate message `de339441` (about
+`estate-manager-api`'s journal changing shape) is still open and still
+recorded as a task under Session 274.
+
+---
 
 ## Session 274: the notification probe's history hypothesis, falsified
+
+*Its next action, the owner's choice for `SNAG-TEST-014`, was taken by Session 275.*
 
 Measurement and documentation only. No code changed, so no restart is owed.
 

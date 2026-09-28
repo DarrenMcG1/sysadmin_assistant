@@ -8,6 +8,26 @@
 
 ---
 
+## Session 275: the owner chose how the surviving probe popup is handled (2026-09-28)
+
+- [x] **The owner chose how `SNAG-TEST-014` is handled** (the entry for
+      the probe popup that stayed on screen under fullscreen Dota 2). They
+      chose a fourth option offered alongside the entry's three: the test
+      waits for Plasma's `NotificationClosed` signal instead of trusting
+      the close call's exit status.
+- [ ] **Make the live witness wait for `NotificationClosed`**
+      (`SNAG-TEST-014`) in `tests/test_notify_guard_live.py`. Watch the
+      session bus for Plasma's `NotificationClosed` for the returned id
+      after `_close_notification`. If it does not arrive within a bound,
+      send one more `CloseNotification` and wait again. Record which
+      happened, with timestamps and the id, somewhere that outlives the
+      pytest run. Assert on the signal rather than on `busctl`'s return
+      code. A recurrence then shows whether Plasma lost the close (no
+      signal) or the popup stayed after a close Plasma accepted (signal
+      sent, popup still on screen).
+
+---
+
 ## Session 274: the notification probe's history hypothesis, falsified on the owner's screen (2026-09-28)
 
 - [x] **Sent the live witness's probe three times with the owner
@@ -18,9 +38,11 @@
       and the plasma-workspace 6.7.4 source removes a closed notification
       from history too. The 2026-09-27 residue was a live popup under
       fullscreen Dota 2 with the box under load. It was not reproduced.
-- [ ] **Choose how `SNAG-TEST-014` is handled**: wait for a recurrence,
+- [x] **Choose how `SNAG-TEST-014` is handled**: wait for a recurrence,
       add a delayed second `CloseNotification`, or reproduce it under
       Dota 2 and load. The owner's choice. The entry prices each option.
+      Chosen in Session 275: a fourth option, waiting on Plasma's
+      `NotificationClosed` signal.
 - [ ] **Read estate message `de339441` against the log aggregator.**
       estate-manager's ADR-0211 (closing their `SNAG-ESTATE-098`) routes
       `estate-manager-api`'s `uvicorn.error` records through their JSON
