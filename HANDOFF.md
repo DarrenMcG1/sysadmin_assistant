@@ -1,6 +1,34 @@
-# Handoff — 2026-09-28 (Session 282)
+# Handoff — 2026-09-28 (Session 283)
 
 ## Next action
+
+Answer web/cv's message `17758da4` by declaring `stack:` and `features:` in `.project.yaml`, as the first unticked task in tasks.md asks. *(For: session)*
+
+The CV will generate this project's line from the estate and drop any
+stack item the list leaves out, so the list must be complete and true.
+Each feature needs a status and its commits. The file tailer is built
+but reads nothing, so it is probably `prototype`. Close `17758da4` when
+done. The owner task beneath it (re-assert the boot default) needs root.
+
+## Session 283: the rule-1 psql notice, read and closed
+
+Documentation only (`tasks.md`, `STATUS.md`, this file); no `sysadmin/`
+change, no restart owed.
+
+- **Closed `438b6a67`.** Nothing in the tree reads another repository's
+  database. The service connects only to `projects`, schema `sysadmin`.
+  The one psql in the tree, `scripts/install.sh`, lists that schema's
+  tables. The two reads of the `estate` database it named (2026-09-09,
+  2026-09-11) were ad-hoc session commands, and the memory already
+  refuses `psql -X -d estate`.
+- **The notice fires on prose.** It is a text match, as the message
+  says. A heredoc in this session with "psql" and "from sessions" in
+  English text made it report a read of `estate`. No SQL ran. Not filed,
+  because the sender already states the limitation.
+- **Stacked and recorded, not worked:** web/cv's message `17758da4`
+  arrived today. It is a task in tasks.md and the next action above.
+
+### What Session 282 handed on (done in Session 283)
 
 Read estate message `438b6a67` (the rule-1 psql session notice) whole and close it, as the first unticked task in tasks.md asks. *(For: session)*
 

@@ -7450,6 +7450,15 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 283 — the rule-1 psql notice, read and closed (2026-09-28)
+
+- Read and closed estate-manager's message `438b6a67`, which announces a
+  warning to any session whose psql names another repository's rows
+  (estate rule 1). The service and its scripts touch only schema
+  `sysadmin`; the two reads it named were sessions, not code. Web/cv's
+  request to declare `stack:` and `features:` arrived the same day and
+  is a task. Documentation only.
+
 ### Session 279 — the 11:49 reboot's three alerts, accounted for (2026-09-28)
 
 - Read mosquitto's core dump: a `Cannot assign requested address` on the

@@ -8,6 +8,34 @@
 
 ---
 
+## Session 283: the rule-1 psql notice, read and closed (2026-09-28)
+
+Estate-manager's notice (estate rule 1: no application reads another
+application's database) now warns any session whose psql names another
+repository's rows. It named two ad-hoc reads of the `estate` database
+from sessions here, on 2026-09-09 and 2026-09-11. Documentation only; no
+restart owed.
+
+- [x] **Closed estate message `438b6a67`.** Nothing in the tree opens
+      another repository's database: the service connects only to
+      `projects`, schema `sysadmin` (`config.yaml` `database:`), and the
+      one psql in the tree, `scripts/install.sh`, lists that schema's
+      tables. The two flagged reads were sessions, not code, and the
+      memory `a-message-names-what-the-sender-could-see` already refuses
+      `psql -X -d estate`. Estate data is read through `:8400`.
+- [ ] **Answer web/cv's message `17758da4`: declare `stack:` and
+      `features:` in `.project.yaml`.** The CV wants its line for this
+      project generated from the estate (estate-manager ADR-0197 for
+      `stack:`, ADR-0199 for `features:`) instead of hand-typed. List every
+      stack item that is true, since the CV drops any printed item the
+      list leaves out. Give each feature a status and its commits. Their
+      fact-check found the byte-offset file tailer built but reading
+      nothing, so decide whether it is `prototype`. Worked examples:
+      web/cv's `.project.yaml` (commit 4456fb4) and estate-manager's.
+      Arrived during Session 283 and not worked there.
+
+---
+
 ## Session 282: the fourth Monday's reading — the lease was granted and the LLM answered (2026-09-28)
 
 Took the dated reading Session 244 set for today. Neither branch that task
@@ -37,7 +65,7 @@ nothing to chase. Documentation only; no restart owed.
       20:43:01 (22 days); `context_lost` false on all 10,900 stored
       readings. The 11:49 reboot moved the box from `6.18.49-2-lts` to
       `7.2.7-arch1-1`; both reset spellings are declared.
-- [ ] **Read estate message `438b6a67` whole and close it.** It announces
+- [x] **Read estate message `438b6a67` whole and close it.** It announces
       the estate's rule-1 session notice (a psql command naming another
       repository's database or schema now warns at the call). Left unread by
       Sessions 281 and 282, each holding another concern.
