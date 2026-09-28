@@ -8,13 +8,21 @@
 
 ---
 
+## Session 278: a long traceback keeps its cause in the stored row (2026-09-28)
+
+- [x] **Raised `raw_line`'s cap from 2,000 to 32,000 characters**
+      (`SNAG-LOG-019`, the owner's choice of the entry's three shapes).
+      One constant, `STORED_RAW_LINE_CHARS` in `monitor/journal.py`, now
+      used at the three places the literal stood. Tests in
+      `tests/test_raw_line_cap.py`; the daemon was restarted to deploy it.
+
 ## Session 277: estate-manager-api's one-record tracebacks, read against what we store (2026-09-28)
 
 - [x] **Closed estate message `de339441`.** Their probe record, driven
       through our reader, stores as one `error` row with message
       `Exception in ASGI application` and raises one alert per open
       incident. Nothing is owed on their side.
-- [ ] **Keep an ASGI traceback's cause in the stored row**
+- [x] **Keep an ASGI traceback's cause in the stored row**
       (`SNAG-LOG-019`: `raw_line`'s 2,000-character cap cuts `exc_info`
       before its last line). The owner chooses among the entry's three
       shapes (raise the cap, lift the last line into `metadata`, or carry
@@ -28,6 +36,8 @@
       `active` again when checked; the core dump's cause is unread. Re-measure
       the block. Recorded here as a
       second concern and not worked.
+      Session 278's restart record replaced the stale start time; the
+      three alerts are still unaccounted for.
 
 ---
 

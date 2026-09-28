@@ -449,9 +449,8 @@ class TestDeclaredFormatIsHonouredByReadJournal:
         Asserted by *recovering* the envelope rather than by substring:
         ``raw_line`` is the journalctl record, so the envelope is nested
         inside it JSON-escaped, and a naive ``in`` test passes for the
-        wrong reasons or fails for none. It also pins the truncation —
-        an envelope past ``raw_line``'s 2000 characters is not recoverable
-        and this asserts the case where it is.
+        wrong reasons or fails for none. The long case, an envelope past
+        the old 2000 cap, is ``tests/test_raw_line_cap.py``.
         """
         with patch(
             "sysadmin.monitor.journal._run",

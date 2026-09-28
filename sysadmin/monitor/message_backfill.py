@@ -203,8 +203,9 @@ def json_declared_sources(agent_config: Any) -> tuple[str, ...]:
 def record_message(raw_line: str | None) -> str | None:
     """The journal record's own ``MESSAGE``, or ``None`` if unreadable.
 
-    ``None`` covers an absent ``raw_line`` and one cut at 2000 characters —
-    the truncation the entry names.  It is a *refusal*, never a fallback:
+    ``None`` covers an absent ``raw_line`` and one cut at its cap — the
+    truncation the entry names.  The cap was 2000 until ``SNAG-LOG-019``
+    raised it, and rows stored before then keep that cut.  It is a *refusal*, never a fallback:
     the caller has no evidence either way, and rule 2's whole point is that
     guessing here double-unwraps a row whose real message is a document.
     """

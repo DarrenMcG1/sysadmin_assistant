@@ -20,6 +20,21 @@ logger = logging.getLogger(__name__)
 #: (``SNAG-AGENT-005``).
 DEFAULT_READ_LIMIT = 500
 
+#: The cap on ``raw_line``, the journalctl record kept as evidence.
+#:
+#: It was 2000 until ``SNAG-LOG-019``, and that cut the one line a
+#: traceback exists for.  A ``format: json`` record's ``MESSAGE`` starts
+#: 260–1,024 characters in, after systemd's own fields, and its
+#: ``exc_info`` is escaped twice inside it, so a 2000 cap kept about
+#: 1,000 characters of traceback — and the cause is the **last** line.
+#: The 2026-09-24 manifest outage's traceback was about 5,600 characters.
+#:
+#: Measured over 30 days of ``-p 4`` records on 2026-09-28: 416 exceeded
+#: 2000 and the longest was 7,702, excluding ``systemd-coredump``, whose
+#: records reach 357,717 and are what this cap still bounds.  The column
+#: is ``text``, so the number is a budget, not a schema.
+STORED_RAW_LINE_CHARS = 32_000
+
 
 @dataclass(frozen=True)
 class JournalRead:
@@ -220,7 +235,9 @@ def unwrap_json_message(text: str) -> tuple[str, dict[str, str]]:
     3. **The envelope is not lost.**  ``raw_line`` still holds the
        journalctl record verbatim, so ``exc_info`` and every other field
        stays one query away.  The unwrap changes what the *identity* is
-       built from, not what is kept.
+       built from, not what is kept.  That held only for short records
+       until :data:`STORED_RAW_LINE_CHARS` replaced a 2000 cap that cut a
+       traceback before its exception line (``SNAG-LOG-019``).
     4. **``logger`` is carried into metadata and not into the title.**
        Measured over the 723 real ``ERROR`` lines this daemon has
        written: the title goes from 6 distinct values of 242–253
@@ -466,7 +483,7 @@ async def read_journal(
                 # The journalctl record verbatim, envelope and all — so the
                 # unwrap above changes what the identity is built from and
                 # never what is retained.
-                "raw_line": line[:2000],
+                "raw_line": line[:STORED_RAW_LINE_CHARS],
                 "metadata": {
                     "pid": data.get("_PID"),
                     "hostname": data.get("_HOSTNAME"),

@@ -28,8 +28,11 @@ which is a fact about the box and not about the code.
 
 The one branch with no production population is ``unrecoverable``: it
 needs a ``message`` cut at its stored cap beside a ``raw_line`` that
-still parses, and ``raw_line``'s cap is 2000 against the message's 5000,
-so the record is lost first.  It is driven synthetically and said to be
+still parses, and ``raw_line``'s cap was 2000 against the message's 5000,
+so the record was lost first.  ``SNAG-LOG-019`` raised that cap to 32,000
+on 2026-09-28, so the branch is reachable for rows stored after it — but
+only for a ``text``-declared source logging a document over 5,000
+characters.  It is driven synthetically and said to be
 synthetic rather than left unexercised, because it decides an exit
 status.
 """

@@ -1,14 +1,53 @@
-# Handoff — 2026-09-28 (Session 277)
+# Handoff — 2026-09-28 (Session 278)
 
 ## Next action
 
-Choose how SNAG-LOG-019 keeps an ASGI traceback's cause in the stored log row: raise the cap, lift its last line into metadata, or carry it whole. *(For: owner, ~10 min)*
+Read the mosquitto core dump from the 2026-09-28 11:49 boot, and account for that boot's three unresolved alerts in STATUS.md's opening block. *(For: session)*
 
-The entry lists the three options. After any of them a sitting makes the
-change with tests, and restarting `sysadmin.service` to deploy it is owed.
-Until then an unhandled 500 on :8400, or on this daemon, raises an alert
-whose stored row keeps uvicorn's first frames and not the exception line.
-The journal still holds the whole record.
+It is the one open task in `tasks.md` (Session 277's block). The reboot at
+11:49 today opened three alerts that STATUS.md does not name: a mosquitto
+core dump in `sub__clean_session` (critical), `Failed to start Mosquitto
+MQTT Broker daemon`, and `Failed to start Alfred backend`. Both units were
+active again when Session 277 checked. The core dump's cause is unread.
+The stale daemon start time that task also named is no longer stale:
+Session 278's restart record replaced it.
+
+## Session 278: a long traceback keeps its cause in the stored row
+
+One `sysadmin/` change, deployed: daemon restarted at 2026-09-28 15:06:45.
+
+- **The owner chose shape (a) for `SNAG-LOG-019`: raise the cap.** The
+  other two were lifting the exception line into `metadata`, or copying
+  `exc_info` whole into `metadata`. (a) was recommended because it is the
+  only one that makes `unwrap_json_message`'s rule 3 ("the envelope is
+  kept in `raw_line`") true again, with one constant and no migration
+  (`raw_line` is `text`). (c) would store the same text twice. (b) is still
+  open as an addition if a readable cause field is ever wanted; it was
+  not recorded as a task, because nobody has asked for it.
+- **The cap is 32,000, measured, not guessed.** Over 30 days of `-p 4`
+  journal records, 416 exceeded 2,000 and the longest was 7,702, leaving
+  out `systemd-coredump`, whose records reach 357,717. The cap exists now
+  for those. It is `STORED_RAW_LINE_CHARS` in `monitor/journal.py` and is
+  used at the three places the literal `2000` stood: the journal read,
+  the aggregator's row (the cut that reaches the table) and a file
+  source's line.
+- **Tests:** `tests/test_raw_line_cap.py`, 5 tests. The record is built
+  the way the box writes one (about 1,000 characters of systemd fields
+  before `MESSAGE`, a 5,600-character traceback), and the exception line
+  is recovered by parsing. With the constant set back to 2000, three of
+  the five fail, including the aggregator's own cut tested on its own.
+  Full suite 4,386 passed, 2 skipped; ruff and mypy clean.
+- **Knock-on, prose only:** `message_backfill`'s "unrecoverable" branch
+  (a `message` cut at 5,000 beside a `raw_line` that still parses) had no
+  possible production case while `raw_line` was the shorter of the two.
+  It now has one, for rows stored after today. The classification is
+  still right; three docstrings that stated the old cap as present fact
+  were corrected.
+- **Not done:** rows stored before today keep their 2,000 cut, and no
+  backfill was attempted. The journal still holds the whole records, and
+  only 18 of about 1.2 M stored rows were at the cap.
+- No live long record has arrived since the restart (0 rows ingested in
+  the first minutes), so the fix is shown by the tests, not yet on a stored row.
 
 ## Session 277: estate-manager-api's one-record tracebacks, read against what we store
 

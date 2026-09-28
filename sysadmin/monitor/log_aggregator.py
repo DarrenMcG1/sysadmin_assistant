@@ -34,6 +34,7 @@ from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.text import truncate_at_word
 from sysadmin.core.unit_failure import OWN_UNIT
 from sysadmin.monitor.journal import (
+    STORED_RAW_LINE_CHARS,
     JournalRead,
     admits,
     read_journal,
@@ -83,8 +84,9 @@ NOISE_SEVERITY = "info"
 #: restart has already ingested it.  Truncating at two different lengths
 #: would make every message longer than the smaller one compare unequal to
 #: itself and re-ingest on every restart — ``SNAG-LOG-007`` rebuilt by the
-#: fix for ``SNAG-LOG-007``.  ``raw_line`` keeps its own separate cap: it is
-#: retained as evidence and nothing compares against it.
+#: fix for ``SNAG-LOG-007``.  ``raw_line`` keeps its own separate cap,
+#: :data:`~sysadmin.monitor.journal.STORED_RAW_LINE_CHARS`: it is retained
+#: as evidence and nothing compares against it.
 STORED_MESSAGE_CHARS = 5000
 
 #: Fault signatures a **different alert family already owns**, mapped to
@@ -830,7 +832,7 @@ class LogAggregatorAgent(BaseAgent):
                     source=entry["source"],
                     severity=entry["severity"],
                     message=entry["message"][:STORED_MESSAGE_CHARS],
-                    raw_line=entry.get("raw_line", "")[:2000],
+                    raw_line=entry.get("raw_line", "")[:STORED_RAW_LINE_CHARS],
                     metadata_=entry.get("metadata", {}),
                     logged_at=entry["logged_at"],
                 )
@@ -1472,6 +1474,6 @@ class LogAggregatorAgent(BaseAgent):
             "severity": severity,
             "message": line[:5000],
             "logged_at": datetime.now(UTC),
-            "raw_line": line[:2000],
+            "raw_line": line[:STORED_RAW_LINE_CHARS],
             "metadata": {},
         }

@@ -79,8 +79,9 @@ class TestTheWitness:
         The two have opposite remedies — one is "leave it alone, it is
         correct", the other is "this could not be measured" — and a
         predicate that collapsed them would serve zero-because-blind as
-        zero-because-clean.  A ``raw_line`` cut at 2000 characters is the
-        reachable case and lands here.
+        zero-because-clean.  A ``raw_line`` cut at its cap is the
+        reachable case and lands here — every row stored before
+        ``SNAG-LOG-019`` raised it from 2000.
         """
         assert never_unwrapped(ENVELOPE, journal_record(ENVELOPE)[:2000][:120]) is None
         assert never_unwrapped(ENVELOPE, None) is None
