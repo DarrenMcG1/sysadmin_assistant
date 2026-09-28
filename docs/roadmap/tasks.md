@@ -8,6 +8,19 @@
 
 ---
 
+## Session 276: the live notification probe waits for Plasma's answer (2026-09-28)
+
+- [x] **The live witness asserts on `NotificationClosed`** (`SNAG-TEST-014`,
+      the probe popup that stayed on screen). `dbus-monitor` is attached
+      before the send and its attachment is asserted first. A second
+      `CloseNotification` goes only when the first is unanswered within
+      3 s. Every live run is appended to
+      `~/.local/state/sysadmin_assistant/notify-probe.jsonl`. First live
+      runs: `closed`, answered in 7.8–10.2 ms. The entry is now
+      `Open — decided` until the popup recurs.
+
+---
+
 ## Session 275: the owner chose how the surviving probe popup is handled (2026-09-28)
 
 - [x] **The owner chose how `SNAG-TEST-014` is handled** (the entry for
@@ -15,7 +28,7 @@
       chose a fourth option offered alongside the entry's three: the test
       waits for Plasma's `NotificationClosed` signal instead of trusting
       the close call's exit status.
-- [ ] **Make the live witness wait for `NotificationClosed`**
+- [x] **Make the live witness wait for `NotificationClosed`**
       (`SNAG-TEST-014`) in `tests/test_notify_guard_live.py`. Watch the
       session bus for Plasma's `NotificationClosed` for the returned id
       after `_close_notification`. If it does not arrive within a bound,

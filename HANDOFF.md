@@ -1,17 +1,59 @@
-# Handoff — 2026-09-28 (Session 275)
+# Handoff — 2026-09-28 (Session 276)
 
 ## Next action
 
-Make the live notification test wait for Plasma's NotificationClosed signal, sending one more close and recording which happened if the signal does not come. *(For: session)*
+Read estate message de339441: check what estate-manager-api's one-record tracebacks do to the log aggregator's stored rows and alerts, then close it. *(For: session)*
 
-The owner chose this for `SNAG-TEST-014`, the probe popup that stayed on
-screen under fullscreen Dota 2. The change is in
-`tests/test_notify_guard_live.py`, and the task under Session 275 in
-`tasks.md` spells it out. Once it lands, a recurrence tells two failures
-apart that look identical today: Plasma losing the close, or the popup
-staying after a close Plasma accepted.
+It is recorded as a task under Session 274 in `tasks.md`. The message
+says estate-manager's ADR-0211 now sends an unhandled ASGI exception from
+`estate-manager-api` as **one** priority-3 (error) journal record carrying
+its traceback, where it used to be one priority-6 plain-text record per
+traceback line. Session 256 did the same reading for venture-assistant.
+`SNAG-TEST-014` is no longer a candidate: it is `Open — decided` and owes
+nothing until the popup recurs.
+
+## Session 276: the live notification probe waits for Plasma's answer
+
+Tests only. No `sysadmin/` file changed, so no restart is owed.
+
+- **The witness asserts on Plasma's answer, not `busctl`'s exit status.**
+  `tests/test_notify_guard_live.py` starts `dbus-monitor` on the live bus
+  before the send, filtered to `NotificationClosed`. After the close it
+  waits up to 3 s for the signal carrying the probe's own id. If none
+  comes it sends one more close and waits again. The first live runs were
+  answered in 7.8–10.2 ms with reason 3 ("closed by CloseNotification").
+- **The monitor's attachment is asserted first.** `dbus-monitor` prints
+  `NameLost` once the bus has made it a monitor, so a missing signal
+  counts as Plasma's silence only after that line. A dead bus reads
+  `attached=False` after the 2 s bound, which was checked by hand.
+- **Every live run is recorded** in
+  `~/.local/state/sysadmin_assistant/notify-probe.jsonl`, one JSON line
+  with the id, the reading, and each close's send time, exit status,
+  answer time, reason and latency. Every run is kept, not only failures,
+  because the case being hunted (Plasma answers, the popup stays) reads
+  `closed` from the test's side and only the owner sees the popup.
+- **A close answered only the second time passes with a warning**: the
+  popup is gone, and that is the lost close the entry waits for. One
+  answered neither time fails.
+- **Rejected:** writing the record to the journal. The log aggregator
+  reads the journal, so a test would be writing into what this service
+  monitors. Also rejected: `gdbus monitor`, which subscribes with
+  `AddMatch` and would miss a signal sent to one client rather than
+  broadcast. `dbus-monitor` becomes a bus monitor and sees both.
+- **Tested offline** by nine tests: the parser against `dbus-monitor`
+  text captured on this box, the one-or-two-closes rule across all four
+  readings, and the record's shape. Two deliberate breakages (no parser
+  reset, always two closes) each turned one test red.
+- `-W error` on the file caught the monitor's stdout pipe left open, and
+  that was fixed before the full suite ran (4381 passed, 2 skipped).
+
+*One concern held.* Nothing stacked.
+
+---
 
 ## Session 275: the owner chose how the surviving probe popup is handled
+
+*Its next action, making the live test wait for `NotificationClosed`, was taken by Session 276.*
 
 A decision sitting only. No code changed, so no restart is owed.
 

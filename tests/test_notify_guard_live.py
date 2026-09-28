@@ -152,33 +152,41 @@ failure, but keying on them would be a second implementation of a
 judgement ``activated`` already states — the reader gets the evidence, the
 assertion gets the fact.
 
-The close is **asserted rather than attempted, and what that assertion
-covers is narrower than it looks.** Measured against Plasma 6.7.4 on
-2026-08-31: ``CloseNotification`` answers ``rc=0`` for an id that was
-never issued (999999) and even emits a ``NotificationClosed`` signal for
-it, reason 3. So a success here is evidence that the *call* was made and
-answered, and is **not** evidence that a toast left the screen — no
-discriminating witness for the second exists over D-Bus, because the
+The close is **asserted on Plasma's answer, and what that answer covers
+is narrower than it looks.** Measured against Plasma 6.7.4 on 2026-08-31:
+``CloseNotification`` answers ``rc=0`` for an id that was never issued
+(999999) and even emits a ``NotificationClosed`` signal for it, reason 3.
+So neither the exit status nor the signal is evidence that a popup left the
+screen. No discriminating witness for that exists over D-Bus, because the
 server reports the same thing either way.
 
-What the assertion does catch is the reachable half, and it is the half
-that would otherwise fail silently: ``--print-id`` printing nothing
-parseable, and the close call itself erroring or timing out. Both yield
-``False`` and both mean the residue is back. That the id is the *right*
-one is true by construction rather than by assertion — it is whatever the
-server handed back from this call's own ``Notify`` — so the one case the
-assertion cannot see is a server that accepts a close and ignores it,
-which is a defect in the server and not in this file.
+Until 2026-09-28 the assertion was ``busctl``'s exit status, and
+``SNAG-TEST-014`` is what that missed: a green run under fullscreen Dota 2
+left its popup on the owner's screen. The exit status says only that the
+bus delivered the call. ``NotificationClosed`` for this call's own id says
+Plasma handled it, and Plasma's source removes the popup's row in the same
+step. So the test now waits for the signal, sends one more close only if it
+does not come, and appends which happened to :data:`PROBE_RECORD`. A
+recurrence then tells two failures apart that looked identical before:
+**no signal** means Plasma lost the close, and **a signal with the popup
+still on screen** means the display side, Plasma or KWin, failed to update.
+Only the owner can see the second, and the record is what they match it
+against.
 """
 
 from __future__ import annotations
 
 import ast
 import dataclasses
+import json
 import os
+import queue
 import shutil
 import subprocess
+import threading
 import time
+import warnings
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -486,41 +494,322 @@ def _notify_send(
     )
 
 
-def _close_notification(notification_id: str | None) -> bool:
-    """Take the live half's own toast back off the screen.
+#: How long Plasma is given to answer a close with ``NotificationClosed``.
+#: Measured: 18-29 ms after every close in Session 274's three drives, and
+#: 52 ms in Session 276's, so two orders of magnitude of margin for a box
+#: under load. The happy path returns on the signal and never waits this out.
+CLOSE_ACK_SECONDS = 3.0
+
+#: How long ``dbus-monitor`` is given to become a monitor. Measured at about
+#: 1 ms on this box.
+MONITOR_ATTACH_SECONDS = 2.0
+
+#: Where every live close is recorded, one JSON line per run. The popup is
+#: seen on the owner's screen and the pytest output is not kept, so a
+#: recurrence needs a record that outlives the run and can be matched to the
+#: popup by time (``SNAG-TEST-014``). It sits outside the checkout so a run
+#: leaves the tree clean, and outside the journal because the log aggregator
+#: reads the journal, so a test writing there writes into what this service
+#: monitors. A line is about 400 bytes and the file is never trimmed.
+PROBE_RECORD = (
+    Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state")
+    / "sysadmin_assistant"
+    / "notify-probe.jsonl"
+)
+
+_CLOSED_MATCH = (
+    "type='signal',interface='org.freedesktop.Notifications',"
+    "member='NotificationClosed'"
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class ClosedSignal:
+    """One ``NotificationClosed`` as ``dbus-monitor`` printed it."""
+
+    at: float
+    notification_id: int
+    reason: int
+
+
+class _ClosedSignalParser:
+    """Read ``NotificationClosed`` out of ``dbus-monitor``'s text, a line at a time.
+
+    A signal is three lines: a header carrying ``time=`` and
+    ``member=NotificationClosed``, then ``uint32 <id>`` and
+    ``uint32 <reason>``. The header's ``time=`` is when the monitor received
+    the signal, so it is on the same wall clock as :class:`CloseAttempt`'s
+    ``sent_at``.
+    """
+
+    def __init__(self) -> None:
+        self._at: float | None = None
+        self._values: list[int] = []
+
+    def feed(self, line: str) -> ClosedSignal | None:
+        text = line.strip()
+        if text.startswith(("signal ", "method ", "error ")):
+            self._at = None
+            self._values = []
+            if "member=NotificationClosed" in text:
+                stamp = text.split("time=", 1)[1].split(" ", 1)[0]
+                self._at = float(stamp)
+            return None
+        if self._at is None or not text.startswith("uint32 "):
+            return None
+        self._values.append(int(text.split()[1]))
+        if len(self._values) < 2:
+            return None
+        signal = ClosedSignal(self._at, self._values[0], self._values[1])
+        self._at = None
+        self._values = []
+        return signal
+
+
+class ClosedSignalWatch:
+    """``dbus-monitor`` on the live bus, filtered to ``NotificationClosed``.
+
+    **A monitor, not a subscription.** ``dbus-monitor`` calls
+    ``BecomeMonitor``, which sees a signal whatever its destination. An
+    ``AddMatch`` client such as ``gdbus monitor`` sees only broadcasts, and a
+    server that answered its client directly would read as a lost close.
+
+    **Attachment is observed, not assumed.** Becoming a monitor makes the bus
+    take the connection's unique name away, and ``dbus-monitor`` prints that
+    ``NameLost``. Until it does, a missing signal says nothing about Plasma,
+    so ``attached`` is the premise every "no signal" reading rests on.
+
+    Started **before** the send, so the monitor's start-up does not add to
+    the time the probe stays on screen.
+    """
+
+    def __init__(self, bus_path: Path) -> None:
+        self._bus_path = bus_path
+        self._lines: queue.Queue[str] = queue.Queue()
+        self._parser = _ClosedSignalParser()
+        self._seen: list[ClosedSignal] = []
+        self._process: subprocess.Popen[str] | None = None
+        self._pump_thread: threading.Thread | None = None
+        self.attached = False
+
+    def __enter__(self) -> ClosedSignalWatch:
+        if not _have("dbus-monitor"):
+            return self
+        self._process = subprocess.Popen(
+            ["dbus-monitor", "--session", _CLOSED_MATCH],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            env=dict(
+                os.environ, DBUS_SESSION_BUS_ADDRESS=f"unix:path={self._bus_path}"
+            ),
+        )
+        self._pump_thread = threading.Thread(target=self._pump, daemon=True)
+        self._pump_thread.start()
+        deadline = time.monotonic() + MONITOR_ATTACH_SECONDS
+        while not self.attached and (remaining := deadline - time.monotonic()) > 0:
+            try:
+                line = self._lines.get(timeout=remaining)
+            except queue.Empty:
+                break
+            self.attached = "member=NameLost" in line
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        if self._process is None:
+            return
+        self._process.terminate()
+        self._process.wait(timeout=5)
+        # The pump ends at the pipe's EOF; the pipe is closed once it has.
+        if self._pump_thread is not None:
+            self._pump_thread.join(timeout=5)
+        if self._process.stdout is not None:
+            self._process.stdout.close()
+
+    def _pump(self) -> None:
+        assert self._process is not None and self._process.stdout is not None
+        for line in self._process.stdout:
+            self._lines.put(line)
+
+    def wait_for(self, notification_id: str, timeout: float) -> ClosedSignal | None:
+        """The ``NotificationClosed`` for *notification_id*, or ``None`` at *timeout*.
+
+        Matched by id because Plasma closes other applications'
+        notifications on the same bus, and answers a close for an id it
+        never issued as well (the module docstring's 999999).
+        """
+        wanted = int(notification_id)
+        deadline = time.monotonic() + timeout
+        while True:
+            for signal in self._seen:
+                if signal.notification_id == wanted:
+                    return signal
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            try:
+                line = self._lines.get(timeout=remaining)
+            except queue.Empty:
+                return None
+            if (parsed := self._parser.feed(line)) is not None:
+                self._seen.append(parsed)
+
+
+@dataclasses.dataclass(frozen=True)
+class CloseAttempt:
+    """One ``CloseNotification`` and what Plasma said back.
+
+    ``busctl_rc`` is ``None`` when the call timed out. It is recorded and
+    decides nothing: ``SNAG-TEST-014`` was a green ``rc=0`` with the popup
+    still on screen.
+    """
+
+    sent_at: float
+    busctl_rc: int | None
+    answer: ClosedSignal | None
+
+
+#: The readings :attr:`CloseOutcome.reading` gives, and what each means.
+CLOSE_READINGS = {
+    "closed": "Plasma answered the first close with NotificationClosed",
+    "closed on the second call": (
+        "Plasma did not answer the first close within the bound and answered "
+        "the second. This is the lost-close case SNAG-TEST-014 is waiting for"
+    ),
+    "never acknowledged": (
+        "Plasma answered neither close, so it has lost the close and the popup "
+        "is almost certainly still on screen"
+    ),
+    "monitor not attached": (
+        "dbus-monitor never became a monitor on the live bus, so a missing "
+        "signal says nothing about Plasma. One close was sent and not checked"
+    ),
+    "no id": (
+        "notify-send printed no id, so there was nothing to close and the "
+        "popup is still on screen"
+    ),
+}
+
+
+@dataclasses.dataclass(frozen=True)
+class CloseOutcome:
+    """The live half's cleanup, read from Plasma's answer rather than an exit status."""
+
+    notification_id: str | None
+    monitor_attached: bool
+    attempts: tuple[CloseAttempt, ...]
+
+    @property
+    def reading(self) -> str:
+        if self.notification_id is None:
+            return "no id"
+        if not self.monitor_attached:
+            return "monitor not attached"
+        answered = [attempt.answer is not None for attempt in self.attempts]
+        if answered[:1] == [True]:
+            return "closed"
+        if answered[1:2] == [True]:
+            return "closed on the second call"
+        return "never acknowledged"
+
+    @property
+    def acknowledged(self) -> bool:
+        return self.reading in ("closed", "closed on the second call")
+
+
+def _send_close(notification_id: str) -> int | None:
+    """Call ``CloseNotification`` on the live bus; ``None`` if it timed out.
 
     ``CloseNotification`` is mandatory in the freedesktop specification and
-    goes to the notification name itself — which is safe *here* and would
-    not be in the guard, because this is only ever called on the live bus
-    after a server has been observed answering. On an unowned name it would
+    goes to the notification name itself. That is safe *here* and would not
+    be in the guard, because this is only ever called on the live bus after
+    a server has been observed answering. On an unowned name it would
     trigger the very activation ``test_asking_does_not_start_the_waiter``
     exists to keep out of the guard's path.
+    """
+    try:
+        done = subprocess.run(
+            [
+                "busctl",
+                "--user",
+                "call",
+                "org.freedesktop.Notifications",
+                "/org/freedesktop/Notifications",
+                "org.freedesktop.Notifications",
+                "CloseNotification",
+                "u",
+                notification_id,
+            ],
+            capture_output=True,
+            text=True,
+            env=dict(os.environ, DBUS_SESSION_BUS_ADDRESS=f"unix:path={LIVE_BUS}"),
+            timeout=10,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    return done.returncode
 
-    ``False`` for every way of not-closing, including having no id at all:
-    a cleanup that cannot say whether it ran is the residue coming back
-    silently.
+
+def _close_notification(
+    notification_id: str | None, watch: ClosedSignalWatch
+) -> CloseOutcome:
+    """Take the live half's own popup back off the screen, and hear Plasma say so.
+
+    One close, then a wait for ``NotificationClosed``. **A second close is
+    sent only when the first went unanswered**: by Plasma's source it does
+    nothing when the first worked, and sent blindly it would hide the one
+    fault this is waiting to see. With no monitor attached a second close
+    would be blind in the same way, so only one is sent.
     """
     if notification_id is None:
-        return False
-    done = subprocess.run(
-        [
-            "busctl",
-            "--user",
-            "call",
-            "org.freedesktop.Notifications",
-            "/org/freedesktop/Notifications",
-            "org.freedesktop.Notifications",
-            "CloseNotification",
-            "u",
-            notification_id,
+        return CloseOutcome(None, watch.attached, ())
+    attempts: list[CloseAttempt] = []
+    for _ in range(2 if watch.attached else 1):
+        sent_at = time.time()
+        rc = _send_close(notification_id)
+        answer = watch.wait_for(notification_id, CLOSE_ACK_SECONDS) if watch.attached else None
+        attempts.append(CloseAttempt(sent_at, rc, answer))
+        if answer is not None:
+            break
+    return CloseOutcome(notification_id, watch.attached, tuple(attempts))
+
+
+def _record_close(
+    outcome: NotifySendOutcome, close: CloseOutcome, path: Path = PROBE_RECORD
+) -> None:
+    """Append one live run to :data:`PROBE_RECORD`.
+
+    Every run is recorded, not only the failures, because the case this
+    exists to catch reads ``closed`` from here: Plasma answered and the popup
+    stayed anyway. Only the owner sees that, and the record is what they
+    match it against by time.
+    """
+    row = {
+        "at": datetime.now(UTC).isoformat(timespec="milliseconds"),
+        "pid": os.getpid(),
+        "notification_id": close.notification_id,
+        "notify_elapsed_ms": round(outcome.elapsed * 1000, 1),
+        "reading": close.reading,
+        "monitor_attached": close.monitor_attached,
+        "attempts": [
+            {
+                "sent_at": attempt.sent_at,
+                "busctl_rc": attempt.busctl_rc,
+                "answered_at": attempt.answer.at if attempt.answer else None,
+                "reason": attempt.answer.reason if attempt.answer else None,
+                "latency_ms": (
+                    round((attempt.answer.at - attempt.sent_at) * 1000, 1)
+                    if attempt.answer
+                    else None
+                ),
+            }
+            for attempt in close.attempts
         ],
-        capture_output=True,
-        text=True,
-        env=dict(os.environ, DBUS_SESSION_BUS_ADDRESS=f"unix:path={LIVE_BUS}"),
-        timeout=10,
-        check=False,
-    )
-    return done.returncode == 0
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as record:
+        record.write(json.dumps(row) + "\n")
 
 
 @pytest.mark.premise
@@ -577,24 +866,42 @@ class TestTheHazardIsReal:
         ``finally``, so the screen is cleared on the failing path too
         without a failed cleanup being able to mask the real verdict:
         ``returned`` is asserted first and names the actual fault, and the
-        cleanup's own assertion comes last.
+        cleanup's own assertions come last.
+
+        **The cleanup is asserted on Plasma's answer** (``SNAG-TEST-014``).
+        The monitor's attachment is asserted before the answer for the
+        reason ``SNAG-TEST-003`` ordered the blocking half's assertions:
+        without it, "Plasma answered neither close" is a claim about a bus
+        nobody was listening to. A close answered only the second time
+        passes, because the popup is gone, and warns, because that is the
+        lost close the entry is waiting to see. Either way the run is in
+        :data:`PROBE_RECORD`.
         """
         if not _have("notify-send"):
             pytest.skip(_MISSING_NOTIFY)
         if not _live_server_present():
             pytest.skip(_NO_LIVE_SERVER)
 
-        outcome = _notify_send(str(LIVE_BUS), BLOCK_PROBE_SECONDS)
-        closed = _close_notification(outcome.notification_id)
+        with ClosedSignalWatch(LIVE_BUS) as watch:
+            outcome = _notify_send(str(LIVE_BUS), BLOCK_PROBE_SECONDS)
+            close = _close_notification(outcome.notification_id, watch)
+        _record_close(outcome, close)
 
         assert outcome.returned, "notify-send blocked against a bus that has a server"
         assert outcome.elapsed < GUARD_BUDGET_SECONDS
-        assert closed, (
-            f"the probe notification (id {outcome.notification_id!r}) is still on "
-            "screen. Every run leaves another one: the announcer's flags "
-            "make it persistent, so this cleanup is the only thing that "
-            "removes it"
+        assert close.notification_id is not None, CLOSE_READINGS["no id"]
+        assert close.monitor_attached, CLOSE_READINGS["monitor not attached"]
+        assert close.acknowledged, (
+            f"the probe notification (id {close.notification_id}) was never "
+            f"closed: {CLOSE_READINGS[close.reading]}. The announcer's flags "
+            "make it persistent, so it stays until a human dismisses it. "
+            f"This run is the last line of {PROBE_RECORD}"
         )
+        if close.reading == "closed on the second call":
+            warnings.warn(
+                f"{CLOSE_READINGS[close.reading]}. Recorded in {PROBE_RECORD}",
+                stacklevel=1,
+            )
 
 
 class TestTheGuardSeparatesThem:
@@ -758,3 +1065,143 @@ class TestTheRedSaysWhichReadingItIs:
             "without it first, a red cannot say whether the hazard is gone "
             "or whether this reading was disturbed, which is SNAG-TEST-003"
         )
+
+
+#: ``dbus-monitor``'s own output, captured 2026-09-28 on this box with
+#: :data:`_CLOSED_MATCH` while closing the never-issued id 999999. The first
+#: four lines are the monitor attaching; the last three are Plasma's answer.
+_RECORDED_MONITOR_TEXT = """\
+signal time=1790588565.883901 sender=org.freedesktop.DBus -> destination=:1.7020 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameAcquired
+   string ":1.7020"
+signal time=1790588565.883910 sender=org.freedesktop.DBus -> destination=:1.7020 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameLost
+   string ":1.7020"
+signal time=1790588565.935774 sender=:1.4830 -> destination=(null destination) serial=27143 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=NotificationClosed
+   uint32 999999
+   uint32 3
+"""  # noqa: E501
+
+
+class _ScriptedWatch:
+    """A :class:`ClosedSignalWatch` that answers the Nth wait and no other."""
+
+    def __init__(self, attached: bool, answers_on: int | None) -> None:
+        self.attached = attached
+        self._answers_on = answers_on
+        self.waits = 0
+
+    def wait_for(self, notification_id: str, timeout: float) -> ClosedSignal | None:
+        self.waits += 1
+        if self.waits == self._answers_on:
+            return ClosedSignal(time.time(), int(notification_id), 3)
+        return None
+
+
+def _patch_send_close(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Stand in for the live ``CloseNotification``; the list is every id closed."""
+    sent: list[str] = []
+
+    def send(notification_id: str) -> int:
+        sent.append(notification_id)
+        return 0
+
+    monkeypatch.setattr(f"{__name__}._send_close", send)
+    return sent
+
+
+class TestTheCloseIsReadFromPlasmasAnswer:
+    """``SNAG-TEST-014``'s cleanup, driven without a live bus.
+
+    The live test can only reach the reading the box gives it that day,
+    which is ``closed`` on every run measured. The other readings are what a
+    recurrence would produce, so they are driven here or never.
+    """
+
+    def test_the_recorded_signal_is_parsed(self):
+        parser = _ClosedSignalParser()
+        found = [
+            signal
+            for line in _RECORDED_MONITOR_TEXT.splitlines()
+            if (signal := parser.feed(line)) is not None
+        ]
+
+        assert found == [ClosedSignal(1790588565.935774, 999999, 3)]
+
+    def test_a_new_header_discards_a_half_read_close(self):
+        """Without the reset, the id below would pair with the next member's value."""
+        parser = _ClosedSignalParser()
+        lines = [
+            "signal time=0.5 sender=:1.1 -> destination=(null destination) "
+            "serial=0 path=/org/freedesktop/Notifications; "
+            "interface=org.freedesktop.Notifications; member=NotificationClosed",
+            "   uint32 41",
+            "signal time=1.0 sender=:1.1 -> destination=(null destination) "
+            "serial=1 path=/org/freedesktop/Notifications; "
+            "interface=org.freedesktop.Notifications; member=ActionInvoked",
+            "   uint32 42",
+            "   uint32 7",
+        ]
+
+        assert [parser.feed(line) for line in lines] == [None] * 5
+
+    @pytest.mark.parametrize(
+        ("attached", "answers_on", "reading", "closes"),
+        [
+            (True, 1, "closed", 1),
+            (True, 2, "closed on the second call", 2),
+            (True, None, "never acknowledged", 2),
+            (False, None, "monitor not attached", 1),
+        ],
+    )
+    def test_a_second_close_is_sent_only_when_the_first_goes_unanswered(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        attached: bool,
+        answers_on: int | None,
+        reading: str,
+        closes: int,
+    ):
+        sent = _patch_send_close(monkeypatch)
+        watch = _ScriptedWatch(attached, answers_on)
+
+        close = _close_notification("41", watch)  # type: ignore[arg-type]
+
+        assert (close.reading, len(sent)) == (reading, closes)
+        assert close.acknowledged is (reading in ("closed", "closed on the second call"))
+
+    def test_no_id_sends_nothing(self, monkeypatch: pytest.MonkeyPatch):
+        sent = _patch_send_close(monkeypatch)
+
+        close = _close_notification(None, _ScriptedWatch(True, 1))  # type: ignore[arg-type]
+
+        assert (close.reading, sent) == ("no id", [])
+
+    def test_every_reading_has_an_explanation(self):
+        readings = {
+            CloseOutcome(None, True, ()).reading,
+            CloseOutcome("1", False, ()).reading,
+            CloseOutcome("1", True, ()).reading,
+        }
+
+        assert readings <= CLOSE_READINGS.keys()
+
+    def test_a_run_is_appended_as_one_json_line(self, tmp_path: Path):
+        record = tmp_path / "state" / "notify-probe.jsonl"
+        outcome = NotifySendOutcome(True, 0.05, "41", None, "")
+        answer = ClosedSignal(100.025, 41, 3)
+        close = CloseOutcome("41", True, (CloseAttempt(100.0, 0, answer),))
+
+        _record_close(outcome, close, record)
+        _record_close(outcome, close, record)
+
+        rows = [json.loads(line) for line in record.read_text().splitlines()]
+        assert len(rows) == 2
+        assert rows[0]["reading"] == "closed"
+        assert rows[0]["attempts"] == [
+            {
+                "sent_at": 100.0,
+                "busctl_rc": 0,
+                "answered_at": 100.025,
+                "reason": 3,
+                "latency_ms": 25.0,
+            }
+        ]
