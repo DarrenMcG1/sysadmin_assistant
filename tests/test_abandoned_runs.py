@@ -105,6 +105,7 @@ async def _reread(session, row: AgentRun):
     ).one()
 
 
+@pytest.mark.box
 class TestTheSweepClosesWhatADeadProcessLeft:
     """The founding case: a ``running`` row stamped by somebody else."""
 
@@ -175,6 +176,7 @@ class TestTheSweepClosesWhatADeadProcessLeft:
         assert status == "completed"
 
 
+@pytest.mark.box
 class TestTheSweepCannotReachThisProcess:
     """Rule 1's guarantee, asserted rather than relied on by placement."""
 
@@ -192,6 +194,7 @@ class TestTheSweepCannotReachThisProcess:
         assert PROBE_AGENT not in out.agents
 
 
+@pytest.mark.box
 class TestAnUnstampedRowIsRefusedAndCounted:
     """Rule 3 — forward-only by construction, and observable.
 
@@ -344,6 +347,7 @@ class TestTheStatusIsPinnedToTheConstraint:
         assert RUNNING_STATUS in self._sqltext()
 
     @pytest.mark.premise
+    @pytest.mark.box
     def test_the_database_really_rejects_a_fifth_status(self):
         """The premise the pin rests on.
 
@@ -428,6 +432,7 @@ class TestTheStampAndTheSweepCannotDisagree:
                 assigned.add(node.target.id)
         assert not ({"INSTANCE_DETAIL_KEY", "INSTANCE_ID"} & assigned)
 
+    @pytest.mark.box
     def test_a_row_record_start_would_write_is_swept_by_a_later_process(self):
         """The round trip, driven through the writer's own shape.
 

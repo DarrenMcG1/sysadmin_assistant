@@ -8,6 +8,31 @@
 
 ---
 
+## Session 286: the `box` marker, and three CI causes that were not the box (2026-09-28)
+
+`SNAG-TEST-015`, second half. Tests, `pyproject.toml`,
+`.github/workflows/ci.yml` and the roadmap files; no `sysadmin/` change,
+no restart owed.
+
+- [x] **104 tests that read the box carry a registered `box` marker, and
+      CI runs `pytest -m "not box"`.** Classified by each failure's reason
+      on the real runner and in a rehearsal, never by file. On the class
+      where every test reads the box, on the function otherwise.
+- [x] **Three failures the marker must not hide were fixed in the
+      workflow instead:** `fetch-depth: 0` (the briefing guards walk
+      history, 4 tests), `TZ: Europe/London` (ops-claims times, 12) and
+      `UV_PYTHON: "3.12.12"` (coverage arcs differ from the runner's
+      3.12.3, 4).
+- [ ] **Push `main` and read the run** *(For: owner)*. Rehearsed, the
+      marked suite fails only on the stale estate-lib (36 tests, all
+      `load_registry(partial=)` and its kin). If the real run fails
+      anything else, it is a test the runner's user systemd reaches
+      differently from the rehearsal; mark or fix it by its reason.
+- [ ] **When `UV_PYTHON` in `ci.yml` stops matching the box's
+      interpreter, move it.** The coverage-arc tests are sensitive to the
+      CPython patch release; `uv run --no-sync python -V` on the box is the
+      value.
+
 ## Session 285: CI checks out estate-manager beside this repository (2026-09-28)
 
 `SNAG-TEST-015`, first half. `.github/workflows/ci.yml` and the roadmap
@@ -20,7 +45,7 @@ files only; no `sysadmin/` change, no restart owed.
       and over publishing). `estate_service` is installed `--no-deps -e`
       for the cross-repo pins. Run 36457801954: Ruff green on GitHub for
       the first time; Pytest 160 failed, 4,098 passed.
-- [ ] **Mark the tests that read the box with a registered `box` pytest
+- [x] *(Done by Session 286, 2026-09-28.)* **Mark the tests that read the box with a registered `box` pytest
       marker, and run CI with `-m "not box"`.** About 80 tests read the
       `projects` database's rows, `~/.claude/settings.json`,
       `systemctl --user` or the unit's `WorkingDirectory`, and fail rather

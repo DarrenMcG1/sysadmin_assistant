@@ -319,6 +319,7 @@ class TestTheJudgeSpeaksOnlyForAFault:
         assert judged.details == payload
 
 
+@pytest.mark.box
 class TestThePremiseThisFamilyRestsOn:
     """Live, and it asserts *"we can look"* rather than *"it is fine"*.
 

@@ -161,6 +161,7 @@ class TestSystemdStillPublishesTheInstant:
         )
 
 
+@pytest.mark.box
 class TestThePredicateRunsAgainstTheLiveTable:
     def test_each_declared_service_reaches_a_verdict(self, declared):
         """Not *which* verdict — that is a property of the day.

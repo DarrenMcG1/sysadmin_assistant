@@ -421,6 +421,7 @@ class TestThePremises:
                 "was built on the two readings being indistinguishable."
             )
 
+    @pytest.mark.box
     def test_a_timer_relation_is_visible_in_every_scope_asserted(
         self, services: ServicesFile, readings: dict[str, UnitReading]
     ):
@@ -467,6 +468,7 @@ class TestThePremises:
             )
 
 
+@pytest.mark.box
 class TestEveryDeclaredUnitIsInstalled:
     """``SNAG-DOCS-027``'s ``estate-broker-provision`` half, widened to the file.
 
@@ -499,6 +501,7 @@ class TestEveryDeclaredUnitIsInstalled:
         )
 
 
+@pytest.mark.box
 class TestTheStandaloneOneshotsAreTheNamedPair:
     """``SNAG-DOCS-027``'s ``ethernet-optimise`` half: the uniqueness claim.
 

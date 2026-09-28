@@ -123,6 +123,7 @@ testpaths = ["tests"]
 strict_markers = true
 markers = [
     "premise: the test (or class) asserting this live drive's harness really produced the state it believes negatives about",
+    "box: reads this machine itself (the projects database's rows, ~/.claude/settings.json, the journal, systemctl --user, the installed unit files) and fails rather than skips anywhere else; CI deselects it with -m 'not box' (SNAG-TEST-015)",
 ]
 
 [tool.mypy]

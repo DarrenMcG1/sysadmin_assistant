@@ -1183,6 +1183,7 @@ class TestChecksAgainstTheLiveBox:
     the wrong thing.
     """
 
+    @pytest.mark.box
     def test_estate_port_holds_and_is_refuted_when_the_row_is_edited(self):
         assert check_estate_port_8500().verdict == "match"
         with patch.object(snag_claims, "ESTATE_PORT_CLAIMANT", "sysadmin-assistant"):
@@ -2293,12 +2294,14 @@ class TestTheHealthPathCheck:
 
     # -- the verdicts ----------------------------------------------------
 
+    @pytest.mark.box
     def test_the_check_holds_on_this_box(self):
         measurement = check_health_path_guess()
         assert measurement.verdict == "match"
         assert any("witness port(s)" in line for line in measurement.detail)
         assert any("measured services answer it" in line for line in measurement.detail)
 
+    @pytest.mark.box
     def test_the_recount_follows_the_box_and_is_not_a_constant(self):
         """The entry's 4, 7 and 11 appear nowhere in the module.
 
@@ -2356,6 +2359,7 @@ class TestTheHealthPathCheck:
         assert "(no path)" in items
         assert "" not in items
 
+    @pytest.mark.box
     def test_a_box_where_the_guess_answers_everywhere_is_a_mismatch(self):
         """The premise dying with the generator untouched.
 
@@ -2369,6 +2373,7 @@ class TestTheHealthPathCheck:
         assert measurement.verdict == "mismatch"
         assert "no longer describes this box" in measurement.note
 
+    @pytest.mark.box
     def test_a_tie_no_longer_reads_as_wrong_more_often_than_right(self):
         """The boundary the title's claim sits on, driven at it.
 
@@ -2384,6 +2389,7 @@ class TestTheHealthPathCheck:
         assert measurement.verdict == "mismatch"
         assert "no longer wrong more often than right" in measurement.note
 
+    @pytest.mark.box
     def test_no_witness_is_unknown_and_never_a_match(self):
         """A constant path with nowhere else to go proves nothing.
 
@@ -2579,6 +2585,7 @@ class TestTheUnsweptPortCheck:
 
     # -- the instruments -------------------------------------------------
 
+    @pytest.mark.box
     def test_the_probe_writes_nothing_that_survives(self):
         """What makes writing to the live database allowable, asserted twice.
 
@@ -2593,6 +2600,7 @@ class TestTheUnsweptPortCheck:
         assert self._surviving_rows() == 0
         assert self._surviving_sweeps() == 0
 
+    @pytest.mark.box
     def test_nothing_survives_a_run_that_raised(self):
         """The rollback is in a ``finally``, so a failed drive leaks nothing either."""
         from sysadmin.estate.agent import EstateJudgeAgent
@@ -2631,10 +2639,12 @@ class TestTheUnsweptPortCheck:
         assert not set(snag_claims.UNSWEPT_PORTS) & set(quietened.PORTS)
         assert snag_claims.UNSWEPT_HOLDER != quietened.HOLDER
 
+    @pytest.mark.box
     def test_the_probe_ports_hold_no_live_row(self):
         """The titles it raises must be nobody else's fault."""
         assert self._surviving_rows() == 0
 
+    @pytest.mark.box
     def test_the_instrument_is_the_agents_own_execute(self):
         """Driven, not reimplemented — one call, one session."""
         from sysadmin.estate.agent import EstateJudgeAgent
@@ -2651,6 +2661,7 @@ class TestTheUnsweptPortCheck:
         assert not problem, problem
         assert reading is not None and len(sessions) == 1
 
+    @pytest.mark.box
     def test_the_attribution_is_read_through_the_agent_twice(self):
         """The production reader is *called*, not stood in for.
 
@@ -2679,6 +2690,7 @@ class TestTheUnsweptPortCheck:
         assert reading is not None and len(calls) == 2
         assert calls[0].observed_at == calls[1].observed_at
 
+    @pytest.mark.box
     def test_the_probes_sweep_is_the_newest_on_the_box(self):
         """Or it is not holding the variable at all.
 
@@ -2696,6 +2708,7 @@ class TestTheUnsweptPortCheck:
         assert reading.attribution_age_hours is not None
         assert reading.attribution_age_hours < 0.01
 
+    @pytest.mark.box
     def test_the_stored_sweep_names_exactly_one_of_the_two_ports(self):
         """The precondition, read at ``_attribution`` rather than at the blob.
 
@@ -2710,6 +2723,7 @@ class TestTheUnsweptPortCheck:
         assert reading.attributed_swept["transient"] is True
         assert reading.attributed_unswept is None
 
+    @pytest.mark.box
     def test_only_the_findings_surface_is_read(self):
         """The four declined surfaces, asserted at the sweep that consumes them.
 
@@ -2747,6 +2761,7 @@ class TestTheUnsweptPortCheck:
         assert "audit_findings" in read
         assert read & set(SURFACES) == {"audit_findings"}
 
+    @pytest.mark.box
     def test_the_quiet_rung_is_not_read_off_the_run(self):
         """Rule 3, driven at the state that would hide a broken witness.
 
@@ -2769,6 +2784,7 @@ class TestTheUnsweptPortCheck:
 
     # -- the verdicts ----------------------------------------------------
 
+    @pytest.mark.box
     def test_the_check_holds_on_this_box(self):
         measurement = check_unswept_port_is_loud()
         assert measurement.verdict == "match"
@@ -2841,6 +2857,7 @@ class TestTheUnsweptPortCheck:
         for judgement in judged:
             assert judgement.details["holder"]["transient"] is True
 
+    @pytest.mark.box
     def test_a_judge_that_runs_ss_itself_is_a_mismatch(self):
         """The entry's first rejected fix, driven whole.
 
@@ -2868,6 +2885,7 @@ class TestTheUnsweptPortCheck:
         assert "_attribution named it" in measurement.note
         assert "it is judged" in measurement.note
 
+    @pytest.mark.box
     def test_an_acquired_holder_alone_is_a_mismatch(self):
         """The holder limb, isolated — and the state that isolates it is real.
 
@@ -2899,6 +2917,7 @@ class TestTheUnsweptPortCheck:
         assert "it is judged" not in measurement.note
         assert "its details differ" not in measurement.note
 
+    @pytest.mark.box
     def test_quietening_an_unattributed_breach_is_a_mismatch(self):
         """The second, and it leaves ``_attribution`` exactly where it was.
 
@@ -2915,6 +2934,7 @@ class TestTheUnsweptPortCheck:
         assert f"it is judged {quiet} rather than" in measurement.note
         assert "_attribution now holds" not in measurement.note
 
+    @pytest.mark.box
     def test_an_annotation_alone_no_longer_moves_the_verdict(self):
         """The third limb, **inverted on 2026-08-29 rather than deleted**.
 
@@ -2955,6 +2975,7 @@ class TestTheUnsweptPortCheck:
         # the detail, which is where a standing observation belongs.
         assert any("attribution_observed_at" in line for line in measurement.detail)
 
+    @pytest.mark.box
     def test_without_the_witness_the_verdict_is_unknown(self):
         """The control, driven at the state that would otherwise read ``match``.
 
@@ -2979,6 +3000,7 @@ class TestTheUnsweptPortCheck:
             for line in measurement.detail
         )
 
+    @pytest.mark.box
     def test_a_family_with_no_quieter_rung_is_unknown(self):
         """Session 57 reverted: this entry is a limit on a fix that is gone.
 
@@ -6642,9 +6664,11 @@ class TestTheStaleRungCheck:
 
     # -- the box ---------------------------------------------------------
 
+    @pytest.mark.box
     def test_it_holds_on_this_box(self):
         assert snag_claims.check_rung_left_stale().verdict == "match"
 
+    @pytest.mark.box
     def test_the_hold_is_the_premise_and_the_drive_reaches_it(self):
         """Rule 2, asserted rather than assumed.
 
@@ -6685,6 +6709,7 @@ class TestTheStaleRungCheck:
         assert self._reading().held
         assert self._reading(refreshed=0).held
 
+    @pytest.mark.box
     def test_the_message_moves_and_the_rung_does_not(self):
         """The sharpest thing the drive says, and the entry does not.
 
@@ -6703,6 +6728,7 @@ class TestTheStaleRungCheck:
 
     # -- the fixes -------------------------------------------------------
 
+    @pytest.mark.box
     def test_the_named_fix_flips_the_verdict_while_the_predicate_is_unmoved(self):
         """The load-bearing falsification, and both halves are the point.
 
@@ -6859,6 +6885,7 @@ class TestTheStaleRungCheck:
         }
         assert "RUNG_LEFT_STALE_EVENT" in imported
 
+    @pytest.mark.box
     def test_the_emitter_still_writes_the_constant(self):
         """…and the constant is still what reaches the journal.
 
@@ -6891,6 +6918,7 @@ class TestTheStaleRungCheck:
 
     # -- the population ---------------------------------------------------
 
+    @pytest.mark.box
     def test_every_statement_is_schema_qualified_and_runs(self):
         """The fault that shipped in the first draft, pinned.
 
@@ -6912,6 +6940,7 @@ class TestTheStaleRungCheck:
             assert not problem, template
             assert answer is not None or "max(" in template
 
+    @pytest.mark.box
     def test_a_zero_with_no_witness_reads_as_blind_and_not_as_quiet(self):
         """``ports_checked``, at the size of a note clause.
 
@@ -6942,6 +6971,7 @@ class TestTheStaleRungCheck:
             clauses = snag_claims.rung_stale_population()
         assert any("never fired" in clause for clause in clauses)
 
+    @pytest.mark.box
     def test_a_fired_trigger_is_reported_without_moving_the_verdict(self):
         """Rule 1, in the direction that makes it easy to get wrong.
 
@@ -6963,6 +6993,7 @@ class TestTheStaleRungCheck:
 
     # -- the harness ------------------------------------------------------
 
+    @pytest.mark.box
     def test_the_drive_leaves_nothing_behind(self):
         """Writing to the live database is allowable only because of this."""
         snag_claims.check_rung_left_stale()
@@ -6975,6 +7006,7 @@ class TestTheStaleRungCheck:
         assert not problem
         assert left == 0
 
+    @pytest.mark.box
     def test_the_probe_does_not_write_into_its_own_population(self):
         """Rule 3 of the drive, and the reason ``propagate`` is severed.
 
@@ -7122,9 +7154,11 @@ class TestTheArbitratedRestartCheck:
 
     # -- the box ---------------------------------------------------------
 
+    @pytest.mark.box
     def test_it_holds_on_this_box(self):
         assert snag_claims.check_arbitrated_restart().verdict == "match"
 
+    @pytest.mark.box
     def test_the_branch_is_reachable_and_that_is_the_premise(self):
         """Rule 2 of the drive, asserted rather than assumed.
 
@@ -7142,6 +7176,7 @@ class TestTheArbitratedRestartCheck:
         assert reading.reading == "restarted_anyway"
         assert all(arm.restarted for arm in reading.arms)
 
+    @pytest.mark.box
     def test_the_three_arms_really_are_three_worlds(self):
         """``a-premise-needs-a-third-party-witness``, inside the harness.
 
@@ -7167,6 +7202,7 @@ class TestTheArbitratedRestartCheck:
 
     # -- the safety catch --------------------------------------------------
 
+    @pytest.mark.box
     def test_the_real_restart_never_reaches_systemd(self):
         """The instrument is the safety catch, and this is the assertion.
 
@@ -7193,6 +7229,7 @@ class TestTheArbitratedRestartCheck:
         assert all(arm.restarted for arm in reading.arms)
         assert reached == []
 
+    @pytest.mark.box
     def test_the_probe_unit_is_minted_and_could_not_name_a_real_service(self):
         """The second guard, for the case where the first one fails.
 
@@ -7250,6 +7287,7 @@ class TestTheArbitratedRestartCheck:
 
     # -- the fixes ---------------------------------------------------------
 
+    @pytest.mark.box
     def test_the_named_fix_flips_the_verdict_and_still_writes_the_row(self):
         """The load-bearing falsification: one condition, driven for real.
 
@@ -7283,6 +7321,7 @@ class TestTheArbitratedRestartCheck:
         assert reading.stopped.severities == (snag_claims.FLOOR_RUNG,)
         assert not reading.stopped.restarted and reading.other.restarted
 
+    @pytest.mark.box
     def test_the_same_fix_with_the_row_dropped_is_named_as_the_worse_shape(self):
         """``known_noise`` rule 2: quietened, never dropped.
 
@@ -7308,6 +7347,7 @@ class TestTheArbitratedRestartCheck:
         assert "known_noise rule 2" in measurement.note
         assert reading.stopped.titles == ()
 
+    @pytest.mark.box
     def test_a_gate_on_the_lease_rather_than_the_unit_is_refuted_and_named(self):
         """Why the control arm holds a lease instead of holding none.
 
@@ -7361,6 +7401,7 @@ class TestTheArbitratedRestartCheck:
 
     # -- the population ----------------------------------------------------
 
+    @pytest.mark.box
     def test_every_statement_is_schema_qualified_and_runs(self):
         """``SNAG-AGENT-012``'s first draft, which shipped unqualified.
 
@@ -7375,6 +7416,7 @@ class TestTheArbitratedRestartCheck:
             assert not problem, template
             assert answer is not None or "string_agg" in template
 
+    @pytest.mark.box
     def test_a_live_leaf_raises_the_entry_and_does_not_move_the_verdict(self):
         """Rule 1, in the direction that makes it easy to get wrong.
 
@@ -7465,6 +7507,7 @@ class TestTheArbitratedRestartCheck:
             clauses = snag_claims.arbitrated_restart_population()
         assert any("zero-because-blind" in clause for clause in clauses)
 
+    @pytest.mark.box
     def test_the_two_halves_meeting_is_reported_as_such(self):
         """The distance between this box and the defect, in one clause."""
         real = snag_claims.query_one
@@ -7485,6 +7528,7 @@ class TestTheArbitratedRestartCheck:
 
     # -- the harness -------------------------------------------------------
 
+    @pytest.mark.box
     def test_the_drive_leaves_nothing_behind(self):
         """Writing to the live database is allowable only because of this."""
         snag_claims.check_arbitrated_restart()
@@ -8014,6 +8058,7 @@ class TestTheMemoryDecompositionCheck:
 
     # -- the premise, first -----------------------------------------------
 
+    @pytest.mark.box
     def test_the_surface_really_serves_this_unit_s_own_memory_current(self, real_services):
         """Nothing below this means anything until it has passed.
 
@@ -8044,6 +8089,7 @@ class TestTheMemoryDecompositionCheck:
         )
         assert reading.property_sites, "the sweep found no MemoryCurrent to witness itself with"
 
+    @pytest.mark.box
     def test_without_the_exclusion_the_check_refutes_its_own_entry(self, real_services):
         """One expression doing two jobs, and both have a live population.
 
@@ -8098,6 +8144,7 @@ class TestTheMemoryDecompositionCheck:
 
     # -- the entry as filed ------------------------------------------------
 
+    @pytest.mark.box
     def test_the_decomposition_still_reaches_no_route(self, real_services):
         measured = snag_claims.check_memory_decomposition_unserved()
 
@@ -8107,6 +8154,7 @@ class TestTheMemoryDecompositionCheck:
             for line in measured.detail
         )
 
+    @pytest.mark.box
     def test_the_detail_carries_the_contrast_the_entry_turns_on(self, real_services):
         """A number served beside the split it cannot make.
 
@@ -8125,6 +8173,7 @@ class TestTheMemoryDecompositionCheck:
 
     # -- the stand-in modelling the fix ------------------------------------
 
+    @pytest.mark.box
     def test_a_module_that_opens_the_file_refutes_the_entry(self, tmp_path: Path, real_services):
         """The control a fix breaks: driven at a tree that models the fix.
 
@@ -8142,6 +8191,7 @@ class TestTheMemoryDecompositionCheck:
         assert snag_claims.DECOMPOSITION_FILE in measured.note
         assert "serve.py:5" in measured.note
 
+    @pytest.mark.box
     def test_a_module_that_only_names_the_file_in_prose_does_not(
         self, tmp_path: Path, real_services
     ):
@@ -8185,6 +8235,7 @@ class TestTheMemoryDecompositionCheck:
         assert snag_claims.SERVED_PROPERTY in measured.note
         assert "never a way for it to hold" in measured.note
 
+    @pytest.mark.box
     def test_a_served_figure_that_is_a_different_number_is_unknown(self, real_services):
         """A figure that does not track the cgroup is not this unit's own."""
         with patch.object(snag_claims, "_read_int_file", lambda path: 1):
@@ -8193,6 +8244,7 @@ class TestTheMemoryDecompositionCheck:
         assert measured.verdict == "unknown"
         assert "is not this unit's memory.current" in measured.note
 
+    @pytest.mark.box
     def test_a_sweep_that_cannot_parse_the_tree_is_unknown(self, tmp_path: Path, real_services):
         """An unparseable file empties the sweep exactly as a clean tree does.
 
@@ -8210,6 +8262,7 @@ class TestTheMemoryDecompositionCheck:
         assert measured.verdict == "unknown"
         assert "would not parse" in measured.note
 
+    @pytest.mark.box
     def test_a_sweep_blind_to_the_served_property_is_unknown(self, tmp_path: Path, real_services):
         """Zero-because-blind is never served as zero-because-clean.
 
@@ -8227,6 +8280,7 @@ class TestTheMemoryDecompositionCheck:
         assert measured.verdict == "unknown"
         assert "blind to a memory token" in measured.note
 
+    @pytest.mark.box
     def test_a_cgroup_with_no_decomposition_in_it_is_unknown(self, real_services):
         """The claim would otherwise hold for want of the thing it is about."""
         with patch.object(snag_claims, "_read_memory_stat", lambda path: {"kernel": 1}):
@@ -8235,6 +8289,7 @@ class TestTheMemoryDecompositionCheck:
         assert measured.verdict == "unknown"
         assert "no decomposition for a route to be missing" in measured.note
 
+    @pytest.mark.box
     def test_a_cgroup_naming_another_unit_is_unknown(self, real_services):
         """The pin on the path this module extracts.
 
@@ -8360,6 +8415,7 @@ class TestThePayloadRewordCheck:
 
     # -- the premise, first ------------------------------------------------
 
+    @pytest.mark.box
     def test_the_guard_still_selects_the_spellings_this_box_emits(self):
         """Nothing below this means anything until it has passed.
 
@@ -8383,6 +8439,7 @@ class TestThePayloadRewordCheck:
         }
         assert reading.source == "kernel"
 
+    @pytest.mark.box
     def test_the_pattern_the_drive_used_is_the_guard_s_own(self):
         """Import where you can, pin where you cannot.
 
@@ -8420,6 +8477,7 @@ class TestThePayloadRewordCheck:
         for specimen in (*snag_claims.REWORDED_PAYLOADS, *snag_claims.UNRELATED_LINES):
             assert ("kernel", signature(specimen.message)) not in CRITICAL_SIGNATURES
 
+    @pytest.mark.box
     def test_the_drive_reads_no_row_of_the_live_table(self):
         """Rule 1, asserted rather than described.
 
@@ -8441,6 +8499,7 @@ class TestThePayloadRewordCheck:
 
     # -- the entry as filed ------------------------------------------------
 
+    @pytest.mark.box
     def test_a_reworded_payload_still_never_enters_the_population(self):
         measured = snag_claims.check_payload_reword_unselected()
 
@@ -8455,6 +8514,7 @@ class TestThePayloadRewordCheck:
             f"{rewords} of {rewords} reword(s) invisible" in line for line in measured.detail
         )
 
+    @pytest.mark.box
     def test_the_detail_names_both_halves_of_the_contrast(self):
         """A selector that admits the declared pair and neither reword.
 
@@ -8472,6 +8532,7 @@ class TestThePayloadRewordCheck:
 
     # -- the stand-in modelling the fix ------------------------------------
 
+    @pytest.mark.box
     def test_a_population_that_admits_a_reword_refutes_the_entry(self, tmp_path: Path):
         """The control a fix breaks, driven at the guard rather than at the corpus.
 
@@ -8501,6 +8562,7 @@ class TestThePayloadRewordCheck:
             # registry has been caught by before.
             assert f"{specimen.label} — selected" in rendered
 
+    @pytest.mark.box
     def test_the_shipped_guard_copied_whole_still_holds(self, tmp_path: Path):
         """The stand-in's own falsification.
 
@@ -8516,6 +8578,7 @@ class TestThePayloadRewordCheck:
 
     # -- the controls, each forbidding a verdict ---------------------------
 
+    @pytest.mark.box
     def test_a_selector_that_admits_a_line_that_is_not_a_reset_is_unknown(self):
         """The sharpest of the four, and the reason the loud verdict is safe.
 
@@ -8534,6 +8597,7 @@ class TestThePayloadRewordCheck:
         assert measured.verdict == "unknown"
         assert "which is not a reset at all" in measured.note
 
+    @pytest.mark.box
     def test_a_declared_spelling_the_selector_rejects_is_unknown(self):
         """Zero-because-blind is never zero-because-clean.
 
@@ -8554,6 +8618,7 @@ class TestThePayloadRewordCheck:
         assert measured.verdict == "unknown"
         assert "does not admit" in measured.note
 
+    @pytest.mark.box
     def test_a_spelling_that_lands_on_no_declaration_is_unknown(self):
         """A different fault, and the one the guard exists to shout about.
 
@@ -8575,6 +8640,7 @@ class TestThePayloadRewordCheck:
         assert measured.verdict == "unknown"
         assert "lands on no declaration" in measured.note
 
+    @pytest.mark.box
     def test_a_reword_the_declaration_already_covers_is_unknown(self):
         """It is then not the row the guard exists to catch.
 

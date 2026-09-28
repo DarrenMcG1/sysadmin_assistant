@@ -518,6 +518,7 @@ class TestLiveServicesYaml:
         assert declared == DECLARED_JSON_SOURCES
 
     @pytest.mark.parametrize("declared_name", sorted(DECLARED_JSON_SOURCES))
+    @pytest.mark.box
     def test_a_declared_source_really_writes_json(self, declared_name):
         """The witness for a statement this repository cannot pin.
 
@@ -741,6 +742,7 @@ class TestTheEstateTimersAreReadAtTheirService:
         )
 
 
+@pytest.mark.box
 class TestTheJournalHelperCanAnswerBothWays:
     """The detector driven where it must say *no*, so its *yes* means something.
 

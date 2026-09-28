@@ -104,6 +104,7 @@ class TestFailureIsReportable:
         assert directives["Type"] == "oneshot"
         assert 0 < int(directives["TimeoutStartSec"]) <= 60
 
+    @pytest.mark.box
     def test_the_handler_runs_a_script_that_exists_and_is_executable(self):
         exec_start = _directives("sysadmin-failed.service")["ExecStart"]
         script = Path(exec_start.split()[0])
@@ -329,6 +330,7 @@ class TestTheReplayRunsAtEveryLogin:
         pyproject = (UNITS.parent / "pyproject.toml").read_text(encoding="utf-8")
         assert "sysadmin-replay-failures = " in pyproject
 
+    @pytest.mark.box
     def test_it_names_the_working_directory(self):
         """The monitorable-project contract's requirement, and load-bearing
         here: the script resolves the guard relative to the repository."""

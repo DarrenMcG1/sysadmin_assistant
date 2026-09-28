@@ -3,6 +3,15 @@
 **Last Updated**: 2026-09-28
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **CI leaves out the tests that read this box, and says so**
+> (2026-09-28, Session 286). 104 tests carry a `box` pytest marker and
+> the GitHub workflow runs `pytest -m "not box"`; the box still runs
+> everything and stays green. Sorting the failures by reason found three
+> that were not the box, fixed in the workflow instead: a shallow
+> checkout, the runner's UTC clock, and its older Python patch release.
+> Rehearsed, CI now fails only on estate-manager's unpushed code
+> (`SNAG-TEST-015`). No `sysadmin/` change; no restart owed.
+
 > **CI now gets past `uv sync`** (2026-09-28, Session 285). The GitHub
 > workflow checks out estate-manager beside this repository, using a
 > read-only deploy key because that repository is private. Ruff runs

@@ -3354,6 +3354,7 @@ class TestTheDeclarationIsReadFromTheProse:
         assert code_spans("a `one` and ``two `x` here`` end") == ("one", "two `x` here")
 
 
+@pytest.mark.box
 class TestTheRealBlockDeclaresWhatItSetsAside:
     """The live half of rule 12 — the document against the table.
 

@@ -298,6 +298,7 @@ def journal_reading():
 class TestTheShapeIsDecidedAtReadTime:
     """Half 1 of the mechanism — the entry's cause, reproduced."""
 
+    @pytest.mark.box
     def test_the_two_reads_saw_the_same_records(self, journal_reading):
         """The witness.  Without a shared population the assertion below
         is true of the empty set and says nothing about the reader."""

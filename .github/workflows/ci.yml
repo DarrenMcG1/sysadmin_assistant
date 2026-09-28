@@ -11,6 +11,16 @@ jobs:
     env:
       # PyQt6 tray tests run headless
       QT_QPA_PLATFORM: offscreen
+      # The box's clock and interpreter, which the suite measures against.
+      # TZ: the ops-claims tests read STATUS.md's times in the box's zone,
+      # and in UTC twelve of them report zone drift that is not there.
+      # UV_PYTHON: the coverage-arc tests drive the real `coverage --branch`
+      # through an ephemeral `uv run --with`, and 3.12.3 (the runner's
+      # system Python) lays out a comprehension's arcs differently from the
+      # box's 3.12.12, failing four. It reaches the ephemeral run too, which
+      # a setup-python step would not. Move it when the box's Python moves.
+      TZ: Europe/London
+      UV_PYTHON: "3.12.12"
     # pyproject.toml resolves estate-lib at ../estate-manager/lib, and
     # actions/checkout will not write outside the workspace, so both
     # repositories are checked out as siblings inside it (SNAG-TEST-015).
@@ -18,9 +28,12 @@ jobs:
       run:
         working-directory: sysadmin_assistant
     steps:
+      # Full history: the briefing guards walk every commit that touched
+      # the producer, and a depth-1 clone gives them one.
       - uses: actions/checkout@v4
         with:
           path: sysadmin_assistant
+          fetch-depth: 0
 
       # estate-manager is private. The secret is the private half of a
       # read-only deploy key on that repository and reads nothing else;
@@ -59,9 +72,11 @@ jobs:
         run: uv run --no-sync ruff check .
 
       - name: Pytest
-        # Still red (SNAG-TEST-015): about 80 tests read the box itself (the
-        # projects database's rows, ~/.claude/settings.json, the unit's
-        # WorkingDirectory) and fail rather than skip without it, and the
-        # estate-manager checked out here is what has been pushed, not what
-        # the box runs. A database service would not help the first group.
-        run: uv run --no-sync pytest
+        # `box` tests read this machine itself: the projects database's rows,
+        # ~/.claude/settings.json, the journal, systemctl --user and the
+        # installed unit files. They fail rather than skip without it, so CI
+        # leaves them out here and says so; the box still runs them all
+        # (SNAG-TEST-015). Until estate-manager pushes its main, the
+        # estate-lib checked out here is older than the box's and some
+        # tests still fail on that.
+        run: uv run --no-sync pytest -m "not box"

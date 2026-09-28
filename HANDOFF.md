@@ -1,18 +1,50 @@
-# Handoff — 2026-09-28 (Session 285)
+# Handoff — 2026-09-28 (Session 286)
 
 ## Next action
 
-Mark the tests that read the box with a registered `box` pytest marker and run CI with `-m "not box"` (`SNAG-TEST-015`). *(For: session)*
+Push `main` to GitHub and read the CI run: rehearsed, the marked suite should fail only the 36 stale estate-lib tests (`SNAG-TEST-015`). *(For: owner, ~10 min)*
 
-CI now gets past `uv sync` and Ruff is green on GitHub, but Pytest has
-160 failures. About 80 of them read this machine (the `projects`
-database's rows, `~/.claude/settings.json`, `systemctl --user`, the
-unit's `WorkingDirectory`) and fail rather than skip off it. The
-per-file counts are in `SNAG-TEST-015`. Judge each test by why it fails
-rather than by its file: some `test_reload.py` and `test_units_api.py`
-failures come from the stale estate-lib below, and a marker must not
-hide those. Even with the marker, green waits on estate-manager pushing
-its `main`.
+Pushing publishes to the public remote, so it is the owner's call. A
+run that fails anything besides `load_registry() got an unexpected
+keyword argument 'partial'` and its kin means the runner's user systemd
+reached a test differently from the rehearsal: classify it by its
+reason, then mark it `box` or fix the workflow. A green run then waits
+only on estate-manager pushing its `main` (filed as `71f8bd4e`), after
+which `GitHub Actions` joins `.project.yaml`'s `stack:`.
+
+## Session 286: the `box` marker, and three CI causes that were not the box
+
+Tests, `pyproject.toml`, `.github/workflows/ci.yml` and the roadmap
+files; no `sysadmin/` change, no restart owed. Suite green on the box
+with everything selected (4,386 passed, 2 skipped).
+
+- **The real run's 160 failures partition exactly**: 104 read the box,
+  4 need git history, 12 need the box's time zone, 4 need the box's
+  Python patch release, 36 are the stale estate-lib. Each was classified
+  by its failure message, not by its file.
+- **104 tests carry `@pytest.mark.box`** and CI runs `-m "not box"`. The
+  mark goes on a class only where every test in it reads the box; 66 of
+  the 104 are in `test_snag_claims.py`, whose classes mix live drives
+  with synthetic ones that still run on GitHub.
+- **The other three causes were fixed in `ci.yml`, not marked**, because
+  a marker would have hidden tests that can run anywhere:
+  `fetch-depth: 0`, `TZ: Europe/London` and `UV_PYTHON: "3.12.12"`. The
+  last is set as an environment variable rather than via setup-python so
+  it also reaches the ephemeral `uv run --with coverage` those tests
+  spawn from a temporary directory. **It must move when the box's Python
+  moves**; that is a task under Session 286.
+- **Rejected: marking the coverage-arc and time-zone tests `box`.** They
+  depend on the interpreter and the clock, which CI can supply, not on
+  this machine's state.
+- **Rehearsed before committing, both ways.** With estate-manager's local
+  `main`: 0 failures. With its pushed `main`: 36, all stale-lib. The
+  rehearsal recipe grew a mount namespace hiding `/home/gaddi`,
+  `/run/user/1000`, the journal and the Postgres socket; it is in the
+  memory file for the rehearsal and summarised in `SNAG-TEST-015`.
+- **Not pushed.** The run is the owner's to trigger.
+- **Not touched:** estate-manager's open message `a5c95062` (the broker's
+  start gated on its listener addresses, their ADR-0216) is a separate
+  concern and stays open in the inbox.
 
 ## Session 285: CI checks out estate-manager beside this repository
 

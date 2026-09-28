@@ -473,6 +473,7 @@ class TestUnknownIsNotGoodNews:
 
         assert result.details["resolved"] == 1
 
+    @pytest.mark.box
     async def test_nothing_reachable_means_nothing_written(self, agent):
         """8400 down. No judgements, no raises, and — the important
         half — no resolves. Every open row survives.
@@ -513,6 +514,7 @@ class TestUnknownIsNotGoodNews:
         assert session.add.call_count == 0
         assert result.alerts_raised == 0
 
+    @pytest.mark.box
     async def test_unread_surfaces_are_named_not_counted(self, agent):
         """Which surface is dark decides whether it matters — the rule
         ``journal.py`` records for ``truncated_sources``."""
@@ -771,6 +773,7 @@ class TestTheDerivedSurfaceNeedsBothHalves:
 
         return FakeAlert(SETTINGS_PATH_TITLE, hook_wiring.AGREEMENT_SURFACE)
 
+    @pytest.mark.box
     async def test_the_default_pull_agrees_and_raises_nothing(self, agent):
         session = _session([])
 
@@ -779,6 +782,7 @@ class TestTheDerivedSurfaceNeedsBothHalves:
         assert hook_wiring.AGREEMENT_SURFACE in result.details["surfaces_read"]
         assert result.alerts_raised == 0
 
+    @pytest.mark.box
     async def test_a_different_file_raises_one_row_on_the_derived_surface(self, agent):
         from sysadmin.estate.judgements import SETTINGS_PATH_TITLE
 
@@ -792,6 +796,7 @@ class TestTheDerivedSurfaceNeedsBothHalves:
         assert row.title == SETTINGS_PATH_TITLE
         assert row.details[SURFACE_DETAIL_KEY] == hook_wiring.AGREEMENT_SURFACE
 
+    @pytest.mark.box
     async def test_agreement_again_resolves_the_standing_row(self, agent):
         session = _session([self._standing()])
 
@@ -807,6 +812,7 @@ class TestTheDerivedSurfaceNeedsBothHalves:
         assert result.details["resolved"] == 0
         assert hook_wiring.AGREEMENT_SURFACE in result.details["unread_surfaces"]
 
+    @pytest.mark.box
     async def test_a_summary_that_stops_publishing_the_path_leaves_the_row(self, agent):
         """The rollback case — rule 2 of ``compare_settings_paths``. The
         audit was read, so every other ``audit_invariants`` rule runs; the
