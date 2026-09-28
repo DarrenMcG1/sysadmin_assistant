@@ -3,4 +3,225 @@ id: sysadmin-assistant
 name: sysadmin_assistant
 category: null
 status: active
+# Everything the repository runs on, for web/cv's check (their message
+# 17758da4, 2026-09-28). GitHub Actions is left out although
+# .github/workflows/ci.yml exists: all five runs since the remote was
+# created (2026-09-09) failed at `uv sync`, which cannot install estate-lib
+# from its sibling path on a GitHub runner, so the workflow has never
+# tested anything. Add it back when a run is green. The CV's "Oracle
+# targets" is not true of this repository and is not declared.
+stack:
+  - Python
+  - FastAPI
+  - Uvicorn
+  - Pydantic
+  - SQLAlchemy
+  - asyncpg
+  - psycopg2
+  - Alembic
+  - PostgreSQL
+  - APScheduler
+  - httpx
+  - psutil
+  - PyYAML
+  - python-json-logger
+  - PyQt6
+  - D-Bus
+  - llama.cpp
+  - rocm-smi
+  - systemd
+  - journald
+  - pytest
+  - Ruff
+  - mypy
+  - uv
+  - Bash
+
+# estate-manager ADR-0199 and ADR-0200. Each commit is the first in this
+# tree that carries the feature, read from `git log -S` on the code rather
+# than from the file's creation: the backend was split into packages on
+# 2026-08-08 (512af01), which re-adds most modules and is never the first
+# commit. Quoted so YAML cannot read a hash as a number.
+features:
+  - name: Service monitoring
+    summary: Checks every declared service by systemd, HTTP or port, records its state and alerts when it fails.
+    status: live
+    parts:
+      - name: Health checks
+        summary: Polls each service declared in services.yaml and records whether it is up, degraded or down.
+        status: live
+        first_commit: '5e6e6a5'
+        live_commit: '5e6e6a5'
+      - name: Service control
+        summary: Starts, stops and restarts a declared service from the API or the tray.
+        status: live
+        first_commit: '81b3bfb'
+        live_commit: '81b3bfb'
+      # Built and tested, but no service in services.yaml sets
+      # `auto_restart: true`, so it has never restarted anything.
+      - name: Auto-restart
+        summary: Restarts a service after a set number of failed checks, when its declaration allows it.
+        status: prototype
+        first_commit: 'b2bfed3'
+      - name: Reliability scoring
+        summary: Scores each service's reliability over a window and recommends a fix for the worst.
+        status: live
+        first_commit: 'd17af35'
+        live_commit: 'd17af35'
+      - name: Service discovery
+        summary: Finds systemd units and listening ports that nothing monitors, and drafts the declaration each needs.
+        status: live
+        first_commit: '72e8cad'
+        live_commit: '72e8cad'
+      - name: GPU reset check
+        summary: Marks a declared service degraded while it holds a GPU context created before the last GPU reset.
+        status: live
+        first_commit: '22ccf78'
+        live_commit: '22ccf78'
+  - name: Resource monitoring
+    summary: Records CPU, memory, disk and GPU use and alerts when a threshold is crossed.
+    status: live
+    parts:
+      - name: System resources
+        summary: Records CPU, memory and disk use on a schedule and alerts on thresholds.
+        status: live
+        first_commit: '5e6e6a5'
+        live_commit: '5e6e6a5'
+      - name: GPU monitoring
+        summary: Reads the AMD GPU's utilisation, temperature and VRAM from sysfs, with rocm-smi as a fallback.
+        status: live
+        first_commit: '6d3df3f'
+        live_commit: '6d3df3f'
+  - name: Alerts and notifications
+    summary: Opens one alert per fault, closes it on recovery, and tells the owner on the desktop without nagging.
+    status: live
+    parts:
+      - name: Alerts
+        summary: Opens an alert for each fault, collates repeats into it and closes it when the fault recovers.
+        status: live
+        first_commit: '5e6e6a5'
+        live_commit: '5e6e6a5'
+      - name: Do not disturb
+        summary: Silences non-critical desktop notifications on a schedule or on demand.
+        status: live
+        first_commit: '7263946'
+        live_commit: '7263946'
+      - name: One interruption per problem
+        summary: Updates a notification in place, coalesces bursts and holds back a flapping service.
+        status: live
+        first_commit: 'dcd4856'
+        live_commit: 'dcd4856'
+      - name: Escalation
+        summary: Restates a fault that stays open at a louder severity, on a small number of rungs.
+        status: live
+        first_commit: '92ea548'
+        live_commit: '92ea548'
+      - name: Notifier when the tray is down
+        summary: Sends desktop notifications itself when the tray is not running.
+        status: live
+        first_commit: '7d41282'
+        live_commit: '7d41282'
+  - name: Log aggregation
+    summary: Collects, filters and stores logs, alerts on errors and reviews them weekly.
+    status: live
+    parts:
+      - name: Journal pipeline
+        summary: Reads each declared unit's journal, filters it by severity, stores it and alerts on errors.
+        status: live
+        first_commit: '5e6e6a5'
+        live_commit: '5e6e6a5'
+      # The byte-offset tailer reads nothing: every log source declared in
+      # config.yaml and services.yaml is `type: journalctl` (web/cv's
+      # fact-check, 2026-09-28, re-measured here the same day).
+      - name: Log file tailing
+        summary: Tails plain log files from a saved byte offset, for sources that do not write to the journal.
+        status: prototype
+        first_commit: '5e6e6a5'
+      - name: Log trends and recommendations
+        summary: Groups log lines by signature, tracks each over time and recommends what to do about it.
+        status: live
+        first_commit: '8f196ce'
+        live_commit: '8f196ce'
+      - name: Weekly log review
+        summary: Writes a weekly review of the logs, narrated by the local LLM, with a plain digest when it is unavailable.
+        status: live
+        first_commit: '88b0460'
+        live_commit: '88b0460'
+      - name: LLM log summary
+        summary: Summarised recent log entries with the local LLM on a schedule; replaced by the weekly log review.
+        status: retired
+        first_commit: '5e6e6a5'
+        live_commit: '5e6e6a5'
+        retired_commit: '88b0460'
+  - name: Structured logging
+    summary: Writes the service's own logs as JSON, with levels mapped to syslog priorities so the journal can filter them.
+    status: live
+    first_commit: '2fea32d'
+    live_commit: '2fea32d'
+  - name: Desktop tray
+    summary: A KDE tray app showing service, resource and alert state, with a dashboard and service controls.
+    status: live
+    first_commit: '81b3bfb'
+    live_commit: '81b3bfb'
+  - name: File housekeeping
+    summary: Audits the home directory and offers cleanups, each a dry run until confirmed.
+    status: live
+    parts:
+      - name: Disk audit
+        summary: Scans the home directory for duplicates, large files, misplaced files and stale caches.
+        status: live
+        first_commit: '5e6e6a5'
+        live_commit: '5e6e6a5'
+      - name: Cleanup actions
+        summary: Organises files, removes duplicates and clears old downloads, as a dry run unless told otherwise.
+        status: live
+        first_commit: '9d4946b'
+        live_commit: '9d4946b'
+      - name: Weekly disk review
+        summary: Writes a weekly review of disk use, narrated by the local LLM, with a plain digest when it is unavailable.
+        status: live
+        first_commit: 'e0f612a'
+        live_commit: 'e0f612a'
+  - name: Weekly health review
+    summary: Writes a weekly review of the box's health, narrated by the local LLM, with a plain digest when it is unavailable.
+    status: live
+    first_commit: '6fc60f1'
+    live_commit: '6fc60f1'
+  - name: Self-monitoring
+    summary: Watches its own agents and resource use, and reports its own failure even when it cannot run.
+    status: live
+    parts:
+      - name: Agent self-health
+        summary: Reports whether each of its own agents ran on time, and streams its events to the tray.
+        status: live
+        first_commit: '0038ef1'
+        live_commit: '0038ef1'
+      - name: Failure handler
+        summary: Records an alert from a systemd OnFailure unit when the service itself fails, and repeats it at the next login.
+        status: live
+        first_commit: '4d93226'
+        live_commit: '4d93226'
+  - name: Morning briefing
+    summary: Supplies the box's section of the owner's morning briefing.
+    status: live
+    first_commit: '5e6e6a5'
+    live_commit: '5e6e6a5'
+  - name: Estate judge
+    summary: Reads what the estate publishes, such as its audit findings and GPU queue, and alerts on what needs the owner.
+    status: live
+    first_commit: '8220bcc'
+    live_commit: '8220bcc'
+  - name: Claim checks
+    summary: Checks the status page's claims and the open snag entries against the live box at the start and end of each session.
+    status: live
+    first_commit: '4eaf903'
+    live_commit: '4eaf903'
+  # Left for estate-manager under this repository's ADR-0005.
+  - name: Project state
+    summary: Scanned every repository's roadmap and scored its momentum; now estate-manager's.
+    status: retired
+    first_commit: '5e6e6a5'
+    live_commit: '5e6e6a5'
+    retired_commit: '7467d2c'
+
 decisions: []

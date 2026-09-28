@@ -8,6 +8,30 @@
 
 ---
 
+## Session 284: `stack:` and `features:` declared for web/cv (2026-09-28)
+
+Answered web/cv's message `17758da4` (their CV's line for this project
+is to be generated from the estate board instead of hand-typed).
+`.project.yaml` only; no `sysadmin/` change, no restart owed.
+
+- [x] **Declared `stack:` (25 items) and `features:` (13 entries, 7 of
+      them sets holding 23 parts).** Validated against `estate.registry`'s
+      `ProjectManifest` and every cited commit resolves. First commits
+      come from `git log -S` on the code, because the 2026-08-08 package
+      split (`512af01`) re-adds most modules. Two prototypes: the log
+      file tailer (every declared log source is `journalctl`) and
+      auto-restart (no service enables it). Two retired: the periodic
+      LLM log summary and project state. Replied `a3af38e7-cb2b-4f0c-98b8-ac7326b0bd0e`
+      and closed `17758da4`.
+- [ ] **`SNAG-TEST-015`: make CI pass on GitHub, then add `GitHub Actions` to `stack:`.**
+      All five runs since the remote was created on 2026-09-09 failed at
+      `uv sync`: `estate-lib` is an editable path dependency
+      (`../estate-manager/lib`, `pyproject.toml` `[tool.uv.sources]`) and
+      the runner has no sibling checkout. estate-manager has a GitHub
+      remote, so a second `actions/checkout` of it into `../estate-manager`
+      is the likely fix; check whether it is public first. Found by
+      Session 284 and deliberately not worked there (one concern).
+
 ## Session 283: the rule-1 psql notice, read and closed (2026-09-28)
 
 Estate-manager's notice (estate rule 1: no application reads another
@@ -23,7 +47,7 @@ restart owed.
       tables. The two flagged reads were sessions, not code, and the
       memory `a-message-names-what-the-sender-could-see` already refuses
       `psql -X -d estate`. Estate data is read through `:8400`.
-- [ ] **Answer web/cv's message `17758da4`: declare `stack:` and
+- [x] **Answer web/cv's message `17758da4`: declare `stack:` and
       `features:` in `.project.yaml`.** The CV wants its line for this
       project generated from the estate (estate-manager ADR-0197 for
       `stack:`, ADR-0199 for `features:`) instead of hand-typed. List every
@@ -32,7 +56,8 @@ restart owed.
       fact-check found the byte-offset file tailer built but reading
       nothing, so decide whether it is `prototype`. Worked examples:
       web/cv's `.project.yaml` (commit 4456fb4) and estate-manager's.
-      Arrived during Session 283 and not worked there.
+      Arrived during Session 283 and not worked there. *(Done by Session
+      284, above.)*
 
 ---
 

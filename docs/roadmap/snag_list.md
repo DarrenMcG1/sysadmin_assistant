@@ -10,6 +10,13 @@
 
 ## Open Issues
 
+- [P3] SNAG-TEST-015: **CI has never passed on GitHub, because the runner cannot resolve `estate-lib`'s editable path dependency** (2026-09-28, found by Session 284)
+  - **Symptom**: `gh run list` shows five runs of `.github/workflows/ci.yml` since the remote was created on 2026-09-09, all `failure`, each in about 20–40 s. The latest (run 35762863172, 2026-09-22) fails at `uv sync` with `Failed to generate package metadata for estate-lib==0.1.0 @ editable+../estate-manager/lib`. So ruff and pytest have never run on GitHub.
+  - **Source**: `pyproject.toml` `[tool.uv.sources]` points `estate-lib` at `../estate-manager/lib`, editable and unversioned by design (estate-manager ADR-0006 §4). The workflow checks out this repository only.
+  - **Cost**: the public repository shows a red CI history, and a regression that only a clean checkout would catch goes unseen. Locally the suite is green (4,386 passed today). `GitHub Actions` is left out of `.project.yaml`'s `stack:` until a run passes, so web/cv's CV does not claim it.
+  - **Likely fix, unpriced**: a second `actions/checkout` of `DarrenMcG1/estate-manager` into `../estate-manager` before `uv sync`. Check first whether that repository is public; if not, the checkout needs a token.
+  - **Status:** Open — owed, P3: the fix is startable and the task is in tasks.md under Session 284.
+
 - [P3] SNAG-TEST-014: **the live notification witness still leaves its probe on the owner's screen, because its cleanup counts a successful D-Bus call as the notification being gone** (2026-09-27, reported by the owner in Session 271 with a screenshot)
   - **Symptom**: a critical notification from app `sysadmin-test`, titled "SNAG-SYSD-004 probe" and reading *"if you are reading this on screen, the live witness worked"*, shown **15 min ago** in Plasma's notification list after this session's postflight suite run. The owner's words: *"seems to be popping up again"*. The fix it recurs past is `9efef79` (2026-08-31, *"the live witness takes its own toast back off the screen"*), which added `--print-id` and a `CloseNotification` by id.
   - **Source**: `tests/test_notify_guard_live.py`, `TestTheHazardIsReal::test_notify_send_returns_at_once_on_the_live_bus`. It sends the announcer's own flags (`--urgency=critical --expire-time=0`), then calls `_close_notification`, which runs `busctl --user call … CloseNotification u <id>` and returns `returncode == 0`.

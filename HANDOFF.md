@@ -1,14 +1,48 @@
-# Handoff — 2026-09-28 (Session 283)
+# Handoff — 2026-09-28 (Session 284)
 
 ## Next action
 
-Answer web/cv's message `17758da4` by declaring `stack:` and `features:` in `.project.yaml`, as the first unticked task in tasks.md asks. *(For: session)*
+Make CI pass on GitHub (`SNAG-TEST-015`) by checking out estate-manager beside this repo in ci.yml, then add GitHub Actions to `.project.yaml`'s stack. *(For: session)*
 
-The CV will generate this project's line from the estate and drop any
-stack item the list leaves out, so the list must be complete and true.
-Each feature needs a status and its commits. The file tailer is built
-but reads nothing, so it is probably `prototype`. Close `17758da4` when
-done. The owner task beneath it (re-assert the boot default) needs root.
+Every GitHub run since 2026-09-09 has failed at `uv sync`: `estate-lib`
+is an editable path dependency on `../estate-manager/lib` and the runner
+has only this checkout. First check whether `DarrenMcG1/estate-manager`
+is public; if not, the second checkout needs a token, which is the
+owner's to create. The owner task after it in tasks.md (re-assert the
+boot default) needs root.
+
+## Session 284: `stack:` and `features:` declared for web/cv
+
+`.project.yaml` and the roadmap files only; no `sysadmin/` change, no
+restart owed. Suite green (4,386 passed, 2 skipped).
+
+- **Declared 25 stack items and 13 features (7 sets, 23 parts).**
+  Validated against `estate.registry`'s `ProjectManifest`; every cited
+  commit resolves. Replied to web/cv as
+  `a3af38e7-cb2b-4f0c-98b8-ac7326b0bd0e` and closed `17758da4`.
+- **First commits were read with `git log -S`, not file creation.** The
+  2026-08-08 package split (`512af01`) re-adds most modules, so
+  `--diff-filter=A` names it for nearly everything and would have dated
+  half the features six months late.
+- **Two prototypes.** The log file tailer: every log source in
+  `config.yaml` and `services.yaml` is `journalctl`, confirming web/cv's
+  fact-check. Auto-restart: the code is there, but no service declares
+  `auto_restart: true`. Not asked about; found while dating features.
+- **Two retired.** The periodic LLM log summary (built in the first
+  commit, removed by the weekly log review in `88b0460`) and project
+  state (left for estate-manager in `7467d2c`, ADR-0005). Retired, never
+  deleted, is ADR-0199's rule.
+- **Rejected from the stack:** GitHub Actions, until a run is green
+  (`SNAG-TEST-015`); the CV's "Oracle targets", not true here; MQTT, since
+  this service only monitors the broker and never publishes. Libraries
+  were declared generously (psycopg2, PyYAML and so on), because the CV
+  drops any printed item the list leaves out and a superset costs nothing.
+- **Stacked and recorded, not worked:** CI's failure, as `SNAG-TEST-015`
+  and a task under Session 284.
+
+### What Session 283 handed on (done in Session 284)
+
+Answer web/cv's message `17758da4` by declaring `stack:` and `features:` in `.project.yaml`, as the first unticked task in tasks.md asks. *(For: session)*
 
 ## Session 283: the rule-1 psql notice, read and closed
 

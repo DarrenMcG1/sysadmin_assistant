@@ -3,6 +3,17 @@
 **Last Updated**: 2026-09-28
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **This project's stack and features are declared for the estate**
+> (2026-09-28, Session 284). `.project.yaml` now lists what the
+> repository runs on and what it can do, each feature dated by the
+> commit that first carried it, so web/cv's CV can build its line for
+> this project from the estate board instead of typing it. The log file
+> tailer and service auto-restart are declared `prototype`: both are
+> built and neither is used. GitHub Actions is left out of the stack,
+> because CI has failed on every GitHub run since the remote was created
+> (`SNAG-TEST-015`: the runner cannot find `estate-lib`). No `sysadmin/`
+> change; no restart owed.
+
 > **The weekly reviews have their LLM back** (2026-09-28, Session 282).
 > All three weekly reviews used the LLM this morning, and the GPU
 > arbiter's lifetime grant count reads 82, off the 67 it was stuck at.
@@ -7449,6 +7460,14 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 284 — `stack:` and `features:` declared for web/cv (2026-09-28)
+
+- Declared `stack:` and `features:` in `.project.yaml`, answering web/cv's
+  message `17758da4`, and closed it with reply `a3af38e7-cb2b-4f0c-98b8-ac7326b0bd0e`. Two features
+  are `prototype` (the log file tailer, auto-restart) and two `retired`
+  (the periodic LLM log summary, project state). CI's failure on GitHub
+  was found and filed as `SNAG-TEST-015`, not fixed.
 
 ### Session 283 — the rule-1 psql notice, read and closed (2026-09-28)
 
