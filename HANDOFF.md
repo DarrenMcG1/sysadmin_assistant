@@ -1,15 +1,57 @@
-# Handoff — 2026-09-28 (Session 284)
+# Handoff — 2026-09-28 (Session 285)
 
 ## Next action
 
-Make CI pass on GitHub (`SNAG-TEST-015`) by checking out estate-manager beside this repo in ci.yml, then add GitHub Actions to `.project.yaml`'s stack. *(For: session)*
+Mark the tests that read the box with a registered `box` pytest marker and run CI with `-m "not box"` (`SNAG-TEST-015`). *(For: session)*
 
-Every GitHub run since 2026-09-09 has failed at `uv sync`: `estate-lib`
-is an editable path dependency on `../estate-manager/lib` and the runner
-has only this checkout. First check whether `DarrenMcG1/estate-manager`
-is public; if not, the second checkout needs a token, which is the
-owner's to create. The owner task after it in tasks.md (re-assert the
-boot default) needs root.
+CI now gets past `uv sync` and Ruff is green on GitHub, but Pytest has
+160 failures. About 80 of them read this machine (the `projects`
+database's rows, `~/.claude/settings.json`, `systemctl --user`, the
+unit's `WorkingDirectory`) and fail rather than skip off it. The
+per-file counts are in `SNAG-TEST-015`. Judge each test by why it fails
+rather than by its file: some `test_reload.py` and `test_units_api.py`
+failures come from the stale estate-lib below, and a marker must not
+hide those. Even with the marker, green waits on estate-manager pushing
+its `main`.
+
+## Session 285: CI checks out estate-manager beside this repository
+
+`.github/workflows/ci.yml` and the roadmap files only; no `sysadmin/`
+change, no restart owed.
+
+- **estate-manager is private, so the checkout uses a deploy key.** The
+  owner chose it from three options: a read-only deploy key on
+  estate-manager (id 164722562) whose private half is the Actions secret
+  `ESTATE_MANAGER_DEPLOY_KEY` here. A fine-grained token was rejected
+  because it expires and CI would go red on that date for no reason.
+  Publishing estate-manager was rejected because it is a disclosure
+  decision for that repository. The key was generated in the scratchpad
+  and shredded after upload.
+- **Both repositories are checked out inside the workspace, as
+  siblings.** `actions/checkout` refuses a `path:` outside
+  `$GITHUB_WORKSPACE`, so `../estate-manager` cannot be written
+  directly; every step runs from `sysadmin_assistant/` instead.
+- **`estate_service` is installed on the runner as it is on the box**
+  (`uv pip install --no-deps -e`), and the later steps use
+  `uv run --no-sync` so nothing prunes it. The cross-repo pins skip only
+  when the estate-manager tree is absent, so the checkout alone would
+  have turned them red.
+- **The task's premise was false, and it was measured before pushing.**
+  A local rehearsal of the runner (sibling clones, empty `HOME`, no
+  session bus, a network namespace with loopback up and empty) found 144
+  failures. The real run 36457801954 found 160: every step through Ruff
+  passed, and Pytest reported 160 failed, 4,098 passed, 130 skipped. The
+  rehearsal recipe is in `SNAG-TEST-015`.
+- **Two causes remain.** First, the box-reading tests: a Postgres
+  service would not help, because they assert this box's rows. Second,
+  estate-manager's pushed `main` is 55 commits behind the box's, so CI
+  tests against an estate-lib without `load_registry(partial=)`. That was
+  filed at estate-manager as `71f8bd4e-622a-4f84-8b82-ca32d97d099a`,
+  which also tells them about the deploy key on their repository.
+- **The owner chose to land the checkout only.** The marker work and
+  adding `GitHub Actions` to `stack:` are two tasks under Session 285.
+  This repository's `main` was pushed (40 commits) so the run could
+  happen.
 
 ## Session 284: `stack:` and `features:` declared for web/cv
 

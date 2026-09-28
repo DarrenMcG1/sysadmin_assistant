@@ -8,6 +8,32 @@
 
 ---
 
+## Session 285: CI checks out estate-manager beside this repository (2026-09-28)
+
+`SNAG-TEST-015`, first half. `.github/workflows/ci.yml` and the roadmap
+files only; no `sysadmin/` change, no restart owed.
+
+- [x] **CI gets past `uv sync`.** estate-manager is private, so both
+      repositories are checked out as siblings inside the workspace, with
+      a read-only deploy key on estate-manager whose private half is the
+      secret `ESTATE_MANAGER_DEPLOY_KEY` (the owner's choice over a token
+      and over publishing). `estate_service` is installed `--no-deps -e`
+      for the cross-repo pins. Run 36457801954: Ruff green on GitHub for
+      the first time; Pytest 160 failed, 4,098 passed.
+- [ ] **Mark the tests that read the box with a registered `box` pytest
+      marker, and run CI with `-m "not box"`.** About 80 tests read the
+      `projects` database's rows, `~/.claude/settings.json`,
+      `systemctl --user` or the unit's `WorkingDirectory`, and fail rather
+      than skip off the box. The per-file counts from the real run are in
+      `SNAG-TEST-015`. The box keeps running everything; CI says in the
+      workflow what it leaves out. Check each test's reason for failing,
+      not its file: `test_reload.py` and `test_units_api.py` also fail on
+      the stale estate-lib, which the marker must not hide.
+- [ ] **After the first green run, add `GitHub Actions` to `.project.yaml`'s
+      `stack:`** and drop the comment explaining its absence. Green also
+      needs estate-manager's `main` pushed (55 commits behind on
+      2026-09-28), filed at them as `71f8bd4e-622a-4f84-8b82-ca32d97d099a`.
+
 ## Session 284: `stack:` and `features:` declared for web/cv (2026-09-28)
 
 Answered web/cv's message `17758da4` (their CV's line for this project
@@ -23,7 +49,7 @@ is to be generated from the estate board instead of hand-typed).
       auto-restart (no service enables it). Two retired: the periodic
       LLM log summary and project state. Replied `a3af38e7-cb2b-4f0c-98b8-ac7326b0bd0e`
       and closed `17758da4`.
-- [ ] **`SNAG-TEST-015`: make CI pass on GitHub, then add `GitHub Actions` to `stack:`.**
+- **`SNAG-TEST-015`: make CI pass on GitHub, then add `GitHub Actions` to `stack:`.**
       All five runs since the remote was created on 2026-09-09 failed at
       `uv sync`: `estate-lib` is an editable path dependency
       (`../estate-manager/lib`, `pyproject.toml` `[tool.uv.sources]`) and
@@ -31,6 +57,10 @@ is to be generated from the estate board instead of hand-typed).
       remote, so a second `actions/checkout` of it into `../estate-manager`
       is the likely fix; check whether it is public first. Found by
       Session 284 and deliberately not worked there (one concern).
+      *(Checkbox removed by Session 285, 2026-09-28: its premise, that
+      the checkout alone makes CI pass, was measured false. The checkout
+      landed, and the remaining work is carried as two items under
+      Session 285.)*
 
 ## Session 283: the rule-1 psql notice, read and closed (2026-09-28)
 

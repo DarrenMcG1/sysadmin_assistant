@@ -5,10 +5,11 @@ category: null
 status: active
 # Everything the repository runs on, for web/cv's check (their message
 # 17758da4, 2026-09-28). GitHub Actions is left out although
-# .github/workflows/ci.yml exists: all five runs since the remote was
-# created (2026-09-09) failed at `uv sync`, which cannot install estate-lib
-# from its sibling path on a GitHub runner, so the workflow has never
-# tested anything. Add it back when a run is green. The CV's "Oracle
+# .github/workflows/ci.yml exists: no run has ever been green
+# (SNAG-TEST-015). The first five failed at `uv sync`; since 2026-09-28 the
+# workflow checks out estate-manager beside this repository and Pytest
+# runs, but tests that read the box itself fail on a runner. Add it back
+# when a run is green. The CV's "Oracle
 # targets" is not true of this repository and is not declared.
 stack:
   - Python

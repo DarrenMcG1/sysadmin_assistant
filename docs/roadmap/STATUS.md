@@ -3,6 +3,14 @@
 **Last Updated**: 2026-09-28
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **CI now gets past `uv sync`** (2026-09-28, Session 285). The GitHub
+> workflow checks out estate-manager beside this repository, using a
+> read-only deploy key because that repository is private. Ruff runs
+> green on GitHub for the first time. Pytest is still red
+> (`SNAG-TEST-015`): about 80 tests read this box itself, and
+> estate-manager's pushed code is behind the box's. No `sysadmin/`
+> change; no restart owed.
+
 > **This project's stack and features are declared for the estate**
 > (2026-09-28, Session 284). `.project.yaml` now lists what the
 > repository runs on and what it can do, each feature dated by the
@@ -7460,6 +7468,14 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 285 — CI checks out estate-manager beside this repository (2026-09-28)
+
+- `ci.yml` checks both repositories out as siblings, reads the private
+  estate-manager with a read-only deploy key, and installs
+  `estate_service` for the cross-repo pins. Run 36457801954 passes every
+  step through Ruff; Pytest has 160 failures, sorted by cause in
+  `SNAG-TEST-015`. The stale estate-manager push was filed at them.
 
 ### Session 284 — `stack:` and `features:` declared for web/cv (2026-09-28)
 
