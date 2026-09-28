@@ -8,6 +8,48 @@
 
 ---
 
+## Session 282: the fourth Monday's reading — the lease was granted and the LLM answered (2026-09-28)
+
+Took the dated reading Session 244 set for today. Neither branch that task
+foresaw happened: the arbiter had resumed granting **and** the reviews used
+the LLM, so the starvation of 2026-09-20/22 ended on its own and there was
+nothing to chase. Documentation only; no restart owed.
+
+- [x] **`llm_used` is true on all three review tables this morning** —
+      `health_reviews` 05:00:17, `log_reviews` 05:15:07, `disk_reviews`
+      05:45:06. The run reads true (09-14), not exercised (09-21), true
+      (09-28).
+- [x] **`grants_total` has moved from 67 to 82.** The first grant after the
+      stall was lease 83 (`venture-nightly-24b`) at 2026-09-22 00:01:04, so
+      nothing was granted for 48 hours (from lease 77 at 2026-09-20
+      00:01:03), not the 37 Session 244 could see. Today's three review
+      leases (94, 95, 97) waited 5.9 s, 3.3 s and 3.2 s. Queue depth 0, no
+      `waiting_reason`.
+- [x] **Recorded on `SNAG-GPU-003`** (the entry on the lease and its
+      fallback gate reading the same GPU-busy floor) **and lowered P2 → P3.**
+      Its P2 rested on the stall recurring every Monday "while the condition
+      holds"; it held for one Monday and has not recurred. The structural
+      finding stands and the owner's 2026-09-23 "not built" ruling is
+      unchanged. Estate message `806b1c71` was already closed by
+      estate-manager on 2026-09-21.
+- [x] **Recorded on `SNAG-GPU-001`** (GPU resets poison inference servers
+      without the monitor seeing it). Still no reset since 2026-09-06
+      20:43:01 (22 days); `context_lost` false on all 10,900 stored
+      readings. The 11:49 reboot moved the box from `6.18.49-2-lts` to
+      `7.2.7-arch1-1`; both reset spellings are declared.
+- [ ] **Read estate message `438b6a67` whole and close it.** It announces
+      the estate's rule-1 session notice (a psql command naming another
+      repository's database or schema now warns at the call). Left unread by
+      Sessions 281 and 282, each holding another concern.
+- [ ] **Re-assert the boot default** *(For: owner, needs root)*. `bootctl
+      status` names `…-7.2.2-arch1-1.conf` as the default, an entry the
+      7.2.7 upgrade deleted, so the loader falls back to sort-key order —
+      the drift recorded on 2026-09-03. Today's boot came up on 7.2.7; the
+      two before it on `6.18.49-2-lts`. Decide which branch is meant and run
+      `sudo bootctl set-default` on its entry.
+
+---
+
 ## Session 281: mosquitto's boot core dump stays `critical` (2026-09-28)
 
 - [x] **Kept the mosquitto core dump at `critical`; declared no
@@ -877,7 +919,7 @@ so no restart is owed.
       over its own journal — `SNAG-GPU-002`'s stated reason for declining a
       check one entry over. What already watches the condition is
       `judge_queue_invariants`, which did
-- [ ] **Read `llm_used` on all three review tables on the fourth Monday,
+- [x] **Read `llm_used` on all three review tables on the fourth Monday,
       2026-09-28, and read `grants_total` beside it.** The two questions have
       become one: `SNAG-GPU-001`'s run of `true`s cannot resume while the
       arbiter grants nothing, so the discriminating figure is whether

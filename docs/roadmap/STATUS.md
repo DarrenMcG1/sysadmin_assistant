@@ -3,6 +3,15 @@
 **Last Updated**: 2026-09-28
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The weekly reviews have their LLM back** (2026-09-28, Session 282).
+> All three weekly reviews used the LLM this morning, and the GPU
+> arbiter's lifetime grant count reads 82, off the 67 it was stuck at.
+> The stall that cost the 2026-09-21 narratives lasted 48 hours and
+> ended on its own at 2026-09-22 00:01:04; today's review leases were
+> granted within 6 seconds. `SNAG-GPU-003` (the lease and its fallback
+> gate read the same busy floor) is lowered P2 → P3 because the stall
+> has not recurred. Documentation only; no restart owed.
+
 > **Mosquitto's boot core dump stays `critical`** (2026-09-28, Session
 > 281). The broker crashes on most boots when a listener binds before
 > `eno1` holds its address. `coredumpctl` shows two different crashes:

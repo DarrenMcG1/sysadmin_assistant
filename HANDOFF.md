@@ -1,15 +1,40 @@
-# Handoff — 2026-09-28 (Session 281)
+# Handoff — 2026-09-28 (Session 282)
 
 ## Next action
 
-Read `llm_used` on the three review tables and `grants_total` beside it, as the dated task for today (2026-09-28) in tasks.md asks. *(For: session)*
+Read estate message `438b6a67` (the rule-1 psql session notice) whole and close it, as the first unticked task in tasks.md asks. *(For: session)*
 
-It is the first unticked task in `tasks.md` that can start now, and
-today is the date it names. It asks one question: has the GPU arbiter's
-`grants_total` moved off 67? If it has and the reviews still fell back
-to the digest, the fallback gate is the cause (`SNAG-GPU-003`, the entry
-on the reviews losing their LLM narrative). If it has not, chase
-estate-manager's message `806b1c71`.
+It has waited unread through Sessions 281 and 282, each of which held
+another concern. It is an announcement, so the likely work is to read
+it, check whether anything here runs psql against a database or schema
+this repository does not own, and close it with what was found.
+
+## Session 282: the fourth Monday's reading — the LLM is back
+
+Documentation only (`tasks.md`, `snag_list.md`, `STATUS.md`, this file);
+no `sysadmin/` change, no restart owed.
+
+- **The reading:** `llm_used` true on all three review tables
+  (05:00:17, 05:15:07, 05:45:06). `grants_total` 82, off 67. Neither
+  branch the task foresaw happened, so there was nothing to chase.
+- **The stall was 48 hours, not 37.** Last grant before it: lease 77,
+  2026-09-20 00:01:03. First after: lease 83, 2026-09-22 00:01:04.
+  Why the floor fell is on the estate's side and was not investigated.
+- **Decided: `SNAG-GPU-003` lowered P2 → P3.** Its P2 was argued on the
+  stall recurring weekly; it did not. It stays open because the
+  structure (the lease waits on the same floor the fallback re-asks) is
+  unchanged, and the owner's 2026-09-23 "not built" stands.
+- **`SNAG-GPU-001` keeps P2.** Still no GPU reset since 2026-09-06; quiet
+  is not evidence the reader works.
+- **Found and not worked:** the 11:49 reboot came up on kernel
+  `7.2.7-arch1-1` after two boots on `6.18.49-2-lts`, and `bootctl`'s
+  default names a deleted `7.2.2` entry. Recorded as an owner task
+  (needs root); both GPU-reset spellings are declared, so monitoring is
+  unaffected.
+
+### What Session 281 handed on (done in Session 282)
+
+Read `llm_used` on the three review tables and `grants_total` beside it, as the dated task for today (2026-09-28) in tasks.md asks. *(For: session)*
 
 ## Session 281: mosquitto's boot core dump stays `critical`
 
