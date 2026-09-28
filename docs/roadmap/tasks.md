@@ -22,12 +22,15 @@
       since 2026-08-17, every time with the bind error beside it and the
       broker running 5 s later. Noted in Session 279 as a second concern
       and not worked; which alert rung it deserves is a monitor judgement.
-- [ ] **Tell estate-manager that today's broker crash lost its retained
+- [x] **Tell estate-manager that today's broker crash lost its retained
       messages.** The start after the 11:49:14 crash restored 0 retained
       messages and 0 subscriptions, where every earlier boot restored 2 and
       8. The broker and its boot drop-in are theirs. What the two retained
       messages were is unread (the database is readable only by the
-      `mosquitto` user). Noted in Session 279 and not filed.
+      `mosquitto` user). Noted in Session 279. **Filed in Session 280** as
+      register message `e1eef46b-05cc-4460-9968-abb7524d0232`, after all
+      eight earlier crash-then-retry pairs since 2026-09-03 were
+      re-read and each showed 2 and 8 on both starts.
 
 ---
 

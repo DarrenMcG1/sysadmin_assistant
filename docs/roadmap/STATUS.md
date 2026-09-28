@@ -19,9 +19,10 @@
 > since 2026-09-03, eight of them, and the critical alert has opened and
 > closed on nine boots since 2026-08-17. **One thing was new today:** the
 > start after the crash restored 0 retained messages and 0 subscriptions,
-> where every earlier boot restored 2 and 8. That is recorded for the
-> broker's owner, estate-manager, not worked here. Documentation only;
-> no restart owed.
+> where every earlier boot restored 2 and 8. The broker belongs to
+> estate-manager, so Session 280 sent them that finding as register
+> message `e1eef46b-05cc-4460-9968-abb7524d0232`; it was not worked
+> here. Documentation only; no restart owed.
 
 > **A long traceback keeps its cause in the stored log row** (2026-09-28,
 > Session 278, `SNAG-LOG-019`). `raw_line`, the journal record kept beside

@@ -1,6 +1,41 @@
-# Handoff — 2026-09-28 (Session 279)
+# Handoff — 2026-09-28 (Session 280)
 
 ## Next action
+
+Decide whether mosquitto's boot-race core dump should keep raising a `critical` alert, now that one such crash has lost broker state. *(For: session)*
+
+It is the one task Session 279 opened that is still unticked. Today's
+loss changes the question. Until today the crash was harmless: the
+broker came back 5 s later with its state intact, eight boots out of
+eight, which argued for demoting it. Today's crash wiped its retained
+messages and subscriptions, which argues for keeping it `critical`. The
+alert ladder belongs to this repository, so the decision is ours even
+though the broker is not.
+
+## Session 280: the broker's lost state, filed at its owner
+
+Documentation only (`STATUS.md`, `tasks.md`, this file); no `sysadmin/`
+change, no restart owed.
+
+- **Filed** estate-manager register message
+  `e1eef46b-05cc-4460-9968-abb7524d0232`: the 11:49:14 crash's save left
+  the store empty, and the 11:49:19 retry restored 0 retained messages
+  and 0 subscriptions where the crashed start had just restored 2 and 8.
+  The message is a report, not a request: it names the drop-in, the
+  crash frames and what we could not read, and leaves the fix to them.
+- **Re-measured before filing, not copied from Session 279:**
+  `journalctl -u mosquitto --since 2026-09-01` shows eight earlier
+  crash-then-retry pairs (09-03 three times, 09-06 twice, 09-10, 09-23),
+  and both starts of every pair logged `Restored 2 retained messages`
+  and `Restored 8 subscriptions`. Client records (4) survived today, so
+  only messages and subscriptions went.
+- **Checked for a duplicate first:** estate-manager's open inbox held no
+  message about the broker.
+- **Still unread:** the two retained topics and the eight subscriptions'
+  owners. `mosquitto.db` and the core file are readable only by uid 950,
+  and the message says so rather than guessing.
+
+### What Session 279 handed on (done in Session 280)
 
 File estate-manager a message that mosquitto's 2026-09-28 11:49 boot crash lost its 2 retained messages and 8 subscriptions. *(For: session)*
 
