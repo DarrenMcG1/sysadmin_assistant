@@ -8,6 +8,27 @@
 
 ---
 
+## Session 281: mosquitto's boot core dump stays `critical` (2026-09-28)
+
+- [x] **Kept the mosquitto core dump at `critical`; declared no
+      `known_noise` entry for it.** `coredumpctl info` on all eight dumps
+      since 2026-09-03 found two crashes, not one. Seven fault inside the
+      database save (`persist__backup` → `mosquitto_write_file`), and the
+      store survived each time. Today's faults after the save, in
+      `context__cleanup` → `sub__clean_session`, and the store came back
+      empty. The binary is 2.1.2-2 throughout. The log signature keeps the
+      stack frames, so the two already have different signatures and a
+      narrow quietening of the write-path crash was possible. It was
+      refused for three reasons. Both crashes come from the one boot race.
+      The owner's fix is still open (estate message `e1eef46b`). And a
+      segfault inside a persistence write that the store has survived
+      seven times is not shown harmless: a crash on the other path of the
+      same race lost the state. The cost of keeping it is about one
+      critical per boot, which closes by itself in about 16 minutes.
+- [x] **Corrected our own filing at estate-manager.** It said "the same
+      core dump" appears on every boot. Reply
+      `af040aab-eef6-406b-a311-e04f67337273` gives them the two stacks.
+
 ## Session 279: the 11:49 reboot's three alerts, accounted for (2026-09-28)
 
 - [x] **Read the mosquitto core dump and accounted for the reboot's three
@@ -17,11 +38,13 @@
       own shutdown path (`sub__clean_session`). Alfred's `alembic upgrade`
       reached 5432 four seconds before PostgreSQL listened. All three rows
       closed themselves at 12:06:19.
-- [ ] **Decide whether mosquitto's boot-race core dump should keep
+- [x] **Decide whether mosquitto's boot-race core dump should keep
       raising a `critical` alert.** It has opened and closed on nine boots
       since 2026-08-17, every time with the bind error beside it and the
       broker running 5 s later. Noted in Session 279 as a second concern
       and not worked; which alert rung it deserves is a monitor judgement.
+      **Decided in Session 281: it stays `critical`**, with no
+      `known_noise` entry. The reasons are in Session 281's block above.
 - [x] **Tell estate-manager that today's broker crash lost its retained
       messages.** The start after the 11:49:14 crash restored 0 retained
       messages and 0 subscriptions, where every earlier boot restored 2 and

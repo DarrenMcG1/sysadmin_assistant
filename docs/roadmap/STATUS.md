@@ -3,6 +3,18 @@
 **Last Updated**: 2026-09-28
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **Mosquitto's boot core dump stays `critical`** (2026-09-28, Session
+> 281). The broker crashes on most boots when a listener binds before
+> `eno1` holds its address. `coredumpctl` shows two different crashes:
+> seven since 2026-09-03 fault inside the database save and the store
+> survived, and today's faults after the save and the store came back
+> empty. Their log signatures differ, so the harmless-looking one could
+> have been quietened on its own. It was not, because both come from
+> one race whose fix belongs to estate-manager and is still open, and
+> the other outcome of that race has now lost data. estate-manager has
+> the corrected stacks (reply `af040aab-eef6-406b-a311-e04f67337273`).
+> Documentation only; no restart owed.
+
 > **The 11:49 reboot's three alerts, accounted for** (2026-09-28, Session
 > 279). Each one was a boot-order race that systemd's first retry healed
 > about 5 seconds later, and all three closed on their own at 12:06:19,
@@ -14,10 +26,12 @@
 > critical `dumped core` alert and the `Failed to start` warning. It
 > came up at 11:49:19. Alfred's backend ran its `alembic upgrade`
 > at 11:49:10, four seconds before PostgreSQL was listening, was refused
-> on 5432, and started at 11:49:16. **This is not new:** the same
+> on 5432, and started at 11:49:16. **This is not new:** a
 > core dump follows the same bind error on every boot in the journal
 > since 2026-09-03, eight of them, and the critical alert has opened and
-> closed on nine boots since 2026-08-17. **One thing was new today:** the
+> closed on nine boots since 2026-08-17. *(Corrected by Session 281: this
+> said "the same core dump". The earlier seven fault inside the database
+> save, not in `sub__clean_session`.)* **One thing was new today:** the
 > start after the crash restored 0 retained messages and 0 subscriptions,
 > where every earlier boot restored 2 and 8. The broker belongs to
 > estate-manager, so Session 280 sent them that finding as register

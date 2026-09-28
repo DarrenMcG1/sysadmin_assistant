@@ -1,6 +1,54 @@
-# Handoff — 2026-09-28 (Session 280)
+# Handoff — 2026-09-28 (Session 281)
 
 ## Next action
+
+Read `llm_used` on the three review tables and `grants_total` beside it, as the dated task for today (2026-09-28) in tasks.md asks. *(For: session)*
+
+It is the first unticked task in `tasks.md` that can start now, and
+today is the date it names. It asks one question: has the GPU arbiter's
+`grants_total` moved off 67? If it has and the reviews still fell back
+to the digest, the fallback gate is the cause (`SNAG-GPU-003`, the entry
+on the reviews losing their LLM narrative). If it has not, chase
+estate-manager's message `806b1c71`.
+
+## Session 281: mosquitto's boot core dump stays `critical`
+
+Documentation only (`tasks.md`, `STATUS.md`, `docs/design/logs.md`,
+this file); no `sysadmin/` change, no restart owed. The claims checker
+reads 15 of 15 `ok`.
+
+- **Decided: keep it at `critical`, with no `known_noise` entry.**
+  (`known_noise` is the config list that moves a log signature down to
+  `info`, below the tray's notify threshold.)
+- **What changed the question was a measurement, not the loss.**
+  `coredumpctl info` on all eight mosquitto dumps since 2026-09-03 shows
+  two crashes. Seven fault inside the database save (`persist__backup` →
+  `mosquitto_write_file`), and the store survived every time. Today's
+  faults after the save (`context__cleanup` → `sub__clean_session`), and
+  the store came back empty. The binary was 2.1.2-2 for all eight.
+  Sessions 279 and 280 had called them "the same core dump".
+- **Rejected: quietening only the write-path crash.** It was possible,
+  because `log_signature.signature` keeps the stack frames and the two
+  crashes already have different signatures. It was refused for three
+  reasons. Both crashes come from one boot race. estate-manager's fix is
+  still open. And seven survivals of a segfault inside a persistence
+  write do not show it is harmless, now that the race's other outcome
+  has lost data. The cost of keeping it is one critical per boot, which
+  closes by itself in about 16 minutes. `docs/design/logs.md` records
+  the refusal beside `known_noise`'s rules, with when to revisit it:
+  only if the owner decides the race will not be fixed.
+- **Corrected our own filing.** Reply
+  `af040aab-eef6-406b-a311-e04f67337273` to message `e1eef46b` gives
+  estate-manager the two stacks. The first sentence of Session 279's
+  STATUS.md headline is corrected in place, with a note.
+- **Not done:** reading why the completed save held nothing. That
+  happens inside the broker, and the core file is readable only by
+  uid 950.
+- **Left unread:** estate-manager's announcement `438b6a67` (the rule-1
+  psql notice). It is waiting in our inbox, and closing it was not this
+  session's concern.
+
+### What Session 280 handed on (done in Session 281)
 
 Decide whether mosquitto's boot-race core dump should keep raising a `critical` alert, now that one such crash has lost broker state. *(For: session)*
 

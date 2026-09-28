@@ -160,6 +160,25 @@ with no snippet is an item no execution sitting can close.
    before it can notify. The mechanism that makes escalation fail is what
    makes this work, so it is one-directional by construction.
 
+**One declaration was weighed and refused: mosquitto's boot core dump**
+(Session 281, 2026-09-28). It raises a `critical` alert on most boots
+and closes by itself about 16 minutes later, which makes it look like
+rule 2's case. Two things were measured before refusing it. First, the
+signature keeps the stack frames. The seven dumps from 2026-09-03 to
+09-23 fault inside the database save (`persist__backup`); the 09-28 dump
+faults after it (`sub__clean_session`) and lost the broker's retained
+messages and subscriptions. They are two signatures, so a
+`(mosquitto.service, signature)` key could have quietened the first
+alone. Second, "harmless" rested on seven survivals of a segfault inside
+a persistence write. That crash and the state-losing one share a single
+cause (the listener binding before `eno1` holds its address), and the
+fix is the broker owner's and still open. Quietening one of the two
+outcomes of a race whose other outcome loses data would hide the race's
+earliest sign. Revisit only if the owner decides the race will stay
+unfixed. Then a narrow entry on the write-path signature is available,
+and this paragraph records that it would not have hidden the 09-28
+crash.
+
 **Three of the emitted commands did not work, and only a live run said
 so.** The draft emitted `journalctl -u kernel` (the kernel is not a
 unit — `read_journal` has always known that, so the same fact was stated
