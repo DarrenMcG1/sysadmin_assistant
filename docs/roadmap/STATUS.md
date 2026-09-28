@@ -9,8 +9,8 @@
 > everything and stays green. Sorting the failures by reason found three
 > that were not the box, fixed in the workflow instead: a shallow
 > checkout, the runner's UTC clock, and its older Python patch release.
-> Rehearsed, CI now fails only on estate-manager's unpushed code
-> (`SNAG-TEST-015`). No `sysadmin/` change; no restart owed.
+> The first run (36467479237) failed 36 tests, exactly the ones that
+> need estate-manager's unpushed code (`SNAG-TEST-015`). No `sysadmin/` change; no restart owed.
 
 > **CI now gets past `uv sync`** (2026-09-28, Session 285). The GitHub
 > workflow checks out estate-manager beside this repository, using a

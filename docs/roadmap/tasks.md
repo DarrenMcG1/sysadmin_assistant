@@ -23,11 +23,11 @@ no restart owed.
       history, 4 tests), `TZ: Europe/London` (ops-claims times, 12) and
       `UV_PYTHON: "3.12.12"` (coverage arcs differ from the runner's
       3.12.3, 4).
-- [ ] **Push `main` and read the run** *(For: owner)*. Rehearsed, the
-      marked suite fails only on the stale estate-lib (36 tests, all
-      `load_registry(partial=)` and its kin). If the real run fails
-      anything else, it is a test the runner's user systemd reaches
-      differently from the rehearsal; mark or fix it by its reason.
+- [x] **Push `main` and read the run.** Pushed at the owner's word. Run
+      36467479237, Python 3.12.12: 36 failed, 4,124 passed, 124 skipped,
+      104 deselected. All 36 are in the set that fails only on
+      estate-manager's pushed estate-lib, exactly as rehearsed; nothing
+      else fails.
 - [ ] **When `UV_PYTHON` in `ci.yml` stops matching the box's
       interpreter, move it.** The coverage-arc tests are sensitive to the
       CPython patch release; `uv run --no-sync python -V` on the box is the

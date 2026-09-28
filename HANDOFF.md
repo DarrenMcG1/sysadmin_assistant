@@ -2,15 +2,18 @@
 
 ## Next action
 
-Push `main` to GitHub and read the CI run: rehearsed, the marked suite should fail only the 36 stale estate-lib tests (`SNAG-TEST-015`). *(For: owner, ~10 min)*
+Re-assert the boot default: `bootctl` still names the deleted 7.2.2 entry, so pick the intended kernel and run `sudo bootctl set-default` on it. *(For: owner, ~5 min)*
 
-Pushing publishes to the public remote, so it is the owner's call. A
-run that fails anything besides `load_registry() got an unexpected
-keyword argument 'partial'` and its kin means the runner's user systemd
-reached a test differently from the rehearsal: classify it by its
-reason, then mark it `box` or fix the workflow. A green run then waits
-only on estate-manager pushing its `main` (filed as `71f8bd4e`), after
-which `GitHub Actions` joins `.project.yaml`'s `stack:`.
+It is the first startable item in tasks.md (under Session 281); checked
+live on 2026-09-28, the box booted 7.2.7 while the default names
+`…-7.2.2-arch1-1.conf`. The CI work has nothing startable left: run
+36467479237 failed only the 36 stale estate-lib tests, as rehearsed.
+
+## Scheduled action
+
+When estate-manager pushes its `main` (filed as `71f8bd4e`), re-run CI;
+on the first green run add `GitHub Actions` to `.project.yaml`'s
+`stack:` (`SNAG-TEST-015`).
 
 ## Session 286: the `box` marker, and three CI causes that were not the box
 
@@ -41,7 +44,8 @@ with everything selected (4,386 passed, 2 skipped).
   rehearsal recipe grew a mount namespace hiding `/home/gaddi`,
   `/run/user/1000`, the journal and the Postgres socket; it is in the
   memory file for the rehearsal and summarised in `SNAG-TEST-015`.
-- **Not pushed.** The run is the owner's to trigger.
+- **Pushed at the owner's word; run 36467479237 matched the rehearsal**:
+  36 failed, 4,124 passed, 104 deselected, all 36 the stale-lib set.
 - **Not touched:** estate-manager's open message `a5c95062` (the broker's
   start gated on its listener addresses, their ADR-0216) is a separate
   concern and stays open in the inbox.
