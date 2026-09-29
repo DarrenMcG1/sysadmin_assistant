@@ -1,6 +1,56 @@
-# Handoff — 2026-09-29 (Session 289)
+# Handoff — 2026-09-29 (Session 290)
 
 ## Next action
+
+Correct our 8500 row in estate-manager's port registry to `sysadmin-assistant`, answering estate message `f410f091` and closing `SNAG-ESTATE-005`. *(For: session)*
+
+It is the first startable unticked item in tasks.md (under Session 290).
+The owner ruled on 2026-09-29 that a row's Project cell holds a
+directory name or a `.project.yaml` id; ours says `sysadmin-service`,
+the `name:` of the entry in `services.yaml`, which resolves to no
+project. The row lives in estate-manager's `monitorable-project.md`
+§2.1, so it is a cross-repo write: commit it on its own there and
+announce it. It is not code or config any runtime reads.
+
+## Scheduled action
+
+After the next reboot, read that boot's mosquitto journal: the first
+under estate ADR-0216's gate. The task under Session 290 says what to
+expect and what would mean the gate did not run as written.
+
+## Session 290: mosquitto's boot core dump stays `critical`, on new grounds
+
+`docs/design/logs.md` and the roadmap files; no `sysadmin/` change, no
+restart owed.
+
+- **The question was not moot.** The box has not rebooted since
+  2026-09-28 11:49. The gate is installed, though: the drop-in under
+  `/etc` (written 2026-09-28 19:49) is byte-identical to
+  estate-manager's copy and loaded (`NeedDaemonReload=no`). Session
+  289's STATUS headline said the install was still pending, and the new
+  headline says that was out of date.
+- **The rung is the producer's.** `systemd-coredump` logs at priority 2
+  and the aggregator passes `crit` through, so the only lever was a
+  `known_noise` entry. Refused again, on two new grounds. First, a
+  refused `ExecStartPre=` logs `Failed to start …` at priority 3, the
+  same line and signature as a failed bind (checked on a transient
+  unit). Under the gate that warning cannot tell the two apart, and the
+  bind error itself is priority 6, which raises nothing. So the dump is
+  the only fault-level sign that the broker ran early. Second, under the
+  gate the dump should not happen at all, so quietening it saves nothing.
+- **Watching the loss directly went to `ideas.md`, not `tasks.md`.** Its
+  known cause is gated, and it needs a comparison across two starts,
+  which the aggregator does not make.
+- **Not settled:** whether the gate's `$$` escaping works at exec time.
+  A `systemd-run` specimen could not tell, because `systemd-run` does
+  not unescape a unit file's `$$` the way a unit file does. The next
+  boot is the check (the scheduled action above).
+- **Added a task for estate message `f410f091`**, which had sat in the
+  inbox with no task since Session 289. It is the next action.
+- **Not pushed.** `main` is ahead of `origin/main`; pushing is the
+  owner's call.
+
+### What Session 289 handed on (done in Session 290)
 
 Re-decide whether mosquitto's boot core dump stays `critical`, now that the crash is shown not to be what lost the broker's state. *(For: session)*
 

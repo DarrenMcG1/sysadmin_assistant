@@ -8,6 +8,49 @@
 
 ---
 
+## Session 290: mosquitto's boot core dump stays `critical`, on new grounds (2026-09-29)
+
+`docs/design/logs.md` and the roadmap files; no `sysadmin/` change, no
+restart owed.
+
+- [x] **Re-decided the rung.** The box has not rebooted since 2026-09-28
+      11:49, so there is no post-gate boot yet, and the question is not
+      moot. The gate itself is loaded: the drop-in under `/etc` (written
+      2026-09-28 19:49) is byte-identical to estate-manager's copy, and
+      `NeedDaemonReload=no`. Kept at `critical` with no `known_noise`
+      entry, for two reasons that replace Session 281's three. A refused
+      `ExecStartPre=` logs `Failed to start …` at priority 3, the same
+      line a failed bind logs (checked on a transient unit), so under the
+      gate that warning no longer tells the two apart and the dump
+      becomes the only fault-level sign of an early start. And the
+      dump's expected count under the gate is zero.
+- [x] **Decided that watching the loss is an idea, not a task.** Its
+      known cause is gated, and detecting it needs a comparison across
+      two starts, which the aggregator's line-at-a-time model does not
+      make. Recorded in `ideas.md`.
+- [ ] **Read the first post-gate boot's mosquitto journal.** *(Waits on
+      a reboot.)* Expect no `Cannot assign requested address`, no core
+      dump, and a `Restored N retained messages` count no lower than the
+      previous start's. Expect also one or more `Failed to start`
+      warnings from the gate's refusals if `eno1` was late. If the gate's
+      refusal line (`listener address … is not assigned`) never appears
+      but a bind error does, the gate did not run as written: file that
+      at estate-manager. A check with `systemd-run` could not settle
+      this, because it does not unescape the unit file's `$$` the way a
+      unit file does. If the refusal warnings recur at every boot, open
+      a SNAG entry: they share a signature with a genuine failed start,
+      so `known_noise` cannot quieten them alone.
+- [ ] **Answer estate message `f410f091`: our port-registry row for 8500
+      names `sysadmin-service`, which resolves to no project.** The owner
+      ruled on 2026-09-29 (estate ADR-0196 §8) that a row's Project cell
+      holds the repository's directory name or its `.project.yaml` id, so
+      ours should read `sysadmin-assistant`. The row is in
+      estate-manager's `docs/guides/monitorable-project.md` §2.1, so the
+      edit is a cross-repo write, committed on its own there and
+      announced. It is also what `SNAG-ESTATE-005` has asked for since
+      2026-08-15; close both together. Held back by Sessions 289 and 290,
+      each on another concern.
+
 ## Session 289: the crash did not lose the broker's state (2026-09-29)
 
 estate-manager's message `a5c95062` closed. `docs/design/logs.md` and the
@@ -39,6 +82,11 @@ roadmap files only; no `sysadmin/` change, no restart owed.
       Once the owner installs ADR-0216 the next boot should show no bind
       error and no dump, which may make the question moot; read that
       boot's journal first if it has happened.
+      *(Done by Session 290, 2026-09-29: it stays `critical`, with no
+      `known_noise` entry. Under the gate the `Failed to start` warning
+      also fires on a harmless refusal, so the dump is the only
+      fault-level sign that the broker ran early. See
+      `docs/design/logs.md`.)*
 
 ---
 

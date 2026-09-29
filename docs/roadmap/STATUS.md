@@ -3,6 +3,18 @@
 **Last Updated**: 2026-09-29
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **mosquitto's boot core dump stays `critical`, for new reasons**
+> (2026-09-29, Session 290). The estate's fix is already installed and
+> loaded (the entry below says it was still to come, which was out of
+> date), but no boot has run under it yet. It holds the broker back
+> until its address is assigned, and each refusal logs the same
+> `Failed to start` warning a genuine failure does. That leaves the
+> core dump as the only alert that says the broker started too early.
+> Under the fix it should never fire, so quietening it would save
+> nothing. The dump was never a sign of the lost state; watching for
+> that loss directly is now an idea. Documentation only; no restart
+> owed.
+
 > **The broker lost its state to a completed save, not to the crash**
 > (2026-09-29, Session 289). estate-manager's reply to our two mosquitto
 > filings (message `a5c95062`) read the journal back to 2026-08-11, and

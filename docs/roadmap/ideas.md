@@ -4,13 +4,27 @@
 >
 > **Related**: [tasks.md](tasks.md) | [snag_list.md](snag_list.md)
 >
-> **Last Updated**: 2026-09-14
+> **Last Updated**: 2026-09-29
 
 ---
 
 ## Ideas Inbox
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
+
+### 🧠 2026-09-29 — watch the broker's persisted state for a loss, not its crashes
+
+Filed by Session 290 when it kept mosquitto's boot core dump at
+`critical`. The dump is not a sign of the lost state: the loss followed
+a *completed* exit-time save on a failed bind, twice with no crash at
+all (2026-08-22 and 08-23), and the crash is what preserved the store on
+seven other boots. A direct check would compare each start's `Restored N
+retained messages` and `Restored N subscriptions` lines with the
+previous start's, and raise when a count falls to zero from above zero.
+It stays an idea because estate ADR-0216's gate removes the known cause,
+and because the log aggregator judges one line at a time, so a
+comparison across two starts would be a new kind of check, not a
+declaration. Promote it if a post-gate boot shows a loss anyway.
 
 ### 🧠 2026-09-14 — an **absolute** CPU backstop, the check the deleted thresholds named
 

@@ -194,6 +194,36 @@ on its listener addresses, pending the owner's install. Whether
 `critical` still fits once its stated reason is gone is a task in
 `tasks.md` (Session 289), not settled here.
 
+*Re-decided 2026-09-29 (Session 290): it stays `critical`, still with
+no `known_noise` entry, on different grounds.* The rung is not a
+mosquitto rule: `systemd-coredump` logs at journal priority 2 and the
+aggregator carries `crit` through as `critical`, so the only lever was
+a `known_noise` declaration, and it is refused again for two reasons.
+
+1. **Once the gate is in place, the dump is the only fault-level sign
+   that the broker ran early.** The race's own line, `Error: Cannot
+   assign requested address`, is logged at priority 6 and raises
+   nothing. `Failed to start Mosquitto MQTT Broker daemon.` is priority
+   3 and raises a warning, but a refused `ExecStartPre=` logs the same
+   line at the same priority (measured on a transient unit whose
+   pre-start step exits 1). ADR-0216's gate refuses every early attempt
+   by design, so that warning will now fire on a harmless refusal as
+   readily as on a failed bind. The two share a signature, so no
+   `known_noise` key can tell them apart either. If the gate leaks, the
+   dump is what says so.
+2. **The dump's expected count is now zero, so quietening it saves
+   nothing.** The gate is loaded (`NeedDaemonReload=no`, the file under
+   `/etc` identical to estate-manager's copy) and has not yet met a
+   boot. If it works there is no dump to quieten. If one appears
+   anyway, the gate has failed or the crash is a new one, and either
+   deserves `critical`.
+
+**What the dump does not signal is the loss**, and it must not be read
+as a proxy for it. The loss followed a completed save, and on
+2026-08-22 and 08-23 that happened with no dump at all. Watching the
+loss directly (a start restoring fewer retained messages than the
+previous start) is recorded in `ideas.md`, not built.
+
 **Three of the emitted commands did not work, and only a live run said
 so.** The draft emitted `journalctl -u kernel` (the kernel is not a
 unit — `read_journal` has always known that, so the same fact was stated
