@@ -4,7 +4,34 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-28
+> **Last Updated**: 2026-09-29
+
+---
+
+## Session 287: the boot default is a glob, so an upgrade cannot orphan it (2026-09-29)
+
+No code change; no restart owed. The owner ran the command (root).
+
+- [x] **Re-assert the boot default.** The owner chose mainline and ran
+      `sudo bootctl set-default '705a32e3e3d74f0884b53b4fd7e3145b-*-arch1-1.conf'`.
+      `bootctl status` now reads that pattern as the Default Entry; it
+      matches the running `…-7.2.7-arch1-1.conf` and, by `fnmatch`, a
+      future `…-7.2.8-arch1-1.conf`, and never `…-6.18.54-1-lts.conf`.
+      systemd 262's `bootctl` and `loader.conf(5)` both document the glob.
+      Not measured: which entry the loader actually resolves it to, since
+      `/efi` is root-only; the next reboot's `Current Entry` is the check.
+- [ ] **Re-run CI: its trigger has fired.** estate-manager closed our
+      filing `71f8bd4e` on 2026-09-29 having pushed `main`
+      (`70355fe..73f9b96`, 59 commits), so the checkout now carries the
+      estate-lib the box runs. The 36 stale-lib failures should go; on the
+      first green run, do the Session 285 `stack:` task below.
+- [ ] **Read estate message `a5c95062` and close it.** estate-manager
+      answers our two mosquitto filings (`e1eef46b`, `af040aab`): the
+      state loss follows a *completed* exit-time save on a failed bind
+      (3 of 3), never the crash, and their ADR-0216 gates the broker's
+      start on its listener addresses, pending the owner's install. It
+      asks nothing of us; check whether `SNAG-`/task text here cites the
+      crash as the cause of the loss before closing.
 
 ---
 
@@ -149,12 +176,14 @@ nothing to chase. Documentation only; no restart owed.
       the estate's rule-1 session notice (a psql command naming another
       repository's database or schema now warns at the call). Left unread by
       Sessions 281 and 282, each holding another concern.
-- [ ] **Re-assert the boot default** *(For: owner, needs root)*. `bootctl
+- [x] **Re-assert the boot default** *(For: owner, needs root)*. `bootctl
       status` names `…-7.2.2-arch1-1.conf` as the default, an entry the
       7.2.7 upgrade deleted, so the loader falls back to sort-key order —
       the drift recorded on 2026-09-03. Today's boot came up on 7.2.7; the
       two before it on `6.18.49-2-lts`. Decide which branch is meant and run
       `sudo bootctl set-default` on its entry.
+      *(Done by the owner in Session 287, 2026-09-29: mainline, set as a
+      glob so the next upgrade cannot invalidate it.)*
 
 ---
 

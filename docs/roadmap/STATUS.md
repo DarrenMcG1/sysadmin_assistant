@@ -1,7 +1,14 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-28
+**Last Updated**: 2026-09-29
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **The boot default names a kernel branch, not a version**
+> (2026-09-29, Session 287). Kernel upgrades had orphaned the boot
+> default three times, because it named a single version's boot entry;
+> the loader then fell back to sort order and could boot LTS unasked.
+> The owner set it to a glob matching whichever mainline entry is
+> installed. No code change; no restart owed.
 
 > **CI leaves out the tests that read this box, and says so**
 > (2026-09-28, Session 286). 104 tests carry a `box` pytest marker and

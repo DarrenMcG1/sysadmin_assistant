@@ -1,19 +1,36 @@
-# Handoff — 2026-09-28 (Session 286)
+# Handoff — 2026-09-29 (Session 287)
 
 ## Next action
 
-Re-assert the boot default: `bootctl` still names the deleted 7.2.2 entry, so pick the intended kernel and run `sudo bootctl set-default` on it. *(For: owner, ~5 min)*
+Re-run CI on GitHub: estate-manager pushed its `main` on 2026-09-29, so the 36 stale estate-lib failures should clear (`SNAG-TEST-015`). *(For: session)*
 
-It is the first startable item in tasks.md (under Session 281); checked
-live on 2026-09-28, the box booted 7.2.7 while the default names
-`…-7.2.2-arch1-1.conf`. The CI work has nothing startable left: run
-36467479237 failed only the 36 stale estate-lib tests, as rehearsed.
+The scheduled action's trigger fired: estate-manager closed our filing
+`71f8bd4e` with `70355fe..73f9b96` pushed. On the first green run, add
+`GitHub Actions` to `.project.yaml`'s `stack:` (tasks.md, Session 285).
+After it, estate message `a5c95062` waits to be read and closed.
 
-## Scheduled action
+## Session 287: the boot default is a glob, so an upgrade cannot orphan it
 
-When estate-manager pushes its `main` (filed as `71f8bd4e`), re-run CI;
-on the first green run add `GitHub Actions` to `.project.yaml`'s
-`stack:` (`SNAG-TEST-015`).
+No code change; no restart owed. The owner ran the one root command.
+
+- **The default was `…-7.2.2-arch1-1.conf`, an entry the 7.2.7 upgrade
+  deleted**, so the loader fell back to sort-key order, where LTS sorts
+  first. That is the third time a version-stamped default has been
+  orphaned by an upgrade.
+- **The owner chose mainline**, which every earlier default had been; the
+  2026-09-04 per-boot tally put the GPU reset on both branches, so LTS
+  bought nothing.
+- **Set as a glob, not a filename:**
+  `sudo bootctl set-default '705a32e3e3d74f0884b53b4fd7e3145b-*-arch1-1.conf'`.
+  `bootctl(1)` and `loader.conf(5)` (systemd 262) document glob matching
+  on the entry ID. `fnmatch` confirms it matches 7.2.7 and a future
+  7.2.8, never `-lts.conf`. **Rejected: the exact 7.2.7 filename**, which
+  the next `linux` upgrade would orphan again.
+- **Not measured:** what the loader resolves the pattern to, because
+  `/efi` is root-only. The next reboot's `bootctl status` Current Entry
+  is the check.
+- **Not touched:** estate message `a5c95062` (a separate concern, now a
+  task).
 
 ## Session 286: the `box` marker, and three CI causes that were not the box
 
