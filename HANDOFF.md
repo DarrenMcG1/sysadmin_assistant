@@ -2,7 +2,7 @@
 
 ## Next action
 
-Correct our 8500 row in estate-manager's port registry to `sysadmin-assistant`, answering estate message `f410f091` and closing `SNAG-ESTATE-005`. *(For: session)*
+Correct our 8500 row in estate-manager's port registry to `sysadmin-assistant`, answering estate message `f410f091`. *(For: session)*
 
 It is the first startable unticked item in tasks.md (under Session 290).
 The owner ruled on 2026-09-29 that a row's Project cell holds a
@@ -11,6 +11,11 @@ the `name:` of the entry in `services.yaml`, which resolves to no
 project. The row lives in estate-manager's `monitorable-project.md`
 §2.1, so it is a cross-repo write: commit it on its own there and
 announce it. It is not code or config any runtime reads.
+`SNAG-ESTATE-005` records the same defect but is marked delegated (the
+fix was the estate's). The ruling now puts the row on its claimant, so
+the sitting that makes the edit also changes that entry's status; it is
+kept out of the line above because the board may not publish a
+delegated entry as owed work.
 
 ## Scheduled action
 

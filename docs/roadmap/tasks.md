@@ -47,9 +47,11 @@ restart owed.
       ours should read `sysadmin-assistant`. The row is in
       estate-manager's `docs/guides/monitorable-project.md` §2.1, so the
       edit is a cross-repo write, committed on its own there and
-      announced. It is also what `SNAG-ESTATE-005` has asked for since
-      2026-08-15; close both together. Held back by Sessions 289 and 290,
-      each on another concern.
+      announced. `SNAG-ESTATE-005` has recorded the same row since
+      2026-08-15 as delegated, the fix then being the estate's; the ruling
+      puts the row on its claimant, so that sitting changes the entry's
+      status in the same commit and closes it once the edit lands. Held
+      back by Sessions 289 and 290, each on another concern.
 
 ## Session 289: the crash did not lose the broker's state (2026-09-29)
 
