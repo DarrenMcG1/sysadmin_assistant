@@ -1,21 +1,65 @@
-# Handoff — 2026-09-29 (Session 291)
+# Handoff — 2026-09-29 (Session 292)
 
 ## Next action
 
-Add a check that a future STATUS block cannot pin an `expires` marker against a clock it introduces, the open Session 172 item in tasks.md. *(For: session)*
+Make the disk review's narrative keep to its 150-word limit, the open Session 24 item in tasks.md. *(For: session)*
 
-It is the first startable unticked item in tasks.md. The two above it
-are not startable: one waits on a reboot (the scheduled action below)
-and one on `UV_PYTHON` drifting from the box's interpreter. Session 266
-re-read it on 2026-09-27 and left it open, because `SNAG-DOCS-008`'s
-narrowing guards the existing pin but nothing stops a later block from
-adding a marker and the clock that satisfies it in one edit.
+It is the first startable unticked item in tasks.md. The four above it
+are not startable: one waits on a reboot (the scheduled action below),
+one on `UV_PYTHON` drifting from the box's interpreter, and one,
+whether `LogSignatureTrendInfo.total` should say it is unwindowed, is
+left for the owner. The item names two fixes, a smaller `n_predict` or
+a second summarise pass; measure the model's prose alone first, since
+the stored narrative includes the facts section and its word count says
+nothing about the limit (Session 266's note).
 
 ## Scheduled action
 
 After the next reboot, read that boot's mosquitto journal: the first
 under estate ADR-0216's gate. The task under Session 290 says what to
 expect and what would mean the gate did not run as written.
+
+## Session 292: no clock the block states elsewhere can pin a prediction
+
+Session 172's open item, now ticked. One test class,
+`TestTheBlockIsItsOwnRegressionTest` in `tests/test_ops_claims.py`,
+plus the roadmap. Nothing under `sysadmin/` changed, so no restart is
+owed.
+
+- **What it holds.** An `expires` marker in STATUS.md (a dated
+  prediction that the claims checker times) is pinned by finding its
+  wall clock in its own sentence. The class plants a marker for every
+  `HH:MM` the printed region already states, **214** today, each in a
+  sentence that does not name it but between two that do, and asserts
+  none is pinned. It also takes the clock out of the live prediction's
+  own sentence and checks the block's six other `03:00`s do not hold it
+  up.
+- **Why every needle rather than one.** The existing live drive hangs
+  on a single collision, `05:45`, and fails as "aged out" if that
+  string leaves the block. The region only grows, so a drive over all
+  of its clocks cannot age out that way.
+- **Overlapping matches, deliberately.** A plain `\d{2}:\d{2}` scan
+  finds 168 and misses `03:00` inside `0000:03:00.0`, the specimen
+  Session 172 found.
+- **Mutations.** Five mutations of the sentence locator were driven:
+  the whole-region pin, a sentence reaching one back, one reaching one
+  forward, and a flush marker hiding its terminator. Each turns the
+  planted drive red, and the whole-region pin also reddens the live
+  drive. The fifth, stripping the marker's own text, is equivalent
+  here and is guarded elsewhere.
+- **Zone.** The planted drive passes under UTC, New York, Kolkata and
+  Chatham. The live drive needs Europe/London, like the existing
+  live-prediction class. `ci.yml` sets that, and the failure message
+  says so.
+- **Left open, as `SNAG-DOCS-032`.** Inside its own sentence the pin is
+  still a substring match, so `0000:03:00.0` or `15:03:00` satisfies
+  `03:00`. The fix is a bounded needle in `check_expiry`. That is code
+  in the checker, a different concern from this guard, so it was not
+  done here.
+- **Suite:** 4,388 passed, 2 skipped; ruff and mypy clean. Collected
+  4,390 (three added), and STATUS says so.
+- **Not pushed.** `main` is ahead of `origin/main`; pushing is the
+  owner's call.
 
 ## Session 291: the 8500 registry row names its project
 
@@ -59,6 +103,17 @@ places `snag_claims.py` outside the daemon's import graph.
   count 4,387 (two tests retired, one added), and STATUS says so.
 - **Not pushed.** `main` is ahead of `origin/main`; pushing is the
   owner's call.
+
+### What Session 291 handed on (done in Session 292)
+
+Add a check that a future STATUS block cannot pin an `expires` marker against a clock it introduces, the open Session 172 item in tasks.md. *(For: session)*
+
+It is the first startable unticked item in tasks.md. The two above it
+are not startable: one waits on a reboot (the scheduled action below)
+and one on `UV_PYTHON` drifting from the box's interpreter. Session 266
+re-read it on 2026-09-27 and left it open, because `SNAG-DOCS-008`'s
+narrowing guards the existing pin but nothing stops a later block from
+adding a marker and the clock that satisfies it in one edit.
 
 ### What Session 290 handed on (done in Session 291)
 

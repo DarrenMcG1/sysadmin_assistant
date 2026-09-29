@@ -1450,6 +1450,167 @@ class TestTheLiveBlockCarriesAPrediction:
             assert "nobody re-measured it" in (claim.note or "")
 
 
+class TestTheBlockIsItsOwnRegressionTest:
+    """Rule 9's narrowing, driven at every clock the real block already states.
+
+    Session 172 wrote the first live prediction and put its own needle,
+    ``03:00``, into the region five more times, one of them inside the PCI
+    address ``0000:03:00.0``. The pin was unaffected because it reads one
+    sentence, but nothing asserted that it *stays* unaffected: a block that
+    states a clock for one reason must not be able to pin a prediction
+    about something else. That was the task left open under Session 172.
+
+    **The population is the region's own needles, not a planted
+    collision.** :class:`TestThePinIsNarrowedToOneSentence` drives one
+    clock, ``05:45``, and fails as "aged out" the day that string leaves the
+    block. The region is append-only, so its set of ``HH:MM`` substrings
+    only grows: measured 2026-09-29 at **214** valid clocks in 535 kB, from
+    86 in 188 kB on 2026-09-04. A drive over all of them gets harder to
+    pass as the block accretes, which is the direction the hazard grows in.
+
+    **Needles are read with overlapping matches, off the unveiled prose.**
+    The pin searches :attr:`Marker.sentence`, which keeps code spans, so a
+    clock inside backticks pins exactly as one in prose does. A
+    non-overlapping scan of ``0000:03:00.0`` finds ``00:03`` and misses
+    ``03:00``, which is the very specimen that opened this class.
+    """
+
+    MINUTE = timedelta(minutes=1)
+
+    #: What a clock is replaced with when it is taken out of a sentence.
+    #: No digit, so it cannot itself become a needle.
+    NO_CLOCK = "the stated hour"
+
+    @staticmethod
+    def _needles(prose: str) -> set[str]:
+        """Every substring of ``prose`` that some local instant renders to."""
+        found = {m.group(1) for m in re.finditer(r"(?=(\d{2}:\d{2}))", prose)}
+        return {n for n in found if int(n[:2]) < 24 and int(n[3:]) < 60}
+
+    @staticmethod
+    def _instant(clock: str) -> datetime:
+        """An aware instant whose local rendering is ``clock``.
+
+        Mid-January so no zone the suite runs in is mid-transition, and
+        local by construction so the pin looks for exactly ``clock``
+        whatever ``TZ`` the runner has.
+        """
+        hour, minute = (int(part) for part in clock.split(":"))
+        return datetime(2027, 1, 15, hour, minute).astimezone()
+
+    def test_the_region_states_clocks_to_collide_with(self):
+        """The anti-vacuity premise, and it refuses because it cannot age out.
+
+        An append-only region stating fewer clocks than it did on 2026-09-04
+        has lost history rather than hazard, which means
+        :func:`printed_region` is reading the wrong span, and the drive below
+        would pass over a population that no longer represents the block.
+        """
+        region, problem = load_region()
+        assert region, problem
+        assert len(self._needles(flatten(region))) >= 86, (
+            "the printed region states fewer clocks than it did on 2026-09-04 — "
+            "an append-only block shrank, so the region is being read wrongly"
+        )
+
+    def test_no_clock_the_block_states_pins_a_prediction_in_another_sentence(self):
+        """Falsified by pinning against the whole region, or one sentence wider.
+
+        One marker per needle, each closing a sentence that names no clock
+        and written flush against its full stop, the style the unpinned note
+        recommends. The clock is stated **in the sentence either side**, so
+        besides every distant statement the block already makes, each marker
+        has the nearest possible "elsewhere": the purge sentence an author
+        writes just before the prediction. A pin that reaches one sentence
+        back, or that loses the terminator a flush marker hides and runs on
+        into the next, is caught here as well as the whole-region pin.
+
+        Each is judged a minute before its own moment, where a pinned
+        prediction is ``match`` and an unpinned one ``unknown``, so a passing
+        boundary cannot redden this. The markers are read in one pass because
+        :func:`read_markers` over half a megabyte is the cost, not the loop.
+        """
+        region, problem = load_region()
+        assert region, problem
+        needles = sorted(self._needles(flatten(region)))
+        planted = region + "".join(
+            f"\n> The purge before prediction {i} runs at {clock}. "
+            f"**Planted prediction {i} names no hour.**"
+            f"<!--check:expires {self._instant(clock).isoformat(timespec='minutes')}"
+            f" planted-{i}--> The purge after it runs at {clock} too."
+            for i, clock in enumerate(needles)
+        )
+        markers = {
+            m.argument.rsplit(None, 1)[-1]: m
+            for m in read_markers(planted)
+            if m.key == "expires" and m.argument.rsplit(None, 1)[-1].startswith("planted-")
+        }
+        assert len(markers) == len(needles), "a planted marker was not read back"
+        pinned = [
+            clock
+            for i, clock in enumerate(needles)
+            if check_expiry(markers[f"planted-{i}"], self._instant(clock) - self.MINUTE).verdict
+            != "unknown"
+        ]
+        assert not pinned, (
+            f"{len(pinned)} of {len(needles)} clocks the block states elsewhere pinned "
+            f"a prediction whose sentence does not name them: {pinned[:10]}"
+        )
+
+    def test_each_live_prediction_is_pinned_by_its_own_sentence_alone(self):
+        """The shipped markers, with the clock taken out of their sentence only.
+
+        Every other copy of the clock stays where the block put it, so this
+        asks the question the open task asked about the real document: with
+        the sentence silent, do the block's other statements of that clock
+        hold the prediction up? Falsified by pinning against the whole
+        region. A marker whose clock the block states nowhere else cannot
+        tell the two pins apart and is left out, and if that leaves none the
+        test skips and says so rather than passing over an empty set.
+        """
+        region, problem = load_region()
+        assert region, problem
+        prose = flatten(region)
+        live = [m for m in read_markers(region) if m.key == "expires"]
+        exercised = 0
+        for marker in live:
+            moment = datetime.strptime(marker.argument.split(None, 1)[0], EXPIRY_FORMAT)
+            clock = moment.astimezone().strftime("%H:%M")
+            closes = [
+                m.start()
+                for m in MARKER_RE.finditer(prose)
+                if m.group(2).strip() == marker.argument
+            ]
+            assert len(closes) == 1, f"{marker.argument!r} is not stated once in the prose"
+            assert clock in marker.sentence, (
+                f"{marker.argument!r} is unpinned before anything is taken out, which "
+                "TestTheLiveBlockCarriesAPrediction reports; off Europe/London it is the "
+                "runner's zone, and ci.yml sets TZ for that reason"
+            )
+            start = prose.rfind(marker.sentence.split(clock, 1)[0], 0, closes[0])
+            assert start >= 0, f"the sentence {marker.argument!r} closes is not before it"
+            span = prose[start : closes[0]]
+            silenced = prose[:start] + span.replace(clock, self.NO_CLOCK) + prose[closes[0] :]
+            if clock not in MARKER_RE.sub(" ", silenced):  # stated nowhere else
+                continue
+            exercised += 1
+            doctored = [m for m in read_markers(silenced) if m.argument == marker.argument]
+            assert len(doctored) == 1, f"{marker.argument!r} was not read back once"
+            assert clock not in doctored[0].sentence, "the clock was not taken out"
+            claim = check_expiry(doctored[0], moment - self.MINUTE)
+            assert claim.verdict == "unknown", (
+                f"{clock} is stated elsewhere in the block and pinned {marker.argument!r} "
+                "with its own sentence silent"
+            )
+            assert "the sentence it stands in does not" in claim.note
+        if not exercised:
+            pytest.skip(
+                f"none of the {len(live)} live prediction(s) has a clock the block also "
+                "states elsewhere, so the real document cannot tell the narrow pin from "
+                "the wide one today; the all-needles drive above still can"
+            )
+
+
 class TestTheInstantCarriesItsZone:
     """SNAG-ESTATE-013 — a zoneless instant is refused, not read as local.
 

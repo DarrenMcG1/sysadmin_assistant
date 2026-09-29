@@ -8,6 +8,44 @@
 
 ---
 
+## Session 292: no clock the block states elsewhere can pin a prediction (2026-09-29)
+
+Session 172's open item: nothing asserted that a future STATUS block
+cannot pin an `expires` marker against a clock it states in another
+sentence. One test class in `tests/test_ops_claims.py`; no code under
+`sysadmin/` changed, so no restart owed.
+
+- [x] **Measured the hazard at the live block first.** The printed
+      region is now 535 kB and states **214** distinct `HH:MM`
+      substrings, against 86 in 188 kB when `SNAG-DOCS-008` narrowed the
+      pin on 2026-09-04. The one live prediction's `03:00` appears six
+      times outside its own sentence, one of them inside
+      `0000:03:00.0`. Overlapping matches matter: a plain scan finds 168
+      and misses exactly that one.
+- [x] **Added `TestTheBlockIsItsOwnRegressionTest`, three tests.** One
+      plants a marker for every needle the region states, each in a
+      clockless sentence with the clock stated in the sentences either
+      side, and asserts none is pinned. One takes the clock out of each
+      live prediction's own sentence, leaving the block's other copies,
+      and asserts the pin goes `unknown`. One is the premise that the
+      region still states at least the 86 clocks it did on 2026-09-04.
+- [x] **Driven at five mutations of the locator.** The whole-region pin,
+      a sentence reaching one back, one forward, and a flush marker
+      hiding its terminator each turn the planted drive red; the
+      whole-region pin also reddens the live drive. Stripping the
+      marker's own text out of the sentence is an equivalent mutant
+      here, because a flush marker already sits outside the slice.
+- [x] **Checked the runner's zone.** The planted drive passes in UTC,
+      New York, Kolkata and Chatham. The live drive, like the existing
+      live-prediction class, needs Europe/London, which `ci.yml` sets;
+      its failure message now says so rather than blaming the locator.
+- [x] **Filed the limit as `SNAG-DOCS-032`**: inside its own sentence
+      the pin is still a substring search, so `0000:03:00.0` or
+      `15:03:00` would satisfy a marker naming `03:00`. Fixing it changes
+      `check_expiry`, which is a separate concern.
+
+---
+
 ## Session 291: the 8500 registry row names its project (2026-09-29)
 
 estate message `f410f091` closed; one commit of its own in estate-manager's
@@ -6983,12 +7021,12 @@ forbids._
       which is the family working, not a defect, but nothing schedules
       the looking and the register has no reader for a passed boundary
       *(Ticked by Session 266, 2026-09-27, re-measuring the file: Read by Session 243, 2026-09-21, four days after its moment: retention had emptied the population as predicted (0 duplicates), and `SNAG-LOG-014` closed with its `expires` claim retired.)*
-- [ ] **The block is its own regression test and nothing measures that.**
+- [x] **The block is its own regression test and nothing measures that.**
       Writing this prediction put its own needle into the region five
       more times; the pin is unaffected because it reads one sentence,
       but no check asserts that a *future* block cannot pin a marker
       against a clock the same block introduced elsewhere
-      *(Re-read by Session 266, 2026-09-27, and left open: nothing later asserts that a future block cannot pin a marker against a clock of its own; `SNAG-DOCS-008`'s sentence narrowing is the only thing built, and this item already says it leaves this unaddressed.)*
+      *(Re-read by Session 266, 2026-09-27, and left open: nothing later asserts that a future block cannot pin a marker against a clock of its own; `SNAG-DOCS-008`'s sentence narrowing is the only thing built, and this item already says it leaves this unaddressed.)* *(Ticked by Session 292, 2026-09-29: `TestTheBlockIsItsOwnRegressionTest` in `tests/test_ops_claims.py` drives every clock the region states, 214 today, against a marker in a sentence that does not name it; the in-sentence limit is `SNAG-DOCS-032`.)*
 
 ---
 
