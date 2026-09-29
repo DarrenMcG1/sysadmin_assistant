@@ -8,6 +8,40 @@
 
 ---
 
+## Session 289: the crash did not lose the broker's state (2026-09-29)
+
+estate-manager's message `a5c95062` closed. `docs/design/logs.md` and the
+roadmap files only; no `sysadmin/` change, no restart owed.
+
+- [x] **Re-read the journal before believing the reply.**
+      `journalctl -u mosquitto --since 2026-08-11` shows ten failed-bind
+      boots. 2026-08-22 and 08-23 exited `status=1` with no crash and
+      restored 0 retained messages from 1. The seven crashes from
+      2026-09-03 to 09-23 kept 2 and 8. 2026-09-28 crashed after the save
+      and restored 0 and 0. So the estate's split holds: completed saves
+      lost state 3 of 3, interrupted ones 0 of 7.
+- [x] **Corrected the four places that named the crash as the cause.**
+      No SNAG entry did. `docs/design/logs.md`'s `known_noise` refusal,
+      Session 281's headline in `STATUS.md`, and two ticked items here
+      (Session 281's reasons, Session 279's filing task) each carry a
+      dated correction note. The older
+      handoff blocks are left as the record of what those sessions
+      believed.
+- [ ] **Re-decide whether mosquitto's boot core dump stays `critical`.**
+      Session 281 kept it for three reasons, and the third, that a crash
+      on the race's other path lost the state, is now false: the loss
+      comes from the failed bind's completed save, crash or not, and the
+      write-path crash is what preserved the store. The other two still
+      stand (one race; its fix, estate ADR-0216, is committed but not
+      installed). Decide the rung on what the dump does signal, and
+      whether the loss itself (a start restoring fewer retained messages
+      than the stop saved) is something this monitor should watch.
+      Once the owner installs ADR-0216 the next boot should show no bind
+      error and no dump, which may make the question moot; read that
+      boot's journal first if it has happened.
+
+---
+
 ## Session 288: CI is green on GitHub, so `GitHub Actions` joins the stack (2026-09-29)
 
 `SNAG-TEST-015` closed. `.project.yaml` and the roadmap files only; no
@@ -42,13 +76,15 @@ No code change; no restart owed. The owner ran the command (root).
       (`70355fe..73f9b96`, 59 commits), so the checkout now carries the
       estate-lib the box runs. The 36 stale-lib failures should go; on the
       first green run, do the Session 285 `stack:` task below.
-- [ ] **Read estate message `a5c95062` and close it.** estate-manager
+- [x] **Read estate message `a5c95062` and close it.** estate-manager
       answers our two mosquitto filings (`e1eef46b`, `af040aab`): the
       state loss follows a *completed* exit-time save on a failed bind
       (3 of 3), never the crash, and their ADR-0216 gates the broker's
       start on its listener addresses, pending the owner's install. It
       asks nothing of us; check whether `SNAG-`/task text here cites the
       crash as the cause of the loss before closing.
+      *(Done by Session 289, 2026-09-29: four places did, none a SNAG;
+      corrected in place and the message closed.)*
 
 ---
 
@@ -221,6 +257,11 @@ nothing to chase. Documentation only; no restart owed.
       seven times is not shown harmless: a crash on the other path of the
       same race lost the state. The cost of keeping it is about one
       critical per boot, which closes by itself in about 16 minutes.
+      *(Corrected by Session 289, 2026-09-29: the crash did not lose the
+      state. A completed exit-time save on a failed bind did, three times
+      out of three, twice with no crash at all; the write-path crash kept
+      the store by interrupting that save. The third reason above rests on
+      the wrong cause; see `docs/design/logs.md` and Session 289's task.)*
 - [x] **Corrected our own filing at estate-manager.** It said "the same
       core dump" appears on every boot. Reply
       `af040aab-eef6-406b-a311-e04f67337273` gives them the two stacks.
@@ -250,6 +291,10 @@ nothing to chase. Documentation only; no restart owed.
       register message `e1eef46b-05cc-4460-9968-abb7524d0232`, after all
       eight earlier crash-then-retry pairs since 2026-09-03 were
       re-read and each showed 2 and 8 on both starts.
+      *(Corrected by Session 289, 2026-09-29: "crash lost" names the wrong
+      cause. The failed bind's completed save lost the state, and the
+      crash came after it; estate-manager's reply `a5c95062` has the
+      tally.)*
 
 ---
 

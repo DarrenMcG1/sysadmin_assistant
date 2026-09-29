@@ -166,8 +166,8 @@ and closes by itself about 16 minutes later, which makes it look like
 rule 2's case. Two things were measured before refusing it. First, the
 signature keeps the stack frames. The seven dumps from 2026-09-03 to
 09-23 fault inside the database save (`persist__backup`); the 09-28 dump
-faults after it (`sub__clean_session`) and lost the broker's retained
-messages and subscriptions. They are two signatures, so a
+faults after it (`sub__clean_session`), and the start after it restored
+no retained messages or subscriptions. They are two signatures, so a
 `(mosquitto.service, signature)` key could have quietened the first
 alone. Second, "harmless" rested on seven survivals of a segfault inside
 a persistence write. That crash and the state-losing one share a single
@@ -178,6 +178,21 @@ earliest sign. Revisit only if the owner decides the race will stay
 unfixed. Then a narrow entry on the write-path signature is available,
 and this paragraph records that it would not have hidden the 09-28
 crash.
+
+*Corrected 2026-09-29 (Session 289): the crash did not lose the state.*
+estate-manager's message `a5c95062` read the journal back to 2026-08-11,
+and Session 289 re-read it. The loss follows the failed-bind exit's
+database save when that save **completes**: three of three did,
+including 2026-08-22 and 08-23, which exited `status=1` with no crash
+at all and restored 0 retained messages from 1. The seven crashes
+inside `persist__backup` interrupted the save, and that is what kept
+the old file and its 2 and 8. So the core dump is not a sign of the
+loss: a completed save loses state with or without a crash, and the
+write-path crash is the outcome that preserves it. The race is still
+the one cause, and the estate's ADR-0216 now gates the broker's start
+on its listener addresses, pending the owner's install. Whether
+`critical` still fits once its stated reason is gone is a task in
+`tasks.md` (Session 289), not settled here.
 
 **Three of the emitted commands did not work, and only a live run said
 so.** The draft emitted `journalctl -u kernel` (the kernel is not a

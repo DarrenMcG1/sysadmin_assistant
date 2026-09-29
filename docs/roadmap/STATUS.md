@@ -3,6 +3,19 @@
 **Last Updated**: 2026-09-29
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The broker lost its state to a completed save, not to the crash**
+> (2026-09-29, Session 289). estate-manager's reply to our two mosquitto
+> filings (message `a5c95062`) read the journal back to 2026-08-11, and
+> it holds on re-reading. When mosquitto fails to bind at boot it saves
+> its database on the way out. Each time that save finished (three
+> boots, two of them with no crash) the next start came back empty; each
+> time a crash cut the save short (seven boots), the old file survived.
+> Four places here had blamed the crash and now carry correction notes.
+> The estate's fix makes the broker wait for its addresses before
+> starting; the owner has still to install it. Whether the core dump
+> should stay `critical` now its stated reason is gone is a new task.
+> Documentation only; no restart owed.
+
 > **CI passes on GitHub for the first time** (2026-09-29, Session 288).
 > Once estate-manager pushed its `main`, the 36 tests that needed its
 > newer estate-lib passed and nothing else failed. The first green runs
@@ -64,7 +77,10 @@
 > one race whose fix belongs to estate-manager and is still open, and
 > the other outcome of that race has now lost data. estate-manager has
 > the corrected stacks (reply `af040aab-eef6-406b-a311-e04f67337273`).
-> Documentation only; no restart owed.
+> Documentation only; no restart owed. *(Corrected by Session 289: the
+> crash did not lose the data. A failed bind's completed save did, with
+> or without a crash, and the seven write-path crashes kept the store by
+> interrupting that save.)*
 
 > **The 11:49 reboot's three alerts, accounted for** (2026-09-28, Session
 > 279). Each one was a boot-order race that systemd's first retry healed

@@ -1,6 +1,45 @@
-# Handoff — 2026-09-29 (Session 288)
+# Handoff — 2026-09-29 (Session 289)
 
 ## Next action
+
+Re-decide whether mosquitto's boot core dump stays `critical`, now that the crash is shown not to be what lost the broker's state. *(For: session)*
+
+It is the first unticked item in tasks.md (under Session 289).
+Session 281 kept the alert at `critical` for three reasons and the third,
+that the crash lost the state, is false. The other two still stand. If
+the owner has installed estate ADR-0216 and the box has rebooted since,
+read that boot's mosquitto journal first: no bind error and no dump
+would make the question moot.
+
+## Session 289: the crash did not lose the broker's state
+
+`docs/design/logs.md` and the roadmap files; no `sysadmin/` change, no
+restart owed. Estate message `a5c95062` closed.
+
+- **The estate's reading holds on re-reading.**
+  `journalctl -u mosquitto --since 2026-08-11`: ten failed-bind boots.
+  When the exit-time save completed, the next start came back empty (3
+  of 3, and 2026-08-22 and 08-23 had no crash at all, 1 → 0 retained).
+  When a crash inside `persist__backup` cut the save short, the store
+  survived (7 of 7, 2 and 8 kept).
+- **No SNAG entry named the crash as the cause. Four other places did**,
+  and each now carries a dated correction note rather than a rewrite:
+  the `known_noise` refusal in `docs/design/logs.md`, Session 281's
+  headline in `STATUS.md`, and Session 281's and Session 279's ticked
+  items in `tasks.md`.
+- **Left as written:** the older handoff blocks (279, 280, 281) that say
+  the crash lost the state. They record what those sessions believed.
+- **Not decided here:** whether the dump stays `critical`. Its third
+  stated reason is gone, and that re-decision is a separate judgement
+  about the alert ladder, so it is the new task and the next action.
+- **Not touched:** estate message `f410f091` (our port-registry row for
+  8500 names `sysadmin-service`, which resolves to no project; the new
+  rule wants `sysadmin-assistant`). It is a separate concern and stays
+  open in the inbox.
+- **Not pushed.** `main` is ahead of `origin/main`; pushing is the
+  owner's call.
+
+### What Session 288 handed on (done in Session 289)
 
 Read estate message `a5c95062` and close it, first checking whether any SNAG or task text here names the crash as the cause of the broker's lost state.
 
