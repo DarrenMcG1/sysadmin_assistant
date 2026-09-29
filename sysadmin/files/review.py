@@ -39,7 +39,7 @@ from sysadmin.core.gpu_lease import (
 
 # Re-exported: this was strip_markdown's original home, and the project
 # review needs it too — see sysadmin/core/text.py for why it moved.
-from sysadmin.core.text import strip_markdown
+from sysadmin.core.text import strip_markdown, trim_to_words, word_count
 from sysadmin.files import forecast
 from sysadmin.files import recommendations as file_recommendations
 from sysadmin.files.models.disk_review import DiskReview
@@ -80,6 +80,10 @@ REVIEW_SYSTEM_PROMPT = (
 # ("very large"), categories become named phrases, and occupancy becomes
 # a direction.  A model with no numbers in its context cannot restate or
 # derive one.  All real figures live in build_facts_section.
+#: The narrative's word budget — the model's prose alone, not the facts
+#: block prepended to it, which is deterministic and bounded by the data.
+NARRATIVE_WORD_LIMIT = 150
+
 REVIEW_INSTRUCTIONS = (
     "Write three brief plain-text sections: 1) Where the mess is coming "
     "from: which categories explain the growth, judging from the listed "
@@ -87,8 +91,28 @@ REVIEW_INSTRUCTIONS = (
     "their category; 3) Watch: anything trending the wrong way that is "
     "not yet urgent, or 'nothing' if there is none. Figures are reported "
     "separately, so do not state any number, size, count, percentage or "
-    "date — describe magnitude in words. Hard limit 150 words. Plain "
-    "prose only: no markdown, no headings, no numbered or bulleted lists."
+    f"date — describe magnitude in words. Hard limit {NARRATIVE_WORD_LIMIT} "
+    "words. Plain prose only: no markdown, no headings, no numbered or "
+    "bulleted lists."
+)
+
+# The second pass, asked only when the first ran over.  The limit above
+# is a request, and dria-agent-a-3b keeps it about half the time: the
+# stored reviews' prose ran 97–329 words with six of seven over, and six
+# drives of the 2026-09-28 prompt on 2026-09-29 split 92–104 (four)
+# against 273–289 (two) — bimodal, not noisy.  Asking this pass for 120
+# rather than 150 is the margin: six condense drives of the two long
+# outputs returned 49–126 words five times and 206 once, so even a
+# tighter ask misses sometimes, and :func:`hold_to_word_limit` trims
+# whatever it cannot bring in.
+CONDENSE_WORD_TARGET = 120
+
+CONDENSE_INSTRUCTIONS = (
+    f"Shorten the disk review below to at most {CONDENSE_WORD_TARGET} "
+    "words. Keep its three parts in order: where the mess is coming from, "
+    "what to clear first, and what to watch. Do not add anything that is "
+    "not already in it, and do not state any number. Plain prose only: "
+    "no markdown, no headings, no lists."
 )
 
 # Number-free names for each recommendation kind.  The Tier 2 titles
@@ -468,6 +492,79 @@ def build_review_prompt(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def build_condense_prompt(prose: str) -> str:
+    """The second pass's prompt: the first pass's prose, and a shorter ask.
+
+    It stays figure-free for the same reason the first prompt is: the only
+    data it carries is prose the model wrote from a prompt with no figures
+    in it, so there is nothing here for it to restate or derive.
+    """
+    return f"{CONDENSE_INSTRUCTIONS}\n\nReview:\n{prose}"
+
+
+async def hold_to_word_limit(
+    client: Any, prose: str, *, gpu_lease_held: bool = False
+) -> str:
+    """Bring the model's prose within :data:`NARRATIVE_WORD_LIMIT` words.
+
+    Three steps, each taken only when the one before left it over:
+
+    1. **Keep it as written** — about half the first passes already fit.
+    2. **Ask once more, shorter** (:data:`CONDENSE_INSTRUCTIONS`).  A
+       condensed review keeps all three sections, which a cut cannot.
+    3. **Trim at a sentence boundary, visibly**
+       (:func:`~sysadmin.core.text.trim_to_words`) — the only step that
+       guarantees the limit.  It trims the condensed text when there is
+       one, since that carries all three sections in fewer words, and the
+       original when the second pass came back empty or not at all.
+
+    A second pass that fails is not a failed review: the first pass's
+    prose is already in hand, so every outcome here still stores
+    ``llm_used=True`` with the model's own words.  Each step past the
+    first is logged with both counts, so a week that needed the trim is
+    visible in ``log_entries`` rather than only as a marker in the text.
+
+    **Which step does the work depends on the invocation**, measured live
+    2026-09-29.  The Monday job holds a GPU lease and skips the gate, and
+    there the condense pass did all of it: six of eight first passes ran
+    161–257 words and all six came back at 60–106, none trimmed.  The
+    ``POST …/review/generate`` route holds no lease, so the second call
+    reads the busy counter — and reads *this service's own first pass*
+    still on it: seven of seven calls made straight after an inference
+    were refused, on a card that sampled 6–12 % a moment later.  On the
+    route the trim is therefore the usual step, not the rare one
+    (``SNAG-GPU-007``).
+    """
+    words = word_count(prose)
+    if words <= NARRATIVE_WORD_LIMIT:
+        return prose
+
+    condensed = await client.generate(
+        build_condense_prompt(prose),
+        system=REVIEW_SYSTEM_PROMPT,
+        gpu_lease_held=gpu_lease_held,
+    )
+    condensed = strip_markdown(condensed).strip() if condensed else ""
+    if condensed and word_count(condensed) <= NARRATIVE_WORD_LIMIT:
+        logger.info(
+            "disk_review_narrative_condensed",
+            extra={"words_before": words, "words_after": word_count(condensed)},
+        )
+        return condensed
+
+    candidate = condensed or prose
+    trimmed = trim_to_words(candidate, NARRATIVE_WORD_LIMIT)
+    logger.warning(
+        "disk_review_narrative_trimmed",
+        extra={
+            "words_before": words,
+            "words_condensed": word_count(condensed) if condensed else None,
+            "words_after": word_count(trimmed),
+        },
+    )
+    return trimmed
+
+
 def build_fallback_narrative(data: dict[str, Any]) -> str:
     """Deterministic digest used when llama-server is unavailable."""
     actions = data["actions"]
@@ -522,15 +619,22 @@ async def generate_review(
             system=REVIEW_SYSTEM_PROMPT,
             gpu_lease_held=gpu_lease_held,
         )
+        if narrative is not None:
+            # Any markdown the model emitted against instructions goes
+            # before the count, so a heading's "###" is not a word
+            narrative = await hold_to_word_limit(
+                client,
+                strip_markdown(narrative),
+                gpu_lease_held=gpu_lease_held,
+            )
     finally:
         if owns_client:
             await client.shutdown()
 
     llm_used = narrative is not None
     if narrative is not None:
-        # Numbers first, deterministically; the model's prose follows,
-        # with any markdown it emitted against instructions removed
-        narrative = f"{build_facts_section(data)}\n\n{strip_markdown(narrative)}"
+        # Numbers first, deterministically; the model's prose follows
+        narrative = f"{build_facts_section(data)}\n\n{narrative}"
     else:
         narrative = build_fallback_narrative(data)
         logger.warning("disk_review_llm_unavailable_used_fallback")

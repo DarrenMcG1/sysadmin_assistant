@@ -8,6 +8,60 @@
 
 ---
 
+## Session 293: the disk review's narrative keeps to its 150-word limit (2026-09-29)
+
+Session 24's open item, from the handoff. `sysadmin/core/text.py`,
+`sysadmin/files/review.py`, three test files and the roadmap. Code under
+`sysadmin/` changed, so the daemon needs a restart to run it; the next
+Monday job (2026-10-05 05:45) is the first stored review it shapes.
+
+- [x] **Measured the model's prose alone first**, splitting the stored
+      narrative at the blank line after the facts block, as Session 266's
+      note asked. Stored reviews: 97–329 words, six of seven over 150.
+      Six live drives of the 2026-09-28 prompt: 92–104 four times,
+      273–289 twice. The overrun is bimodal, not noise.
+- [x] **Measured both proposed fixes before building either.** A
+      condense pass asked for 120 words brought five of six long outputs
+      to 49–126 and one to 206, so it helps and cannot guarantee.
+      `n_predict` alone was rejected unbuilt: it stops mid-section, which
+      the item itself called worse than running long.
+- [x] **Built condense-then-trim.** `hold_to_word_limit` keeps prose
+      that fits, asks a condense pass when it does not, and trims what is
+      still over with `trim_to_words`, a new helper in `core/text.py`
+      that cuts at the last sentence end inside the limit and appends
+      the truncation marker. The instruction's "150" now comes from
+      `NARRATIVE_WORD_LIMIT`, so the prompt and the code cannot disagree.
+- [x] **The first live specimen refuted the first draft.** Counting a
+      line break as a sentence end kept the heading "Watch" with nothing
+      under it; only `.`, `!` and `?` end a sentence now. Pinned by
+      `SPECIMEN_2026_09_28` in `tests/test_text.py`, and both that test
+      and the heading test go red when the line-break rule is restored.
+- [x] **Driven live after the fix.** Leased path (the Monday job): eight
+      runs, six first passes over at 161–257, all six condensed to
+      60–106, none trimmed, all eight within 150.
+- [x] **Filed `SNAG-GPU-007`** (P4): on the unleased route the condense
+      call reads the GPU busy counter while this service's own first
+      pass is still on it, and was refused seven times in seven, so the
+      route trims where the Monday job condenses. The limit holds either
+      way and the cut is marked.
+- [x] **Moved `SNAG-LOG-012`'s caller pin from three to four** in
+      `tests/test_snag_claims.py`: the condense pass is a real second
+      `strip_markdown` call in `files/review.py`, not the probe leaking
+      back in. The check still reads `match`.
+- [ ] **The log review breaks the same limit in every stored review,
+      and gets the same hold.** Measured 2026-09-29 by the method above:
+      `log_reviews` prose ran 190, 195, 197 and 211 words, all over 150;
+      `health_reviews` ran 65 and 74, both under. `hold_to_word_limit`
+      is written for the disk review (its prompt says "disk review", its
+      log events are `disk_review_…`), so adopting it means moving the
+      mechanism to `core` with the prompt as a parameter. Also correct
+      `docs/design/files.md`, which still calls the disk review "the
+      only LLM-narrated review this service produces" when the log and
+      health reviews are too. Named in Session 293 as a second concern
+      and not worked there.
+
+---
+
 ## Session 292: no clock the block states elsewhere can pin a prediction (2026-09-29)
 
 Session 172's open item: nothing asserted that a future STATUS block
@@ -13206,12 +13260,17 @@ both attempts, so `strip_markdown` removes those deterministically.
 
 Still open:
 
-- [ ] The model ignores the 150-word limit (final live narrative ran
+- [x] The model ignores the 150-word limit (final live narrative ran
       ~350 words). Harmless — it is honest prose with no invented
       figures — but the briefing section is longer than intended.
       Truncating mid-sentence would be worse; a summarise-again pass or
       a smaller `n_predict` would be the fix
       *(Re-read by Session 266, 2026-09-27, and left open: neither proposed fix exists — no `n_predict`/`max_tokens` anywhere in `sysadmin/`, no second summarise pass — and `files/review.py` still only instructs the 150-word limit. Not re-measured: the stored narrative includes the facts section, so its word count says nothing about the model's prose.)*
+      *(Done by Session 293, 2026-09-29: both fixes, in order, and a trim
+      behind them. The model's prose alone had run 97–329 words, six of
+      seven over; `hold_to_word_limit` in `sysadmin/files/review.py` asks
+      once more, shorter, and cuts at a sentence boundary with a visible
+      marker when that also misses. See its block above.)*
 - [ ] A single large cleanup flattens the 30-day disk fit for a month
       (usage fell 92.8 % → 67.3 % in late July, so every threshold reads
       `not_growing` and no risk can fire). Inherent to a least-squares

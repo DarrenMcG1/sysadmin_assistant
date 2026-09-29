@@ -2090,6 +2090,12 @@ class TestTheCodeSpanCheck:
         guaranteed a non-zero count.  Asserting only the filtered side
         would let the exclusion be deleted silently, so the raw walk is
         asserted to still contain what the filter removes.
+
+        **Four since 2026-09-29**: the disk review's condense pass
+        (``hold_to_word_limit``) strips its second answer too, so
+        ``sysadmin/files/review.py`` now calls it twice.  A real consumer
+        added, not the probe leaking back in — the assertion above it is
+        the one that would say so.
         """
         raw = call_sites(STRIPPER_NAME, (REPO_ROOT / "sysadmin",))
         assert [site for site, _ in raw if site.startswith(STRIPPER_PROBE)], (
@@ -2098,7 +2104,7 @@ class TestTheCodeSpanCheck:
         )
         measurement = check_code_spans_survive()
         assert not any(STRIPPER_PROBE in line for line in measurement.detail)
-        assert any("3 caller(s)" in line for line in measurement.detail)
+        assert any("4 caller(s)" in line for line in measurement.detail)
 
 
 class TestTheHealthPathCheck:

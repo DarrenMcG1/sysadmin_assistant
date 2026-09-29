@@ -55,6 +55,22 @@ review here, both learned from live runs:
    which is prepended to the narrative deterministically. `strip_markdown` removes
    the headings and lists the model emits despite being told not to.
 
+**The 150-word limit is held by code, not by the instruction**
+(Session 293, 2026-09-29). The limit counts the model's prose alone,
+never the facts block in front of it, which is why a word count of the
+stored `narrative` says nothing about it. dria-agent-a-3b keeps the
+limit about half the time, and the overrun is bimodal (about 100 words
+or about 280), so `hold_to_word_limit` takes three steps: keep prose
+that fits, ask once more for 120 words, then cut with
+`core.text.trim_to_words`. The cut lands after the last `.`, `!` or `?`
+inside the limit and appends the truncation marker. A bare line break
+is deliberately not a sentence end, because `strip_markdown` leaves the
+model's headings on lines of their own and a cut there publishes a
+heading with nothing under it. Neither `n_predict` nor the second pass
+alone guarantees the limit: the first stops mid-section, and the second
+missed once in six. Which step does the work depends on the invocation;
+see `SNAG-GPU-007`.
+
 The three `/api/files/*` action endpoints share one manifest shape and are
 **dry runs unless the request body sets `confirm: true`** — see
 `sysadmin/files/actions.py` for the safety rules (root confinement,

@@ -1,23 +1,73 @@
-# Handoff — 2026-09-29 (Session 292)
+# Handoff — 2026-09-29 (Session 293)
 
 ## Next action
 
-Make the disk review's narrative keep to its 150-word limit, the open Session 24 item in tasks.md. *(For: session)*
+Give the log review the disk review's word-limit hold: its stored prose ran 190–211 words against 150, the open Session 293 item in tasks.md. *(For: session)*
 
-It is the first startable unticked item in tasks.md. The four above it
-are not startable: one waits on a reboot (the scheduled action below),
-one on `UV_PYTHON` drifting from the box's interpreter, and one,
-whether `LogSignatureTrendInfo.total` should say it is unwindowed, is
-left for the owner. The item names two fixes, a smaller `n_predict` or
-a second summarise pass; measure the model's prose alone first, since
-the stored narrative includes the facts section and its word count says
-nothing about the limit (Session 266's note).
+It is the first startable unticked item in tasks.md, written by this
+session as the second concern it named and did not work. The health
+review needs nothing: its two stored reviews ran 65 and 74 words.
+`hold_to_word_limit` is written for the disk review, with "disk review"
+in its prompt and `disk_review_…` log events, so the work is moving the
+mechanism to `core` with the prompt as a parameter, then wiring it into
+`monitor/log_review.py`. Measure the log review's prose the same way
+first: split the stored narrative at the blank line after the facts
+block and count the words after it.
 
 ## Scheduled action
 
 After the next reboot, read that boot's mosquitto journal: the first
 under estate ADR-0216's gate. The task under Session 290 says what to
 expect and what would mean the gate did not run as written.
+
+## Session 293: the disk review's narrative keeps to its 150-word limit
+
+Session 24's open item, the one the handoff named. `sysadmin/core/text.py`,
+`sysadmin/files/review.py`, three test files, `docs/design/files.md` and
+the roadmap. One `sysadmin/` change, deployed: daemon restarted at
+2026-09-29 22:18:35.
+
+- **Measured before choosing.** Split at the blank line after the facts
+  block, the stored reviews' prose ran 97–329 words, six of seven over.
+  Six live drives of the 2026-09-28 prompt came back at 92–104 words
+  four times and 273–289 twice. A condense pass asked for 120 words
+  brought five of six long drafts to 49–126 and one to 206.
+- **Decided: condense, then trim.** Neither proposed fix guarantees the
+  limit on its own. `n_predict` was rejected unbuilt because it stops
+  mid-section, which the item itself called worse than running long.
+  `hold_to_word_limit` keeps prose that fits, asks once more when it
+  does not, and trims what is still over with `trim_to_words`: a cut
+  after the last full sentence inside 150 words, always marked.
+- **The first live specimen refuted the first draft.** Treating a line
+  break as a sentence end kept the heading "Watch" with nothing under
+  it. The 2026-09-28 prose is now a test fixture, and it goes red if
+  that rule comes back.
+- **Driven live after the fix.** On the Monday job's path (lease held),
+  six of eight first drafts ran over at 161–257, and the second pass
+  brought all six in at 60–106 with no cut. All eight finished within
+  150.
+- **Left, and filed as `SNAG-GPU-007` (P4).** On the `POST` route no
+  lease is held, so the second call reads the GPU busy counter and finds
+  the first call still on it: refused seven times in seven, on a card
+  that read 6–12 % a moment later. Route-made reviews are therefore cut
+  rather than condensed. The limit holds either way. Every fix changes
+  the GPU gate's contract, which is a different concern.
+- **`systemctl restart sysadmin.service` timed out** (polkit, no agent
+  to answer). `kill -TERM` on the main PID and `Restart=always` did it,
+  `NRestarts` 1 → 2 against a limit of 5.
+- **Not exercised: `POST /api/files/review/generate` on the daemon.** It
+  would store a new review that the briefing would then read. The live
+  drives went through the same functions, and the first stored review
+  the change shapes is the Monday job's on 2026-10-05.
+- **Second concern named and recorded, not worked:** the log review
+  breaks the same limit (190–211 words in all four stored reviews). It
+  is the new unticked item under Session 293 in tasks.md, and it also
+  corrects `docs/design/files.md`'s claim that the disk review is the
+  only one narrated by the model.
+- **Suite:** 4,404 passed, 2 skipped; ruff and mypy clean. Collected
+  4,406 (16 added, none retired). `SNAG-LOG-012`'s check now counts
+  four `strip_markdown` callers, not three, and its test says why.
+  `check-ops-claims.sh` reads every claim `ok`.
 
 ## Session 292: no clock the block states elsewhere can pin a prediction
 
@@ -60,6 +110,19 @@ owed.
   4,390 (three added), and STATUS says so.
 - **Not pushed.** `main` is ahead of `origin/main`; pushing is the
   owner's call.
+
+### What Session 292 handed on (done in Session 293)
+
+Make the disk review's narrative keep to its 150-word limit, the open Session 24 item in tasks.md. *(For: session)*
+
+It is the first startable unticked item in tasks.md. The four above it
+are not startable: one waits on a reboot (the scheduled action below),
+one on `UV_PYTHON` drifting from the box's interpreter, and one,
+whether `LogSignatureTrendInfo.total` should say it is unwindowed, is
+left for the owner. The item names two fixes, a smaller `n_predict` or
+a second summarise pass; measure the model's prose alone first, since
+the stored narrative includes the facts section and its word count says
+nothing about the limit (Session 266's note).
 
 ## Session 291: the 8500 registry row names its project
 

@@ -19,15 +19,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from sysadmin.core.config import AgentsConfig, AppConfig, FileOrganiserConfig
+from sysadmin.core.text import TRUNCATION_MARKER, word_count
 from sysadmin.files.models.disk_review import DiskReview
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
 from sysadmin.files.review import (
+    CONDENSE_INSTRUCTIONS,
+    NARRATIVE_WORD_LIMIT,
     REVIEW_INSTRUCTIONS,
+    build_condense_prompt,
     build_facts_section,
     build_fallback_narrative,
     build_review_prompt,
     gather_review_data,
     generate_review,
+    hold_to_word_limit,
     run_weekly_review,
     size_band,
     strip_markdown,
@@ -557,6 +562,124 @@ class TestGenerateReview:
 
         client.startup.assert_not_awaited()
         client.shutdown.assert_not_awaited()
+
+
+# Sentences of ten words each, so a count is a sentence count times ten.
+SENTENCE = "Stale downloads keep growing and should be cleared this week."
+
+
+def _prose(sentences: int) -> str:
+    return " ".join([SENTENCE] * sentences)
+
+
+def _llm_sequence(*responses):
+    """A client whose successive ``generate`` calls return ``responses``."""
+    client = MagicMock()
+    client.generate = AsyncMock(side_effect=list(responses))
+    return client
+
+
+class TestHoldToWordLimit:
+    """The limit holds whatever the model does with the instruction.
+
+    Measured 2026-09-29 on dria-agent-a-3b: the first pass ran 92–289
+    words over six drives of one prompt (two over 150), and a condense
+    pass brought five of six long outputs in and one out at 206 — so
+    neither the instruction nor the second pass is the guarantee, and
+    only the trim is.
+    """
+
+    @pytest.mark.asyncio
+    async def test_prose_within_the_limit_costs_no_second_pass(self):
+        client = _llm_sequence()
+        prose = _prose(15)
+        assert word_count(prose) == NARRATIVE_WORD_LIMIT
+
+        assert await hold_to_word_limit(client, prose) == prose
+        client.generate.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_long_prose_is_condensed_by_a_second_pass(self):
+        condensed = _prose(8)
+        client = _llm_sequence(condensed)
+
+        assert await hold_to_word_limit(client, _prose(28)) == condensed
+        client.generate.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_the_second_pass_is_handed_the_first_pass_prose(self):
+        long_prose = _prose(28)
+        client = _llm_sequence(_prose(8))
+
+        await hold_to_word_limit(client, long_prose, gpu_lease_held=True)
+
+        (prompt,), kwargs = client.generate.await_args
+        assert prompt == build_condense_prompt(long_prose)
+        assert prompt.startswith(CONDENSE_INSTRUCTIONS)
+        assert prompt.endswith(long_prose)
+        assert kwargs["gpu_lease_held"] is True
+
+    @pytest.mark.asyncio
+    async def test_a_condensed_review_still_over_is_trimmed_visibly(self):
+        """The 206-word condense of 2026-09-29: the pass ran and missed."""
+        client = _llm_sequence(_prose(21))
+
+        result = await hold_to_word_limit(client, _prose(28))
+
+        assert result.endswith(TRUNCATION_MARKER)
+        body = result.removesuffix(TRUNCATION_MARKER).rstrip()
+        assert word_count(body) == NARRATIVE_WORD_LIMIT
+        assert body.endswith(SENTENCE)
+
+    @pytest.mark.asyncio
+    async def test_a_second_pass_that_fails_trims_the_first(self):
+        """``None`` is the client's unavailable answer — the review keeps
+        the prose it already has rather than falling back to the digest."""
+        long_prose = "First pass. " + _prose(20)
+        client = _llm_sequence(None)
+
+        result = await hold_to_word_limit(client, long_prose)
+
+        assert result.startswith("First pass.")
+        assert result.endswith(TRUNCATION_MARKER)
+
+    @pytest.mark.asyncio
+    async def test_an_empty_second_pass_is_not_a_short_review(self):
+        """Zero words is within any limit, and is not a review."""
+        client = _llm_sequence("   ")
+
+        result = await hold_to_word_limit(client, "First pass. " + _prose(20))
+
+        assert result.startswith("First pass.")
+
+    @pytest.mark.asyncio
+    async def test_markdown_in_the_second_pass_is_stripped(self):
+        client = _llm_sequence("### Watch\n- " + SENTENCE)
+
+        assert await hold_to_word_limit(client, _prose(28)) == f"Watch\n{SENTENCE}"
+
+    def test_the_first_prompt_states_the_limit_the_code_holds(self):
+        assert f"Hard limit {NARRATIVE_WORD_LIMIT} words" in REVIEW_INSTRUCTIONS
+
+    @pytest.mark.asyncio
+    async def test_generate_review_stores_the_held_prose(self):
+        """Wired end to end: the facts block is not counted, the prose is."""
+        session = AsyncMock()
+        session.add = MagicMock()
+        client = _llm_sequence("### Mess\n" + _prose(28), _prose(21))
+
+        with (
+            patch(f"{MOD}.gather_review_data", new=AsyncMock(return_value=DATA)),
+            patch(f"{MOD}.get_config", return_value=_config()),
+        ):
+            review = await generate_review(session, llm_client=client)
+
+        facts, prose = review.narrative.split("\n\n", 1)
+        assert facts == build_facts_section(DATA)
+        assert review.llm_used is True
+        assert prose.endswith(TRUNCATION_MARKER)
+        assert word_count(prose.removesuffix(TRUNCATION_MARKER)) <= NARRATIVE_WORD_LIMIT
+        assert client.generate.await_count == 2
 
 
 class TestRunWeeklyReview:
