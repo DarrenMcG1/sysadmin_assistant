@@ -8,6 +8,23 @@
 
 ---
 
+## Session 288: CI is green on GitHub, so `GitHub Actions` joins the stack (2026-09-29)
+
+`SNAG-TEST-015` closed. `.project.yaml` and the roadmap files only; no
+`sysadmin/` change, no restart owed.
+
+- [x] **Read the run instead of re-running it.** The push of `9325754` at
+      11:53 UTC had already started two runs, 36564522725 and
+      36564524086. Both checked out estate-manager at `0a242b7`, its
+      pushed `main`, and both passed: 4,160 passed, 124 skipped, 104
+      deselected. The previous run had 4,124 passes and 36 stale-lib
+      failures, and 4,124 + 36 = 4,160, so nothing else changed.
+- [x] **`GitHub Actions` is in `.project.yaml`'s `stack:`** (26 items,
+      validated by `estate.registry.ProjectManifest`), and the comment
+      explaining its absence is gone.
+
+---
+
 ## Session 287: the boot default is a glob, so an upgrade cannot orphan it (2026-09-29)
 
 No code change; no restart owed. The owner ran the command (root).
@@ -20,7 +37,7 @@ No code change; no restart owed. The owner ran the command (root).
       systemd 262's `bootctl` and `loader.conf(5)` both document the glob.
       Not measured: which entry the loader actually resolves it to, since
       `/efi` is root-only; the next reboot's `Current Entry` is the check.
-- [ ] **Re-run CI: its trigger has fired.** estate-manager closed our
+- [x] *(Done by Session 288, 2026-09-29: no re-run was needed.)* **Re-run CI: its trigger has fired.** estate-manager closed our
       filing `71f8bd4e` on 2026-09-29 having pushed `main`
       (`70355fe..73f9b96`, 59 commits), so the checkout now carries the
       estate-lib the box runs. The 36 stale-lib failures should go; on the
@@ -81,7 +98,7 @@ files only; no `sysadmin/` change, no restart owed.
       workflow what it leaves out. Check each test's reason for failing,
       not its file: `test_reload.py` and `test_units_api.py` also fail on
       the stale estate-lib, which the marker must not hide.
-- [ ] **After the first green run, add `GitHub Actions` to `.project.yaml`'s
+- [x] *(Done by Session 288, 2026-09-29.)* **After the first green run, add `GitHub Actions` to `.project.yaml`'s
       `stack:`** and drop the comment explaining its absence. Green also
       needs estate-manager's `main` pushed (55 commits behind on
       2026-09-28), filed at them as `71f8bd4e-622a-4f84-8b82-ca32d97d099a`.

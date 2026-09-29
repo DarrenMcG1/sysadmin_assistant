@@ -1,13 +1,40 @@
-# Handoff — 2026-09-29 (Session 287)
+# Handoff — 2026-09-29 (Session 288)
 
 ## Next action
 
-Re-run CI on GitHub: estate-manager pushed its `main` on 2026-09-29, so the 36 stale estate-lib failures should clear (`SNAG-TEST-015`). *(For: session)*
+Read estate message `a5c95062` and close it, first checking whether any SNAG or task text here names the crash as the cause of the broker's lost state.
 
-The scheduled action's trigger fired: estate-manager closed our filing
-`71f8bd4e` with `70355fe..73f9b96` pushed. On the first green run, add
-`GitHub Actions` to `.project.yaml`'s `stack:` (tasks.md, Session 285).
-After it, estate message `a5c95062` waits to be read and closed.
+It is the first unticked item in tasks.md (under Session 287). estate-manager
+answers our two mosquitto filings, `e1eef46b` and `af040aab`. The broker
+lost its retained messages and subscriptions after a *completed*
+exit-time save on a failed bind (3 of 3 cases), never after the crash.
+Their ADR-0216 makes the broker wait for its listener addresses before
+starting, pending the owner's install. The message asks nothing of us.
+
+## Session 288: CI is green on GitHub, so `GitHub Actions` joins the stack
+
+`.project.yaml` and the roadmap files; no `sysadmin/` change, no restart
+owed.
+
+- **No re-run was needed.** The push of `9325754` at 11:53 UTC, before
+  Session 287 wrote "re-run CI", had already started two runs
+  (36564522725, 36564524086). Both checked out estate-manager at
+  `0a242b7`, its pushed `main`, and both passed: 4,160 passed, 124
+  skipped, 104 deselected. The previous run had 4,124 passes and 36
+  stale-lib failures, and 4,124 + 36 = 4,160, so every one of those 36
+  now passes and nothing else changed.
+- **`GitHub Actions` added to `stack:`** (26 items, validated against
+  `estate.registry.ProjectManifest`). `SNAG-TEST-015` is in the Fixed
+  table.
+- **No announcement filed at web/cv.** This adds a value to a field they
+  already read and does not change the field's shape. Their message
+  `17758da4` asked for exactly this list, and the stack comment had told
+  them the entry was pending.
+- **Left alone:** one push started two identical CI runs of the same
+  workflow. The cause was not chased; it costs runner minutes and nothing
+  else.
+- **Not pushed.** `a59c20c` (Session 287) and this commit are ahead of
+  `origin/main`. Pushing is the owner's call.
 
 ## Session 287: the boot default is a glob, so an upgrade cannot orphan it
 

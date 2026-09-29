@@ -3,6 +3,13 @@
 **Last Updated**: 2026-09-29
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **CI passes on GitHub for the first time** (2026-09-29, Session 288).
+> Once estate-manager pushed its `main`, the 36 tests that needed its
+> newer estate-lib passed and nothing else failed. The first green runs
+> are 36564522725 and 36564524086: 4,160 passed. `GitHub Actions` is now
+> in `.project.yaml`'s stack, so web/cv's CV may claim it
+> (`SNAG-TEST-015` closed). No `sysadmin/` change; no restart owed.
+
 > **The boot default names a kernel branch, not a version**
 > (2026-09-29, Session 287). Kernel upgrades had orphaned the boot
 > default three times, because it named a single version's boot entry;
@@ -7484,6 +7491,12 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 288 — CI is green on GitHub (2026-09-29)
+
+- Runs 36564522725 and 36564524086, against estate-manager's pushed
+  `0a242b7`: 4,160 passed, 124 skipped, 104 deselected. `GitHub Actions`
+  added to `.project.yaml`'s `stack:`; `SNAG-TEST-015` closed.
 
 ### Session 285 — CI checks out estate-manager beside this repository (2026-09-28)
 
