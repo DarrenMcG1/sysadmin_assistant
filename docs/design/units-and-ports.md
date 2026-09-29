@@ -143,10 +143,13 @@ Six rules, four of them the opposite of the obvious implementation:
    `collation.py` posture, not `schema_guard`'s. An unattributed listener
    is compared against nothing; 8601 alone would otherwise produce a
    false positive on every sweep. A registry row naming something that is
-   no project here (`_syncthing_`, and today `sysadmin-service` for 8500)
+   no project here (`_syncthing_`, and until 2026-09-29 `sysadmin-service` for 8500)
    lands in `unknown_registry_projects` as evidence: "wrong project" and
    "not a project" are different faults and only the first is ours.
-   Filed as `SNAG-ESTATE-005` for the owner, never fixed here.
+   `SNAG-ESTATE-005` recorded the 8500 row from 2026-08-15 as the
+   estate's to fix. The owner's ruling of 2026-09-29 (estate ADR-0196
+   §8) put a row's Project cell on its claimant, so this repository
+   corrected it in estate-manager's tree and the entry closed.
 2. **A failed observation is not an empty one.** `ss` missing yields a
    report carrying the error and no findings, and `_maintain_port_alerts`
    then neither raises nor sweeps — the estate judge's rule 2, because a

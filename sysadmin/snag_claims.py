@@ -161,14 +161,6 @@ type Verdict = SchemaVerdict
 
 SNAG_PATH = REPO_ROOT / "docs" / "roadmap" / "snag_list.md"
 
-#: estate-manager's port registry, read read-only.  ``SNAG-ESTATE-005`` is
-#: a claim about a row in it, so the claim cannot be tested from inside
-#: this repository at all — which is a property of the entry rather than a
-#: reason to leave it unchecked.
-ESTATE_REGISTRY = (
-    Path.home() / "projects" / "estate-manager" / "docs" / "guides" / "monitorable-project.md"
-)
-
 #: How many unchecked entry ids are named before the rest are counted.
 #: ``SNAG-ESTATE-001``'s rule — a roll-up that cannot name anything is the
 #: defect, so the overflow is stated rather than dropped.
@@ -750,10 +742,6 @@ RETIRED_UNIT = "ollama.service"
 #: the regression guard in :mod:`tests.test_config_defaults`.
 REVIEW_SCHEDULE_LEAVES = frozenset({"review_hour", "review_minute"})
 
-#: ``SNAG-ESTATE-005``'s row and the name it gives the port.
-ESTATE_PORT = "8500"
-ESTATE_PORT_CLAIMANT = "sysadmin-service"
-
 #: ``SNAG-ESTATE-002``'s subject is estate-manager's own code, reachable
 #: only by running it: ``estate_service`` is not installed here and is not
 #: in ``estate-lib``, so the instrument is their interpreter, the same one
@@ -943,43 +931,6 @@ def check_tray_report_unheard() -> Measurement:
         "mismatch",
         "both of the entry's channels have moved: the tray's journal is ingested "
         f"and load_tray_config has {tray_callers} call sites",
-        detail,
-    )
-
-
-def check_estate_port_8500() -> Measurement:
-    """``SNAG-ESTATE-005`` — the port registry's row for 8500.
-
-    The claim is entirely about another repository's document, which is
-    why the entry is delegated and why the check reads that document
-    read-only.  It answers "does the row still say this", never "should
-    it" — the estate owns the fix, and a consumer that judged the wording
-    would be the second owner the estate rules exist to prevent.
-    """
-    try:
-        registry = ESTATE_REGISTRY.read_text(encoding="utf-8")
-    except OSError as exc:
-        return Measurement(
-            "unknown", f"{ESTATE_REGISTRY} could not be read ({exc.__class__.__name__})"
-        )
-    rows = [
-        line
-        for line in registry.splitlines()
-        if line.startswith("|") and line.split("|")[1].strip() == ESTATE_PORT
-    ]
-    if not rows:
-        return Measurement(
-            "mismatch",
-            f"the registry has no row for {ESTATE_PORT} — the row the entry is about is gone",
-        )
-    claimant = rows[0].split("|")[2].strip()
-    detail = (rows[0].strip(),)
-    if claimant == ESTATE_PORT_CLAIMANT:
-        return Measurement("match", "", detail)
-    return Measurement(
-        "mismatch",
-        f"the {ESTATE_PORT} row now names '{claimant}' rather than "
-        f"'{ESTATE_PORT_CLAIMANT}' — estate-manager has edited it",
         detail,
     )
 
@@ -1561,8 +1512,8 @@ def check_nudge_wording_unpublished() -> Measurement:
     still being dropped, which the note carries.
 
     Delegated, so what is measured is the **producer**, never this
-    repository's consumer: :func:`check_estate_port_8500`'s refusal in
-    writing, and ``SNAG-ROADMAP-001``'s. Whether
+    repository's consumer: the refusal ``SNAG-ESTATE-005``'s
+    check (retired 2026-09-29) made in writing, and ``SNAG-ROADMAP-001``'s. Whether
     :mod:`sysadmin.estate.judgements` should keep its own title is a
     separate question the entry already answers *yes* to, and a check
     that folded it in would be judging a decision rather than a claim.
@@ -1721,8 +1672,8 @@ def stripper_implementation() -> str | None:
     are the same function object, so driving the re-export measures the
     **producer** while still being the object the three reviews call.
     That is the property the whole check rests on, so it is measured and
-    not assumed — :func:`check_estate_port_8500` refuses in writing to
-    measure a delegated claim at this repository's consumer, and a copy
+    not assumed — ``SNAG-ESTATE-005``'s check (retired 2026-09-29)
+    refused in writing to measure a delegated claim at this repository's consumer, and a copy
     landing in ``core/text.py`` is precisely how this check would quietly
     start doing that.
     """
@@ -4748,8 +4699,9 @@ def check_queue_stamps_local() -> Measurement:
     as a job well done.
 
     Delegated, so what is measured is the estate's surface and never this
-    repository's opinion of it, :func:`check_estate_port_8500`'s refusal
-    in writing.  What is deliberately **not** measured is whether
+    repository's opinion of it, the refusal ``SNAG-ESTATE-005``'s check
+    (retired 2026-09-29) made in writing.  What is deliberately **not**
+    measured is whether
     ``judge_queue_invariants`` would now misread the field: it carries
     ``active_lease`` into ``details`` verbatim and parses none of it, so
     the entry's own "costs nothing here" bullet is a statement about this
@@ -8677,12 +8629,6 @@ CHECKS: dict[str, Check] = {
             "SNAG-TRAY-011",
             "the tray's config report reaches no reader",
             check_tray_report_unheard,
-        ),
-        Check(
-            "estate_port_8500",
-            "SNAG-ESTATE-005",
-            "the estate's 8500 row names no project id",
-            check_estate_port_8500,
         ),
         Check(
             "incident_fold_splits_at_a_poll",

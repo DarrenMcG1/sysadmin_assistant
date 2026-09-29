@@ -8,6 +8,38 @@
 
 ---
 
+## Session 291: the 8500 registry row names its project (2026-09-29)
+
+estate message `f410f091` closed; one commit of its own in estate-manager's
+tree, then `sysadmin/snag_claims.py`, two test files and the roadmap here.
+No restart owed: `snag_claims.py` is outside the daemon's import graph.
+
+- [x] **Corrected the row in estate-manager's tree.** `monitorable-project.md`
+      §2.1's 8500 Project cell went from `sysadmin-service` to
+      `sysadmin-assistant` (estate-manager `d05ac23`, that file alone).
+      Their own `parse_registry` and `resolve_project_cell` then gave 9
+      distinct cells: 7 resolving to one tree each, the 2 italicised
+      daemons to none, 0 unresolved.
+- [x] **Announced it at the one measured reader.** 40 reader rows cite
+      the document across 9 repositories, but a sweep of `~/projects` for
+      the row or the name found only `services.yaml` names elsewhere, so
+      the estate's ports check is the only foreign reader of the cell.
+      Filed at estate-manager as `1128717e-2724-435d-9124-36b6f0bf198a`,
+      a reply to `f410f091`, before the commit, which cites it. The
+      filing also points out a stale docstring in their
+      `resolve_project_cell`, which is their code and was left alone.
+- [x] **Closed `SNAG-ESTATE-005` and retired its check.** The check was
+      run first and reported the entry refuted. The function, its three
+      constants, its registration and its two tests are gone. Three
+      docstrings that cited it as the precedent for measuring a delegated
+      claim at the producer now cite the retired check by entry.
+- [x] **Drove `dropin_blind_spot` to `unknown`, which nothing had.** The
+      coverage sweep keys on the class, and it had counted that check
+      covered only because the retired test asserted `unknown` in the
+      same class. One test now drives both of its not-knowing branches.
+- [x] **Ticked Session 289's re-decide item.** Session 290 did it and
+      wrote its *Done* note, but left the box unticked.
+
 ## Session 290: mosquitto's boot core dump stays `critical`, on new grounds (2026-09-29)
 
 `docs/design/logs.md` and the roadmap files; no `sysadmin/` change, no
@@ -40,7 +72,7 @@ restart owed.
       unit file does. If the refusal warnings recur at every boot, open
       a SNAG entry: they share a signature with a genuine failed start,
       so `known_noise` cannot quieten them alone.
-- [ ] **Answer estate message `f410f091`: our port-registry row for 8500
+- [x] **Answer estate message `f410f091`: our port-registry row for 8500
       names `sysadmin-service`, which resolves to no project.** The owner
       ruled on 2026-09-29 (estate ADR-0196 §8) that a row's Project cell
       holds the repository's directory name or its `.project.yaml` id, so
@@ -52,6 +84,7 @@ restart owed.
       puts the row on its claimant, so that sitting changes the entry's
       status in the same commit and closes it once the edit lands. Held
       back by Sessions 289 and 290, each on another concern.
+      *(Done by Session 291, 2026-09-29: estate-manager `d05ac23`.)*
 
 ## Session 289: the crash did not lose the broker's state (2026-09-29)
 
@@ -72,7 +105,7 @@ roadmap files only; no `sysadmin/` change, no restart owed.
       dated correction note. The older
       handoff blocks are left as the record of what those sessions
       believed.
-- [ ] **Re-decide whether mosquitto's boot core dump stays `critical`.**
+- [x] **Re-decide whether mosquitto's boot core dump stays `critical`.**
       Session 281 kept it for three reasons, and the third, that a crash
       on the race's other path lost the state, is now false: the loss
       comes from the failed bind's completed save, crash or not, and the

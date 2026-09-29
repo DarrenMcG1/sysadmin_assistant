@@ -1,6 +1,66 @@
-# Handoff — 2026-09-29 (Session 290)
+# Handoff — 2026-09-29 (Session 291)
 
 ## Next action
+
+Add a check that a future STATUS block cannot pin an `expires` marker against a clock it introduces, the open Session 172 item in tasks.md. *(For: session)*
+
+It is the first startable unticked item in tasks.md. The two above it
+are not startable: one waits on a reboot (the scheduled action below)
+and one on `UV_PYTHON` drifting from the box's interpreter. Session 266
+re-read it on 2026-09-27 and left it open, because `SNAG-DOCS-008`'s
+narrowing guards the existing pin but nothing stops a later block from
+adding a marker and the clock that satisfies it in one edit.
+
+## Scheduled action
+
+After the next reboot, read that boot's mosquitto journal: the first
+under estate ADR-0216's gate. The task under Session 290 says what to
+expect and what would mean the gate did not run as written.
+
+## Session 291: the 8500 registry row names its project
+
+Estate message `f410f091` closed. One commit of its own in
+estate-manager (`d05ac23`), then `sysadmin/snag_claims.py`, two test
+files and the roadmap here. No restart owed: `check-ops-claims.sh`
+places `snag_claims.py` outside the daemon's import graph.
+
+- **The row.** estate-manager's `monitorable-project.md` §2.1 now gives
+  8500 to `sysadmin-assistant`, our `.project.yaml` id, instead of
+  `sysadmin-service`, the `services.yaml` name. Only the Project cell
+  changed. The estate's own `parse_registry` and `resolve_project_cell`,
+  run over the live registry afterwards, give 9 distinct cells: 7
+  resolving to one tree each, the 2 italicised daemons to none, and 0
+  unresolved.
+- **The announcement went to one reader, and that was measured.** The
+  estate's reader index lists 40 rows citing the document across 9
+  repositories, but a sweep of `~/projects` for the row or the old name
+  found only `services.yaml` names outside this tree and theirs (Alfred's
+  briefing fixtures, `estate.json`, `archive/`). Filed at estate-manager
+  as `1128717e-2724-435d-9124-36b6f0bf198a`, a reply to `f410f091`,
+  before the commit, which cites it whole.
+- **Left in their tree, deliberately.** `resolve_project_cell`'s
+  docstring still says one row names a service; it is their code, so the
+  filing points it out instead of editing it. §2.2's health list still
+  names `sysadmin-service (8500)`, which is a list of service names and
+  reads correctly.
+- **A concurrent estate-manager session was editing five other files**
+  in that tree while this ran. The commit was checked afterwards: one
+  file, one line, none of theirs.
+- **`SNAG-ESTATE-005` closed; its check retired.** Run first, the check
+  reported the entry refuted. Three docstrings in `snag_claims.py` cited
+  it as the precedent for measuring a delegated claim at the producer;
+  they now cite the retired check by entry id.
+- **The retirement exposed a coverage gap, now filled.** The sweep that
+  demands each check be driven to `unknown` keys on the test class, and
+  counted `dropin_blind_spot` covered only because the retired test
+  asserted `unknown` in the same class. Neither of its two not-knowing
+  branches had ever been driven; one test now drives both.
+- **Suite:** 4,385 passed, 2 skipped; ruff and mypy clean. Collected
+  count 4,387 (two tests retired, one added), and STATUS says so.
+- **Not pushed.** `main` is ahead of `origin/main`; pushing is the
+  owner's call.
+
+### What Session 290 handed on (done in Session 291)
 
 Correct our 8500 row in estate-manager's port registry to `sysadmin-assistant`, answering estate message `f410f091`. *(For: session)*
 
@@ -16,12 +76,6 @@ fix was the estate's). The ruling now puts the row on its claimant, so
 the sitting that makes the edit also changes that entry's status; it is
 kept out of the line above because the board may not publish a
 delegated entry as owed work.
-
-## Scheduled action
-
-After the next reboot, read that boot's mosquitto journal: the first
-under estate ADR-0216's gate. The task under Session 290 says what to
-expect and what would mean the gate did not run as written.
 
 ## Session 290: mosquitto's boot core dump stays `critical`, on new grounds
 

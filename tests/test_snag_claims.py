@@ -68,7 +68,6 @@ from sysadmin.snag_claims import (
     check_convention,
     check_dispositions,
     check_dropin_blind_spot,
-    check_estate_port_8500,
     check_health_path_guess,
     check_next_action,
     check_tray_report_unheard,
@@ -1183,22 +1182,6 @@ class TestChecksAgainstTheLiveBox:
     the wrong thing.
     """
 
-    @pytest.mark.box
-    def test_estate_port_holds_and_is_refuted_when_the_row_is_edited(self):
-        assert check_estate_port_8500().verdict == "match"
-        with patch.object(snag_claims, "ESTATE_PORT_CLAIMANT", "sysadmin-assistant"):
-            assert check_estate_port_8500().verdict == "mismatch"
-
-    def test_estate_port_is_unknown_when_the_estate_document_is_absent(self):
-        """A delegated entry's evidence lives in another repository.
-
-        Unreachable is ``unknown`` and never ``match``: a checkout without
-        estate-manager beside it knows less about the row, not that the
-        row is fine.
-        """
-        with patch.object(snag_claims, "ESTATE_REGISTRY", Path("/nonexistent/guide.md")):
-            assert check_estate_port_8500().verdict == "unknown"
-
     def test_dropin_blind_spot_is_reproduced_and_not_counted(self):
         """Rule 1, and the check that would have closed the wrong entry.
 
@@ -1227,6 +1210,37 @@ class TestChecksAgainstTheLiveBox:
             measurement = check_dropin_blind_spot()
         assert measurement.verdict == "mismatch"
         assert "now reads drop-in directories" in measurement.note
+
+    def test_dropin_blind_spot_is_unknown_when_the_probe_stops_isolating(self):
+        """Both not-knowing branches: the probe unit is lost, or reads neither value.
+
+        Until 2026-09-29 the coverage sweep counted this check covered only
+        because ``SNAG-ESTATE-005``'s retired check asserted ``unknown`` in
+        the same class — the walker's stated looseness. Retiring that check
+        showed neither branch had ever been driven.
+        """
+        import sysadmin.units.scan as scan
+
+        real = scan.discover_units
+
+        def loses_the_probe(user_dir, system_dir, home):
+            return [], real(user_dir, system_dir, home)[1]
+
+        def reads_a_third_value(user_dir, system_dir, home):
+            units, excluded = real(user_dir, system_dir, home)
+            return [
+                type(unit)(**{**unit.__dict__, "restart_sec": 7.0}) for unit in units
+            ], excluded
+
+        with patch.object(scan, "discover_units", loses_the_probe):
+            lost = check_dropin_blind_spot()
+        assert lost.verdict == "unknown"
+        assert "did not return the probe unit" in lost.note
+        with patch.object(scan, "discover_units", reads_a_third_value):
+            third = check_dropin_blind_spot()
+        assert third.verdict == "unknown"
+        assert "restart_sec=7.0" in third.note
+
 
 class TestTheRealDocument:
     """The failure mode of the whole convention lives here.

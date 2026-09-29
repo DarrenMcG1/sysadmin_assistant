@@ -479,7 +479,8 @@ def test_a_manifest_id_is_an_acceptable_name_for_a_project():
 
 
 def test_a_row_naming_something_that_is_not_a_project_is_evidence_not_a_finding():
-    """``sysadmin-service`` is what the live table says for 8500 today.
+    """``sysadmin-service`` is what the live table said for 8500 until
+    2026-09-29, when the row was corrected to the manifest id.
 
     The manifest id is ``sysadmin-assistant`` and the directory is
     ``sysadmin_assistant``, so neither matches — but a registry row may
