@@ -1,21 +1,53 @@
-# Handoff — 2026-09-30 (Session 295)
+# Handoff — 2026-09-30 (Session 296)
 
 ## Next action
 
-Add a live-database test pinning that `build_trend_report`'s `total` counts rows outside both trend windows. *(For: session)*
+Measure whether `build_trend_report`'s group cap, which ranks on unwindowed `total`, drops any signature with rows in the trend windows. *(For: session)*
 
-It is the first unticked item in tasks.md, under Session 295. The
-contract now says `total`, `first_seen` and `last_seen` are unwindowed,
-and nothing pins that: `tests/test_log_trends.py`'s fixture defaults
-`total` to `current + previous`, which is the reading the contract now
-says is wrong. The second item under Session 295, whether the group cap
-should rank on `total`, is a question to measure after it.
+It is the first unticked item in tasks.md, under Session 295. This box
+has 2,461 warning-or-worse groups against the cap of 2,000, and the live
+report reads `truncated: true`. So a signature first seen this week can
+lose its place to old rows outside both windows. Nobody has measured
+whether one has. The `#:` comment on `trend_max_groups` in
+`sysadmin/core/config.py` still says 44 groups and "never binds here";
+that goes with this task.
 
 ## Scheduled action
 
 After the next reboot, read that boot's mosquitto journal: the first
 under estate ADR-0216's gate. The task under Session 290 says what to
 expect and what would mean the gate did not run as written.
+
+## Session 296: a live test pins which trend counts are windowed
+
+Session 295's first task, the one the handoff named. New
+`tests/test_log_trend_windows_live.py` and the roadmap. No code under
+`sysadmin/` changed, so no restart is owed.
+
+- **What it pins:** one probe signature of three rows, one this week,
+  one last week and one older than both. `build_trend_report` must read
+  it as `current` 1, `previous` 1, `total` 3, with `first_seen` at the
+  oldest row. The rows sit in a rolled-back transaction, and none was
+  left in `log_entries`.
+- **Decided: lift the group cap for the drive.** The query ranks on the
+  unwindowed count before cutting at 2,000, and this box has 2,461
+  groups, so a three-row probe would be cut. It would then fail on the
+  cap rather than the windowing. The marked premise asserts nothing was
+  cut. Rejected: a probe with thousands of rows to climb above the cut,
+  because it would depend on how noisy the box has been.
+- **Falsified:** a windowed `total` fails `2 == 3`, and a query limited
+  to the two windows fails both unwindowed tests while the window tests
+  stay green. A windowed `min()` alone crashes in the fold instead,
+  because live groups with no windowed row get a NULL `first_seen`.
+- **Suite:** 4,411 passed, 7 failed, 2 skipped; ruff and mypy clean.
+  Six failures are `tests/test_ops_claims.py`, the same six at HEAD
+  without this session's edits. They are the `??` claim Session 295 left
+  for the owner: un-bold `2026-09-30 07:04:13` in STATUS.md's Session 294
+  block. The seventh is `tests/test_gpu_context_live.py`, reddened by a
+  real GPU reset at 17:50 UTC today, recorded as a task under Session 296.
+- **Left for the owner: `llama-server degraded` is open.** It is the
+  pre-reset-context reading from ADR-0007, raised at 18:05 UTC after
+  that reset. A restart of the unit is what clears it.
 
 ## Session 295: the log trends contract says which counts are windowed
 

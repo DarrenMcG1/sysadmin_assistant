@@ -8,6 +8,43 @@
 
 ---
 
+## Session 296: a live test pins which trend counts are windowed (2026-09-30)
+
+The handoff's next action, the first unticked item under Session 295.
+New `tests/test_log_trend_windows_live.py` and the roadmap. No code
+under `sysadmin/` changed, so no restart is owed.
+
+- [x] **Drove the query, not the fold.** One probe signature gets three
+      rows: one this week, one last week, one older than both windows.
+      These are inserted inside a rolled-back transaction, and
+      `build_trend_report(session, 7)` runs over them. It reads
+      `current == 1`, `previous == 1`, `total == 3`, and `first_seen` at
+      the oldest row, so the probe is not "new". No probe row was left
+      in `log_entries` afterwards.
+- [x] **Lifted the group cap for the drive, and said why.** The query
+      ranks on the unwindowed count before the cap, and this box has
+      2,461 groups against 2,000, so a three-row probe would sit below
+      the cut. With the cap in force, a missing probe would be a verdict
+      on the cap and not the windowing. The marked premise asserts
+      `truncated is False` and exactly one probe signature.
+- [x] **Falsified in both directions** against a copy of
+      `log_query.py`, restored with its mtime kept.
+      A windowed `total` reads `2 == 3`. A `WHERE` limited to the two
+      windows reddens both unwindowed tests and leaves both window
+      tests green. A windowed `min()` alone crashes in the fold on live
+      groups with no windowed row, a NULL `first_seen`, so it is red
+      for a reason the test does not name.
+- [ ] **`tests/test_gpu_context_live.py` fails after any real GPU
+      reset newer than 2026-09-08.**
+      `test_a_reset_the_unit_predates_is_found_and_a_later_start_is_not`
+      inserts a reset row at a fixed 2026-09-08 12:00 UTC and expects the
+      predicate to find it as the newest. A real MODE1 reset at
+      2026-09-30 17:50:13 UTC (monitor alert "GPU was reset — every
+      client lost its VRAM") is newer, so the drive reads the real row
+      and fails. The probe's instant should come after the table's newest
+      real row, not from a date literal. Found by Session 296's suite run,
+      not worked: a second concern
+
 ## Session 295: the log trends contract says which counts are windowed (2026-09-30)
 
 The handoff's next action, left for the owner under Session 123 and
@@ -28,18 +65,23 @@ restarted at 2026-09-30 16:10:56.
       reader, `log_actions.py`'s noise advice, already writes "in all
       retained history". So this is a docstring and a `#:` per field, no
       shape change.
-- [ ] **Pin the windowing with a query-level test.** No test drives
+- [x] **Pin the windowing with a query-level test.** No test drives
       `build_trend_report`'s SQL: `tests/test_log_trends.py`'s fixture
       defaults `total` to `current + previous`, which is the very reading
       the contract now says is wrong. A live-database test, in the
       pattern of `tests/test_desktop_store_live.py`, with one row older
       than two windows would pin it
+      *(Done by Session 296, 2026-09-30: `tests/test_log_trend_windows_live.py`.)*
 - [ ] **Ask whether the group cap should rank on `total`.** The query
       orders by unwindowed `count()` before `.limit(trend_max_groups + 1)`,
       and the live report reads `truncated: true`. So a signature first
       seen this week with few rows can lose its place to old rows outside
       both windows. This is a question, not a finding: nothing here has
-      measured whether any windowed row has actually been dropped
+      measured whether any windowed row has actually been dropped.
+      Session 296 counted **2,461** warning-or-worse groups against the
+      cap of 2,000, and the `#:` comment on `trend_max_groups` in
+      `sysadmin/core/config.py` still reads "44 groups, so this never
+      binds here". That figure is stale and belongs to this task
 
 ## Session 294: the log review's narrative keeps to its 150-word limit (2026-09-30)
 

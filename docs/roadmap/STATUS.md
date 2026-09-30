@@ -3,6 +3,14 @@
 **Last Updated**: 2026-09-30
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A live test now pins which log trend counts are windowed**
+> (2026-09-30, Session 296). It puts three rows of one fault in the real
+> database (this week, last week, and three weeks ago) and checks that
+> the trend report counts one in each week but three in `total`, and
+> dates the fault from the oldest. The rows are rolled back. The test
+> proved it can fail: making `total` count only the two weeks turns it
+> red. Test only, no restart owed.
+
 > **The log trends contract now says which counts are windowed**
 > (2026-09-30, Session 295). In each fault signature on
 > `GET /api/logs/trends`, `current` and `previous` count this week and
