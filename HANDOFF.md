@@ -1,24 +1,65 @@
-# Handoff — 2026-09-29 (Session 293)
+# Handoff — 2026-09-30 (Session 294)
 
 ## Next action
 
-Give the log review the disk review's word-limit hold: its stored prose ran 190–211 words against 150, the open Session 293 item in tasks.md. *(For: session)*
+Decide whether `LogSignatureTrendInfo` should state that `total` counts every retained row while `current` and `previous` are windowed. *(For: owner, ~10 min)*
 
-It is the first startable unticked item in tasks.md, written by this
-session as the second concern it named and did not work. The health
-review needs nothing: its two stored reviews ran 65 and 74 words.
-`hold_to_word_limit` is written for the disk review, with "disk review"
-in its prompt and `disk_review_…` log events, so the work is moving the
-mechanism to `core` with the prompt as a parameter, then wiring it into
-`monitor/log_review.py`. Measure the log review's prose the same way
-first: split the stored narrative at the blank line after the facts
-block and count the words after it.
+It is the first startable unticked item in tasks.md, under Session 123,
+and it was left for you rather than filed as a snag, because the field
+behaves as documented and the question is whether the contract should
+say so. The two before it wait on a reboot and on CI's Python drifting
+from the box's, which it has not (3.12.12 both). The first item after it
+a session could start alone is the disk forecast's fixed 30-day fit,
+under Session 24.
 
 ## Scheduled action
 
 After the next reboot, read that boot's mosquitto journal: the first
 under estate ADR-0216's gate. The task under Session 290 says what to
 expect and what would mean the gate did not run as written.
+
+## Session 294: the log review's narrative keeps to its 150-word limit
+
+Session 293's open item, the one the handoff named. New
+`sysadmin/core/word_limit.py`, `sysadmin/files/review.py`,
+`sysadmin/monitor/log_review.py`, four test files, two design documents
+and the roadmap. Deployed: daemon restarted at 2026-09-30 07:04:13.
+
+- **Measured first.** Split at the blank line after the facts block, the
+  four model-written log reviews ran 195, 190, 197 and 211 words; the
+  two other stored rows are digest fallbacks.
+- **Decided: move the mechanism, do not copy it.** `hold_to_word_limit`
+  is in `sysadmin/core/word_limit.py` now, with the condense prompt and
+  the log-event prefix as parameters, so a trimmed week still names its
+  review in `log_entries`. The disk review's condense prompt is
+  byte-identical to the one Session 293 measured, and a test pins it.
+  Rejected: a copy in `log_review.py`, which would be two mechanisms free
+  to drift; and putting it in `core/text.py`, which is pure string
+  handling and does not call the model.
+- **Driven live on the Monday job's path** (a real GPU lease, taken by
+  passing the 05:15 slot's time so the deadline allowed one): six of
+  eight first passes ran 163–243, all six condensed to 52–134, none cut,
+  all eight within 150. One drive with no lease went 154 → 150 cut,
+  which is `SNAG-GPU-007`'s shape (the GPU gate refuses the second call
+  on the `POST` route); that entry has a bullet widening it to the log
+  review.
+- **Observed and left:** one condense, 163 → 52, kept its headings and
+  lost every service name under "Look at first". The limit held; the
+  shortened review said less than a cut one would have. One in six,
+  recorded in `docs/design/logs.md`, not filed.
+- **Not exercised: `POST /api/logs/review/generate` on the daemon**, for
+  Session 293's reason: it stores a review the briefing reads. The next
+  stored review the change shapes is the Monday job's, 2026-10-05.
+- **Restart:** `systemctl restart` is refused without polkit, so
+  `kill -TERM` on the main PID and `Restart=always` did it, `NRestarts`
+  2 → 3 against a limit of 5 per 10 minutes. `check-ops-claims.sh`
+  reads every claim `ok`.
+- **Suite:** 4,414 passed, 2 skipped; ruff and mypy clean. Collected
+  4,416: seven mechanism tests moved from `tests/test_disk_review.py` to
+  the new `tests/test_word_limit.py`, and ten were added.
+  `SNAG-LOG-012`'s check (it counts `strip_markdown` callers) still
+  reads four, because the second call moved rather than multiplied.
+- **One concern.** Nothing stacked.
 
 ## Session 293: the disk review's narrative keeps to its 150-word limit
 

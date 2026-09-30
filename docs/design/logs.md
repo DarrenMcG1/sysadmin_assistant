@@ -1040,3 +1040,23 @@ means no rows are ever stored — so the durable resume mechanism is
 permanently disabled, every restart re-reads five minutes, and five
 minutes at 673 lines overflows the 500-line ceiling. Fixing **either**
 half stops the truncation; only the priority half stops the re-read.
+
+**The weekly log review's 150-word limit is held by code, as the disk
+review's is** (Session 294, 2026-09-30). Split at the blank line after
+the facts block, every stored log review's prose was over: 190, 195,
+197 and 211 words. Unlike the disk review's bimodal overrun this one is
+steady, and eight live drives of the 2026-09-30 prompt on the leased
+path ran 65–243 with six of eight over. The disk review's
+`hold_to_word_limit` moved to `sysadmin/core/word_limit.py` rather than
+being copied, with the two things that differed made parameters: the
+condense prompt (`condense_instructions("the log review", …)` names this
+review's three sections) and the log-event prefix
+(`log_review_narrative_condensed`, `…_trimmed`), so a trimmed week is
+still attributable in `log_entries`. On those eight drives the condense
+pass brought all six long drafts to 52–134 and none was trimmed. It is
+not free: the 163→52 condense kept the three headings and lost every
+service name under the second, which a trim of the original would have
+kept. The health review is not held, because its two stored reviews ran
+65 and 74 words. The route's behaviour is `SNAG-GPU-007`'s, as for the
+disk review: one unleased drive's second pass was refused by the gate
+and the 154-word first pass was trimmed to 150.

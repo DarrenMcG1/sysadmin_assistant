@@ -2092,10 +2092,13 @@ class TestTheCodeSpanCheck:
         asserted to still contain what the filter removes.
 
         **Four since 2026-09-29**: the disk review's condense pass
-        (``hold_to_word_limit``) strips its second answer too, so
-        ``sysadmin/files/review.py`` now calls it twice.  A real consumer
-        added, not the probe leaking back in — the assertion above it is
-        the one that would say so.
+        (``hold_to_word_limit``) strips its second answer too.  A real
+        consumer added, not the probe leaking back in — the assertion
+        above it is the one that would say so.  **Still four since
+        2026-09-30**, when the pass moved to ``sysadmin/core/word_limit.py``
+        and the log review adopted it: the second call left
+        ``files/review.py`` for ``core``, and the log review strips once,
+        as it always had.
         """
         raw = call_sites(STRIPPER_NAME, (REPO_ROOT / "sysadmin",))
         assert [site for site, _ in raw if site.startswith(STRIPPER_PROBE)], (

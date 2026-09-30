@@ -32,8 +32,11 @@ entries before storage, so sizes summed from them are a lower bound and say so.
 
 `GET /api/files/review` is the weekly disk review, stored in its own
 `disk_reviews` table. It was built as the mirror of the project review
-that has since moved to 8400, and is now the only LLM-narrated review this
-service produces. Two rules govern any LLM-narrated
+that has since moved to 8400. It is one of three LLM-narrated reviews this
+service produces, beside the log review (`monitor/log_review.py`) and the
+health review (`monitor/health_review.py`); this said "the only" one
+until 2026-09-30, and was false for as long as either of the other two
+had existed. Two rules govern any LLM-narrated
 review here, both learned from live runs:
 
 1. **Commit the read transaction before calling the LLM.** This host sets
@@ -69,7 +72,9 @@ model's headings on lines of their own and a cut there publishes a
 heading with nothing under it. Neither `n_predict` nor the second pass
 alone guarantees the limit: the first stops mid-section, and the second
 missed once in six. Which step does the work depends on the invocation;
-see `SNAG-GPU-007`.
+see `SNAG-GPU-007`. The mechanism moved to `sysadmin/core/word_limit.py`
+on 2026-09-30, when the log review adopted it; each review passes its
+own condense prompt and log-event prefix.
 
 The three `/api/files/*` action endpoints share one manifest shape and are
 **dry runs unless the request body sets `confirm: true`** — see

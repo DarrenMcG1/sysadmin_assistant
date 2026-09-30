@@ -75,6 +75,11 @@ from sysadmin.core.gpu_lease import (
     release_review_lease,
 )
 from sysadmin.core.text import strip_markdown
+from sysadmin.core.word_limit import (
+    NARRATIVE_WORD_LIMIT,
+    condense_instructions,
+    hold_to_word_limit,
+)
 from sysadmin.monitor.log_actions import (
     NOISE_MIN_OCCURRENCES,
     LogRecommendation,
@@ -164,9 +169,17 @@ REVIEW_INSTRUCTIONS = (
     "anything in VOLUME CHANGES moving the wrong way that is not yet "
     "urgent, or 'nothing' if there is none. Figures are reported "
     "separately, so do not state any number, count, multiple, "
-    "percentage or date — describe magnitude in words. Hard limit 150 "
-    "words. Plain prose only: no markdown, no headings, no numbered or "
-    "bulleted lists."
+    "percentage or date — describe magnitude in words. Hard limit "
+    f"{NARRATIVE_WORD_LIMIT} words. Plain prose only: no markdown, no "
+    "headings, no numbered or bulleted lists."
+)
+
+# The second pass's ask, used only when the first pass runs over the
+# limit, which every stored log review has: 190–211 words in all four
+# (2026-09-30).  See :mod:`sysadmin.core.word_limit` for the three steps.
+CONDENSE_INSTRUCTIONS = condense_instructions(
+    "the log review",
+    "what broke, what to look at first, and what to watch",
 )
 
 _DIGIT = re.compile(r"\d")
@@ -577,15 +590,25 @@ async def generate_review(
             system=REVIEW_SYSTEM_PROMPT,
             gpu_lease_held=gpu_lease_held,
         )
+        if narrative is not None:
+            # The markdown it emits against instructions goes before the
+            # count, so a heading's "###" is not a word
+            narrative = await hold_to_word_limit(
+                client,
+                strip_markdown(narrative),
+                instructions=CONDENSE_INSTRUCTIONS,
+                system=REVIEW_SYSTEM_PROMPT,
+                event_prefix="log_review",
+                gpu_lease_held=gpu_lease_held,
+            )
     finally:
         if owns_client:
             await client.shutdown()
 
     llm_used = narrative is not None
     if narrative is not None:
-        # Numbers first and deterministically; the model's prose after,
-        # with the markdown it emits against instructions removed.
-        narrative = f"{build_facts_section(data)}\n\n{strip_markdown(narrative)}"
+        # Numbers first and deterministically; the model's prose after
+        narrative = f"{build_facts_section(data)}\n\n{narrative}"
     else:
         narrative = build_fallback_narrative(data)
         logger.warning("log_review_llm_unavailable_used_fallback")

@@ -16,12 +16,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from sysadmin.core.config import AgentsConfig, AppConfig, LogAggregatorConfig
-from sysadmin.core.text import TRUNCATION_MARKER
+from sysadmin.core.text import TRUNCATION_MARKER, word_count
 from sysadmin.monitor.log_actions import (
     NOISE_MIN_OCCURRENCES,
     SIGNATURE_DETAIL_CHARS,
 )
 from sysadmin.monitor.log_review import (
+    CONDENSE_INSTRUCTIONS,
+    NARRATIVE_WORD_LIMIT,
     REVIEW_INSTRUCTIONS,
     STORM_OCCURRENCES,
     build_facts_section,
@@ -533,3 +535,93 @@ class TestGenerateReview:
             patch(f"{MOD}.get_config", return_value=_config()),
         ):
             assert await generate_review(self._session()) is None
+
+
+# Sentences of ten words each, so a count is a sentence count times ten.
+SENTENCE = "Mosquitto crashed on boot and should be looked at first."
+
+
+def _prose(sentences: int) -> str:
+    return " ".join([SENTENCE] * sentences)
+
+
+class TestTheWordLimitIsHeld:
+    """The log review's use of :mod:`sysadmin.core.word_limit`.
+
+    Every stored log review broke the limit its prompt states — the
+    prose after the facts block ran 190, 195, 197 and 211 words
+    (measured 2026-09-30).  The mechanism is tested in
+    ``tests/test_word_limit.py``; this is the wiring.
+    """
+
+    def _session(self):
+        session = AsyncMock()
+        session.add = MagicMock()
+        session.commit = AsyncMock()
+        session.flush = AsyncMock()
+        return session
+
+    def test_the_first_prompt_states_the_limit_the_code_holds(self):
+        assert f"Hard limit {NARRATIVE_WORD_LIMIT} words" in REVIEW_INSTRUCTIONS
+
+    def test_the_condense_prompt_names_this_reviews_sections(self):
+        """The three sections :data:`REVIEW_INSTRUCTIONS` asks for, in order."""
+        assert CONDENSE_INSTRUCTIONS.startswith("Shorten the log review below")
+        assert (
+            "what broke, what to look at first, and what to watch"
+            in CONDENSE_INSTRUCTIONS
+        )
+
+    @pytest.mark.asyncio
+    async def test_long_prose_is_condensed_and_the_facts_are_not_counted(self):
+        session = self._session()
+        client = MagicMock()
+        client.generate = AsyncMock(side_effect=["### What broke\n" + _prose(20), _prose(9)])
+
+        with (
+            patch(f"{MOD}.gather_review_data", new=AsyncMock(return_value=DATA)),
+            patch(f"{MOD}.get_config", return_value=_config()),
+        ):
+            review = await generate_review(session, llm_client=client)
+
+        facts, prose = review.narrative.split("\n\n", 1)
+        assert facts == build_facts_section(DATA)
+        assert prose == _prose(9)
+        assert review.llm_used is True
+        (prompt,), kwargs = client.generate.await_args
+        assert prompt.startswith(CONDENSE_INSTRUCTIONS)
+        assert prompt.endswith("What broke\n" + _prose(20))
+
+    @pytest.mark.asyncio
+    async def test_a_refused_second_pass_trims_the_first_visibly(self):
+        """The route's usual case (``SNAG-GPU-007``): no lease, gate refuses."""
+        client = MagicMock()
+        client.generate = AsyncMock(side_effect=[_prose(20), None])
+
+        with (
+            patch(f"{MOD}.gather_review_data", new=AsyncMock(return_value=DATA)),
+            patch(f"{MOD}.get_config", return_value=_config()),
+        ):
+            review = await generate_review(self._session(), llm_client=client)
+
+        prose = review.narrative.split("\n\n", 1)[1]
+        assert review.llm_used is True
+        assert prose.endswith(TRUNCATION_MARKER)
+        assert word_count(prose.removesuffix(TRUNCATION_MARKER)) <= NARRATIVE_WORD_LIMIT
+
+    @pytest.mark.asyncio
+    async def test_the_lease_reaches_the_second_pass(self):
+        """The Monday job holds a lease; the condense call must not re-gate."""
+        client = MagicMock()
+        client.generate = AsyncMock(side_effect=[_prose(20), _prose(9)])
+
+        with (
+            patch(f"{MOD}.gather_review_data", new=AsyncMock(return_value=DATA)),
+            patch(f"{MOD}.get_config", return_value=_config()),
+        ):
+            await generate_review(self._session(), llm_client=client, gpu_lease_held=True)
+
+        assert [c.kwargs["gpu_lease_held"] for c in client.generate.await_args_list] == [
+            True,
+            True,
+        ]

@@ -26,13 +26,11 @@ from sysadmin.files.review import (
     CONDENSE_INSTRUCTIONS,
     NARRATIVE_WORD_LIMIT,
     REVIEW_INSTRUCTIONS,
-    build_condense_prompt,
     build_facts_section,
     build_fallback_narrative,
     build_review_prompt,
     gather_review_data,
     generate_review,
-    hold_to_word_limit,
     run_weekly_review,
     size_band,
     strip_markdown,
@@ -579,84 +577,22 @@ def _llm_sequence(*responses):
     return client
 
 
-class TestHoldToWordLimit:
-    """The limit holds whatever the model does with the instruction.
+class TestTheWordLimitIsWired:
+    """The disk review's use of :mod:`sysadmin.core.word_limit`.
 
-    Measured 2026-09-29 on dria-agent-a-3b: the first pass ran 92–289
-    words over six drives of one prompt (two over 150), and a condense
-    pass brought five of six long outputs in and one out at 206 — so
-    neither the instruction nor the second pass is the guarantee, and
-    only the trim is.
+    The mechanism's own tests moved to ``tests/test_word_limit.py`` with
+    it on 2026-09-30; what stays here is what only this review decides.
     """
 
-    @pytest.mark.asyncio
-    async def test_prose_within_the_limit_costs_no_second_pass(self):
-        client = _llm_sequence()
-        prose = _prose(15)
-        assert word_count(prose) == NARRATIVE_WORD_LIMIT
-
-        assert await hold_to_word_limit(client, prose) == prose
-        client.generate.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_long_prose_is_condensed_by_a_second_pass(self):
-        condensed = _prose(8)
-        client = _llm_sequence(condensed)
-
-        assert await hold_to_word_limit(client, _prose(28)) == condensed
-        client.generate.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_the_second_pass_is_handed_the_first_pass_prose(self):
-        long_prose = _prose(28)
-        client = _llm_sequence(_prose(8))
-
-        await hold_to_word_limit(client, long_prose, gpu_lease_held=True)
-
-        (prompt,), kwargs = client.generate.await_args
-        assert prompt == build_condense_prompt(long_prose)
-        assert prompt.startswith(CONDENSE_INSTRUCTIONS)
-        assert prompt.endswith(long_prose)
-        assert kwargs["gpu_lease_held"] is True
-
-    @pytest.mark.asyncio
-    async def test_a_condensed_review_still_over_is_trimmed_visibly(self):
-        """The 206-word condense of 2026-09-29: the pass ran and missed."""
-        client = _llm_sequence(_prose(21))
-
-        result = await hold_to_word_limit(client, _prose(28))
-
-        assert result.endswith(TRUNCATION_MARKER)
-        body = result.removesuffix(TRUNCATION_MARKER).rstrip()
-        assert word_count(body) == NARRATIVE_WORD_LIMIT
-        assert body.endswith(SENTENCE)
-
-    @pytest.mark.asyncio
-    async def test_a_second_pass_that_fails_trims_the_first(self):
-        """``None`` is the client's unavailable answer — the review keeps
-        the prose it already has rather than falling back to the digest."""
-        long_prose = "First pass. " + _prose(20)
-        client = _llm_sequence(None)
-
-        result = await hold_to_word_limit(client, long_prose)
-
-        assert result.startswith("First pass.")
-        assert result.endswith(TRUNCATION_MARKER)
-
-    @pytest.mark.asyncio
-    async def test_an_empty_second_pass_is_not_a_short_review(self):
-        """Zero words is within any limit, and is not a review."""
-        client = _llm_sequence("   ")
-
-        result = await hold_to_word_limit(client, "First pass. " + _prose(20))
-
-        assert result.startswith("First pass.")
-
-    @pytest.mark.asyncio
-    async def test_markdown_in_the_second_pass_is_stripped(self):
-        client = _llm_sequence("### Watch\n- " + SENTENCE)
-
-        assert await hold_to_word_limit(client, _prose(28)) == f"Watch\n{SENTENCE}"
+    def test_the_condense_prompt_is_the_one_measured_on_2026_09_29(self):
+        """The move changed where the text is built, not the text."""
+        assert CONDENSE_INSTRUCTIONS == (
+            "Shorten the disk review below to at most 120 words. Keep its "
+            "three parts in order: where the mess is coming from, what to "
+            "clear first, and what to watch. Do not add anything that is "
+            "not already in it, and do not state any number. Plain prose "
+            "only: no markdown, no headings, no lists."
+        )
 
     def test_the_first_prompt_states_the_limit_the_code_holds(self):
         assert f"Hard limit {NARRATIVE_WORD_LIMIT} words" in REVIEW_INSTRUCTIONS

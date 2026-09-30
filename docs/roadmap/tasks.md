@@ -4,7 +4,43 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-29
+> **Last Updated**: 2026-09-30
+
+---
+
+## Session 294: the log review's narrative keeps to its 150-word limit (2026-09-30)
+
+Session 293's open item, from the handoff. New `sysadmin/core/word_limit.py`,
+`sysadmin/files/review.py`, `sysadmin/monitor/log_review.py`, four test
+files, `docs/design/files.md`, `docs/design/logs.md` and the roadmap. Code
+under `sysadmin/` changed; daemon restarted at 2026-09-30 07:04:13.
+
+- [x] **Measured the stored prose first**, split at the blank line after
+      the facts block: the four model-written log reviews ran 195, 190,
+      197 and 211 words. The other two stored rows are digest fallbacks.
+- [x] **Moved the mechanism to `core`, not copied it.**
+      `hold_to_word_limit`, `NARRATIVE_WORD_LIMIT`, `CONDENSE_WORD_TARGET`
+      and `build_condense_prompt` live in `sysadmin/core/word_limit.py`.
+      The condense prompt and the log-event prefix are parameters, and
+      `condense_instructions(review, parts)` writes the shared rules once.
+      The disk review's condense prompt is byte-identical to the one
+      Session 293 measured, and a test pins it.
+- [x] **Wired it into `monitor/log_review.py`**, with a condense prompt
+      naming this review's three sections and `log_review_…` events.
+      Bypassing the hold turns all three new wiring tests red.
+- [x] **Driven live on the leased path**, eight first passes of the
+      2026-09-30 prompt: six ran over at 163–243, all six condensed to
+      52–134, none trimmed, all eight within 150. One unleased drive went
+      154 → 150 trimmed, the route's shape under `SNAG-GPU-007`, which
+      now has a bullet widening it to the log review.
+- [x] **Observed, not acted on:** the 163 → 52 condense kept its three
+      headings and dropped every service name under "Look at first", so
+      a condensed review is not always better than a trim of the first.
+      One specimen in six; recorded in `docs/design/logs.md`.
+- [x] **Corrected `docs/design/files.md`**, which called the disk review
+      the only LLM-narrated review this service produces.
+- [x] **The health review is not held**: its two stored reviews ran 65
+      and 74 words.
 
 ---
 
@@ -48,8 +84,8 @@ Monday job (2026-10-05 05:45) is the first stored review it shapes.
       `tests/test_snag_claims.py`: the condense pass is a real second
       `strip_markdown` call in `files/review.py`, not the probe leaking
       back in. The check still reads `match`.
-- [ ] **The log review breaks the same limit in every stored review,
-      and gets the same hold.** Measured 2026-09-29 by the method above:
+- [x] **The log review breaks the same limit in every stored review,
+      and gets the same hold.** *Done 2026-09-30 by Session 294.* Measured 2026-09-29 by the method above:
       `log_reviews` prose ran 190, 195, 197 and 211 words, all over 150;
       `health_reviews` ran 65 and 74, both under. `hold_to_word_limit`
       is written for the disk review (its prompt says "disk review", its
