@@ -3,6 +3,23 @@
 **Last Updated**: 2026-09-30
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The status block is level with the box again after a GPU reset and
+> a reboot** (2026-09-30, Session 300). At 20:28-20:29 UTC amdgpu logged
+> a page fault from a `VKRenderThread` (a graphics program's render
+> thread), failed to reset the stuck graphics ring, and reset the whole
+> GPU, so every client lost its VRAM. That opened 17 alerts: 16 kernel
+> log errors and the critical `GPU was reset` row. Three minutes later
+> two venture-assistant pipeline jobs failed to connect, 19 in all. All
+> 19 closed on their own by 20:47:49 UTC. The box then rebooted at
+> 21:37:30 BST, which restarted the inference server the earlier 17:50
+> reset had left holding a dead GPU context, and its `llama-server
+> degraded` row closed at 20:42:51 UTC. The boot raised mosquitto's and
+> Alfred's backend's `Failed to start` warnings again; both units came
+> up, and both rows closed at 20:54:48 UTC. Documentation only, and the
+> daemon start moved without a deploy: daemon restarted at
+> **2026-09-30 21:37:44** <!--check:deploy--> <!--check:daemon_start-->,
+> by the reboot.
+
 > **The GPU reset test no longer breaks on a real reset**
 > (2026-09-30, Session 299). A live test plants a fake GPU reset in the
 > log table and checks the monitor finds it. The fake was dated
@@ -22,7 +39,7 @@
 > blanked) first, then the busiest this week. Live, the report serves
 > all 291 faults and all 161 new ones; 7 still lose part of a week's
 > count. The restart was owed and paid: daemon restarted at
-> **2026-09-30 21:06:32** <!--check:deploy--> <!--check:daemon_start-->.
+> 2026-09-30 21:06:32.
 
 > **Measured: the log trend report's size cap drops real faults**
 > (2026-09-30, Session 297). The trend query keeps at most 2,000
@@ -7057,16 +7074,21 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
 > rows <!--check:alerts-->,
-> `Critical disk usage on /`, `llama-server degraded`,
+> `Critical disk usage on /`,
 > `Project ImbaBots next action idle` and
-> `Project Athenaeum next action idle`, **4**
+> `Project Athenaeum next action idle`, **3**
 > named here <!--check:open_titles-->.
+> *(The 20:28 UTC GPU reset opened 19 rows on 2026-09-30, and all 19
+> resolved by 20:47:49 UTC. The 21:37:30 BST reboot opened mosquitto's
+> and Alfred's backend's `Failed to start` warnings at 20:38:47 UTC, and
+> both resolved at 20:54:48 UTC by the 15-minute quiet window. The
+> headline at the top of this file has the account.)*
 > *(`llama-server degraded` opened at 2026-09-30 18:05:58 UTC, after the
-> 17:50:13 GPU reset: ADR-0007's predicate reads Alfred's inference unit
-> as holding a GPU context from before the reset, and the row stays open
-> until that unit restarts.)*
+> 17:50:13 GPU reset: ADR-0007's predicate read Alfred's inference unit
+> as holding a GPU context from before the reset. It resolved at
+> 20:42:51 UTC, after the reboot restarted that unit.)*
 > *(`Project InvestingAssistant next action idle` resolved at 2026-09-28
 > 05:26:33.)*
 > *(The 11:49 reboot opened three rows at 11:50:19, mosquitto's

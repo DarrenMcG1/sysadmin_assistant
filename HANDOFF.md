@@ -1,18 +1,15 @@
-# Handoff — 2026-09-30 (Session 299)
+# Handoff — 2026-09-30 (Session 300)
 
 ## Next action
 
-Bring STATUS.md's opening claims level with the box: 19 alerts opened by the 20:28 UTC GPU reset, and the daemon start moved to 21:37:44 by the reboot. *(For: session)*
+Measure the trend query's cost at a higher `trend_max_groups`, then raise it so every group with a windowed row is served. *(For: session)*
 
-It is the unticked item under Session 299 in tasks.md. Both claims
-went stale by events after Session 298 wrote them, not by an edit:
-amdgpu faulted at 20:28-20:29 UTC (a gfxhub page fault from a
-`VKRenderThread`, a failed ring reset, VRAM lost), and the box rebooted
-at 21:37:30 BST. Some kernel `Log error` rows may resolve on their own,
-so count again before writing, and retire the old restart time by
-unbolding it. After that comes the unticked item under Session 298:
-raise `trend_max_groups`, measuring the query's cost at the higher cap
-first.
+It is the unticked item under Session 298 in tasks.md. The cap is
+2,000 and 2,070 groups had a windowed row when Session 298 measured,
+so 7 signatures still lose part of a week's count, which
+`truncated: true` already reports. The bound exists for
+`SNAG-AGENT-005`'s reason (the query's cost), so measure the query at
+the higher cap before raising it, not after.
 
 ## Scheduled action
 
@@ -21,6 +18,34 @@ boot's mosquitto journal, the first boot under estate ADR-0216's gate.
 The task under Session 290 says what to expect, and what would mean the
 gate did not run as written. It is its own session, not the next
 action above.
+
+## Session 300: STATUS.md's opening claims are level with the box
+
+Session 299's next action. `docs/roadmap/STATUS.md` and the roadmap.
+Documentation only, and no restart owed: the daemon start moved with
+the reboot at 21:37:30 BST.
+
+- **Counted, then waited for the count to settle.** The 20:28 UTC reset
+  opened 17 rows, plus 2 from venture-assistant jobs that could not
+  connect at 20:32: 19, all resolved by 20:47:49 UTC. The reboot's two
+  `Failed to start` rows (mosquitto, Alfred's backend) were still open
+  when this session began, so it waited: both closed at 20:54:48 UTC on
+  the 15-minute quiet window. Writing 5 would have been stale inside
+  ten minutes.
+- **Decided: the resolved rows go in parentheticals outside the marked
+  sentence**, which then names only the 3 open rows. Inside it, a
+  resolved title would be read as a name for an open row.
+- **The daemon start is claimed in a new headline** and Session 298's
+  timestamp is unbolded. The headline says the start moved by the
+  reboot, not a deploy.
+- **Checks:** `check-ops-claims.sh` 15 of 15 `ok`; suite 4,422 passed,
+  2 skipped. `check-snag-claims.sh` was already red before the edit, on
+  `SNAG-ESTATE-002` reading refuted, which is estate message `8190bde0`.
+- **Left open:** estate messages `8190bde0` (estate-manager deleted the
+  nudge wording fields behind `SNAG-ESTATE-002`, which the snag check
+  now reads as refuted) and `49b9e620` (venture-assistant moves
+  reddit's 429 backoff line from WARNING to INFO), each for its own
+  session. The scheduled mosquitto journal read is still due.
 
 ## Session 299: the GPU-context live test dates its probe after the newest real reset
 

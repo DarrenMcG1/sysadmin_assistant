@@ -8,6 +8,34 @@
 
 ---
 
+## Session 300: STATUS.md's opening claims are level with the box after a GPU reset and a reboot (2026-09-30)
+
+The handoff's next action, the unticked item under Session 299.
+`docs/roadmap/STATUS.md` and the roadmap. Documentation only; the
+daemon start moved with the reboot, not by a deploy.
+
+- [x] **Counted again before writing, and waited for the count to
+      settle.** The 20:28-20:29 UTC reset opened 17 rows (16 kernel log
+      errors and the critical `GPU was reset`), and two
+      venture-assistant pipeline jobs that could not connect added 2 at
+      20:32, 19 in all; every one had resolved by 20:47:49 UTC. The
+      reboot opened mosquitto's and Alfred's backend's `Failed to start`
+      warnings at 20:38:47 UTC, which this session waited out: both
+      closed at 20:54:48 UTC by the 15-minute quiet window.
+      `llama-server degraded` closed at 20:42:51 UTC once the reboot
+      restarted the unit. Three rows are open, all long-standing.
+- [x] **The alert sentence says 3 and names all 3**, with the resolved
+      rows accounted for in parentheticals outside the marked sentence.
+- [x] **The daemon start is claimed at 21:37:44, by the reboot**, in a
+      new headline; Session 298's 21:06:32 is unbolded, which retires
+      the claim and keeps the fact.
+- [x] **`check-ops-claims.sh`: 15 of 15 `ok`, exit 0.** Suite 4,422
+      passed, 2 skipped.
+      `check-snag-claims.sh` exits 1 either side of the edit: it reads
+      `SNAG-ESTATE-002` as refuted, because estate-manager deleted the
+      nudge wording fields (estate message `8190bde0`). That is its own
+      session, as Session 299 recorded.
+
 ## Session 299: the GPU-context live test dates its probe after the newest real reset (2026-09-30)
 
 The handoff's next action, the unticked item under Session 296.
@@ -30,7 +58,7 @@ The handoff's next action, the unticked item under Session 296.
       leak query counts 1 with a probe row in the transaction and 0
       after rollback.
 - [x] **Suite:** 4,422 passed, 2 skipped; ruff and mypy clean.
-- [ ] **STATUS.md's opening claims went stale by two events, not by an
+- [x] **STATUS.md's opening claims went stale by two events, not by an
       edit.** At 20:28-20:29 UTC today amdgpu logged a gfxhub page fault
       from a `VKRenderThread`, a failed ring reset and a VRAM-lost
       reset, opening 17 alerts after Session 298 wrote the alert
@@ -39,6 +67,7 @@ The handoff's next action, the unticked item under Session 296.
       `check-ops-claims.sh` reads 23 open against the block's 4, and the
       daemon start as moved. Found by this session's ops-claims and
       postflight runs, not worked: a second concern.
+      *(Done by Session 300.)*
 
 ## Session 298: the trend cap keeps each message shape's oldest group first (2026-09-30)
 
