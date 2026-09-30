@@ -3,6 +3,17 @@
 **Last Updated**: 2026-09-30
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The log trends contract now says which counts are windowed**
+> (2026-09-30, Session 295). In each fault signature on
+> `GET /api/logs/trends`, `current` and `previous` count this week and
+> last week, while `total`, `first_seen` and `last_seen` span all 30
+> days of retained logs. That is deliberate, because "new" means never
+> seen in retained history, but the contract never said so; on the live
+> box 79 of 235 signatures have a `total` larger than the two weeks
+> added together. Docstring only, no behaviour change. The restart was
+> owed and paid: daemon restarted at
+> **2026-09-30 16:10:56** <!--check:deploy--> <!--check:daemon_start-->.
+
 > **The weekly log review now keeps to its 150-word limit too**
 > (2026-09-30, Session 294). Every log review the model had written ran
 > over, between 190 and 211 words. The disk review's fix (shorten once,
@@ -14,7 +25,7 @@
 > them, so a shortened review is not always better than a cut one. The
 > health review needs nothing: its reviews run about half the limit.
 > The restart was owed and paid: daemon restarted at
-> **2026-09-30 07:04:13** <!--check:deploy--> <!--check:daemon_start-->.
+> **2026-09-30 07:04:13**, then again for Session 295.
 
 > **The weekly disk review's narrative keeps to its 150-word limit**
 > (2026-09-29, Session 293). The model was told the limit and kept it

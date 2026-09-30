@@ -1,22 +1,52 @@
-# Handoff — 2026-09-30 (Session 294)
+# Handoff — 2026-09-30 (Session 295)
 
 ## Next action
 
-Decide whether `LogSignatureTrendInfo` should state that `total` counts every retained row while `current` and `previous` are windowed. *(For: owner, ~10 min)*
+Add a live-database test pinning that `build_trend_report`'s `total` counts rows outside both trend windows. *(For: session)*
 
-It is the first startable unticked item in tasks.md, under Session 123,
-and it was left for you rather than filed as a snag, because the field
-behaves as documented and the question is whether the contract should
-say so. The two before it wait on a reboot and on CI's Python drifting
-from the box's, which it has not (3.12.12 both). The first item after it
-a session could start alone is the disk forecast's fixed 30-day fit,
-under Session 24.
+It is the first unticked item in tasks.md, under Session 295. The
+contract now says `total`, `first_seen` and `last_seen` are unwindowed,
+and nothing pins that: `tests/test_log_trends.py`'s fixture defaults
+`total` to `current + previous`, which is the reading the contract now
+says is wrong. The second item under Session 295, whether the group cap
+should rank on `total`, is a question to measure after it.
 
 ## Scheduled action
 
 After the next reboot, read that boot's mosquitto journal: the first
 under estate ADR-0216's gate. The task under Session 290 says what to
 expect and what would mean the gate did not run as written.
+
+## Session 295: the log trends contract says which counts are windowed
+
+The owner handed this session the decision Session 294's handoff left
+for them: should `LogSignatureTrendInfo` say that `total` is unwindowed?
+Yes. Changed `sysadmin/core/contracts.py` and the roadmap.
+
+- **Measured first.** `current` and `previous` carry a `logged_at`
+  filter; `total`, `first_seen` and `last_seen` carry none, so those
+  span all 30 days retained against a 7 + 7-day window. Live: 79 of 235
+  served signatures have `total > current + previous`.
+- **Decided: say it on the contract**, as a docstring paragraph and a
+  `#:` comment per field. The unwindowed half is deliberate (design rule
+  2 in `docs/design/logs.md`: "new" means never seen in retained
+  history). Nothing outside this repository reads the three fields, and
+  the one reader here, the noise advice in `log_actions.py`, already
+  says "in all retained history". Rejected: windowing `total`, which
+  would lose the history the noise advice quotes and still leave
+  `first_seen` needing the same sentence.
+- **Recorded, not worked:** no test drives the query's SQL, and the
+  group cap ranks on the unwindowed count while the live report reads
+  `truncated: true`. Both are tasks under Session 295.
+- **Restart:** a docstring change still makes the box stale to
+  `check-ops-claims.sh`, so `kill -TERM` on the main PID, `NRestarts`
+  3 → 4, daemon up at 16:10:56 and `/health` 200.
+- **Left for the owner: one ops claim reads `??`.** STATUS.md's
+  Session 294 block still has its old daemon time in bold, so the check
+  sees two start times. The fix is to un-bold `2026-09-30 07:04:13` in
+  that block. The auto-mode classifier refused that edit, so it was not
+  made.
+- **Suite:** 4,414 passed, 2 skipped; ruff and mypy clean.
 
 ## Session 294: the log review's narrative keeps to its 150-word limit
 

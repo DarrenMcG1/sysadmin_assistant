@@ -243,6 +243,13 @@ class LogSignatureTrendInfo(Contract):
     ``alerts`` table without re-deriving the identity — the signature
     lives in the alert title by ``log_signature``'s rule 2, and repeating
     the derivation here would be a second implementation of it.
+
+    Only ``current`` and ``previous`` are window-bounded. ``total``,
+    ``first_seen`` and ``last_seen`` span every retained row, so
+    ``total`` is not ``current + previous`` and can exceed it —
+    deliberately, because "new" is a first sighting measured against all
+    retained history, and a windowed ``first_seen`` would call a
+    returning fault new.
     """
 
     signature: str = ""
@@ -250,9 +257,13 @@ class LogSignatureTrendInfo(Contract):
     source: str = ""
     severity: str = "info"
     sample: str = ""
+    #: Rows in the report's window (``window_days``, ending now).
     current: int = 0
+    #: Rows in the equal-length window immediately before it.
     previous: int = 0
+    #: Rows across all retained history — not windowed.
     total: int = 0
+    #: Oldest and newest retained rows — not windowed.
     first_seen: str | None = None
     last_seen: str | None = None
     # new | returned | surged | rising | steady | falling | gone

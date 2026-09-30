@@ -8,6 +8,39 @@
 
 ---
 
+## Session 295: the log trends contract says which counts are windowed (2026-09-30)
+
+The handoff's next action, left for the owner under Session 123 and
+handed to this session by the owner. `sysadmin/core/contracts.py` and
+the roadmap. Code under `sysadmin/` changed (a docstring); daemon
+restarted at 2026-09-30 16:10:56.
+
+- [x] **Measured before deciding.** `build_trend_report`
+      (`sysadmin/monitor/log_query.py`) gives `current` and `previous` a
+      `logged_at` filter and gives `total`, `first_seen` and `last_seen`
+      none, so those three span all retained history (30 days) against a
+      7 + 7-day window. Live: **79 of 235** served signatures have
+      `total > current + previous`.
+- [x] **Decided: state it on the contract.** The unwindowed half is
+      deliberate, since `docs/design/logs.md` rule 2 judges "new" against
+      all retained history and `first_seen` is how. No other repository
+      reads these fields: the tray reads none of the three, and the one
+      reader, `log_actions.py`'s noise advice, already writes "in all
+      retained history". So this is a docstring and a `#:` per field, no
+      shape change.
+- [ ] **Pin the windowing with a query-level test.** No test drives
+      `build_trend_report`'s SQL: `tests/test_log_trends.py`'s fixture
+      defaults `total` to `current + previous`, which is the very reading
+      the contract now says is wrong. A live-database test, in the
+      pattern of `tests/test_desktop_store_live.py`, with one row older
+      than two windows would pin it
+- [ ] **Ask whether the group cap should rank on `total`.** The query
+      orders by unwindowed `count()` before `.limit(trend_max_groups + 1)`,
+      and the live report reads `truncated: true`. So a signature first
+      seen this week with few rows can lose its place to old rows outside
+      both windows. This is a question, not a finding: nothing here has
+      measured whether any windowed row has actually been dropped
+
 ## Session 294: the log review's narrative keeps to its 150-word limit (2026-09-30)
 
 Session 293's open item, from the handoff. New `sysadmin/core/word_limit.py`,
@@ -9874,7 +9907,7 @@ was deleted — the remedy judgement was re-read and stands._
       today; the tightest genuine gap is **3 µs at `kernel`**, not the
       millisecond of `alert_raised` writes the fix bullet named — 333×
       wide and the wrong source
-- [ ] **`total` is unwindowed and nothing says so on the wire.** The
+- [x] **`total` is unwindowed and nothing says so on the wire.** The
       served `total` counts every retained row for a signature while
       `current`/`previous` are windowed, and only this sitting's
       measurement makes that visible. Not filed as a snag: it is the
@@ -9882,6 +9915,8 @@ was deleted — the remedy judgement was re-read and stands._
       `LogSignatureTrendInfo` should say which of its three counts is
       window-bounded. Left for the owner
       *(Re-read by Session 266, 2026-09-27, and left open: `LogSignatureTrendInfo.total` in `sysadmin/core/contracts.py` still says nothing about being unwindowed, and no later block takes the question.)*
+      *(Done by Session 295, 2026-09-30: the contract now says so, and
+      says the same of `first_seen` and `last_seen`.)*
 
 ## Session 122 — a cut identity is not an identity (2026-08-29) ✅
 
