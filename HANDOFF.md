@@ -1,21 +1,55 @@
-# Handoff — 2026-09-30 (Session 298)
+# Handoff — 2026-09-30 (Session 299)
 
 ## Next action
 
-Fix `tests/test_gpu_context_live.py`: its probe reset is dated 2026-09-08, so today's real 17:50 UTC reset outranks it and the suite stays red. *(For: session)*
+Bring STATUS.md's opening claims level with the box: 19 alerts opened by the 20:28 UTC GPU reset, and the daemon start moved to 21:37:44 by the reboot. *(For: session)*
 
-It is the unticked item under Session 296 in tasks.md. A red suite
-hides any new red behind it, so it comes before the next unticked item
-in file order, Session 298's (raise `trend_max_groups`), which only
-recovers 7 part-counted signatures and wants its own cost measurement.
-The probe instant should come after the table's newest real reset row,
-not from a date literal.
+It is the unticked item under Session 299 in tasks.md. Both claims
+went stale by events after Session 298 wrote them, not by an edit:
+amdgpu faulted at 20:28-20:29 UTC (a gfxhub page fault from a
+`VKRenderThread`, a failed ring reset, VRAM lost), and the box rebooted
+at 21:37:30 BST. Some kernel `Log error` rows may resolve on their own,
+so count again before writing, and retire the old restart time by
+unbolding it. After that comes the unticked item under Session 298:
+raise `trend_max_groups`, measuring the query's cost at the higher cap
+first.
 
 ## Scheduled action
 
-After the next reboot, read that boot's mosquitto journal: the first
-under estate ADR-0216's gate. The task under Session 290 says what to
-expect and what would mean the gate did not run as written.
+**Due now: the box rebooted at 2026-09-30 21:37:30 BST.** Read that
+boot's mosquitto journal, the first boot under estate ADR-0216's gate.
+The task under Session 290 says what to expect, and what would mean the
+gate did not run as written. It is its own session, not the next
+action above.
+
+## Session 299: the GPU-context live test dates its probe after the newest real reset
+
+Session 298's next action. `tests/test_gpu_context_live.py` and the
+roadmap. No code under `sysadmin/` changed, so no restart is owed.
+
+- **Decided: derive the probe instant from the table**, one minute after
+  the newest real declared reset, whole-second. With no reset retained,
+  now serves. A literal of any date fails again at the next real reset.
+- **Rejected: `datetime.now()` alone.** It works too, but the table read
+  states the premise the test depends on (the probe is newer than every
+  real reset) instead of assuming the clock implies it.
+- **Found and fixed on the way:** the leak check read the probe through
+  the predicate, which answers with the newest reset only. Since the
+  17:50 reset it passed without being able to see a leaked row. It now
+  counts the row directly. Same file, same cause, so one concern.
+- **Falsified:** probe a minute below the real reset turns the
+  counterfactual red; the leak query counts 1 with the row present and
+  0 after rollback.
+- **Suite:** 4,422 passed, 2 skipped; ruff and mypy clean.
+- **Not worked, a second concern:** a second GPU reset at 20:28 UTC
+  opened 17 alerts, and the box rebooted at 21:37:30 BST (which also
+  cut this session mid-turn). STATUS.md now reads 4 alerts against 23
+  open and names a daemon start the reboot replaced. Recorded as the
+  task under Session 299; it is the next action.
+- **Left open:** estate messages `8190bde0` (estate-manager deleted the
+  nudge wording fields behind `SNAG-ESTATE-002`) and `49b9e620`
+  (venture-assistant moves reddit's 429 backoff line from WARNING to
+  INFO), each for its own session.
 
 ## Session 298: the trend cap keeps each message shape's oldest group first
 

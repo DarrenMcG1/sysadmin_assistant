@@ -3,6 +3,15 @@
 **Last Updated**: 2026-09-30
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The GPU reset test no longer breaks on a real reset**
+> (2026-09-30, Session 299). A live test plants a fake GPU reset in the
+> log table and checks the monitor finds it. The fake was dated
+> 8 September, so today's real reset at 17:50 UTC was newer and the
+> monitor rightly reported that one instead, turning the suite red. The
+> fake is now dated just after the newest real reset. Its leak check
+> had also stopped being able to see a leaked fake behind the real
+> reset, and now counts the row directly. Test only, no restart owed.
+
 > **The log trend report's size cap now cuts by a stated rule**
 > (2026-09-30, Session 298). The cap keeps 2,000 distinct log messages
 > of about 2,470. Which ones went used to be the database's choice, and

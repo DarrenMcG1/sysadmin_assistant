@@ -83,6 +83,32 @@ def declared():
     return services
 
 
+#: Older than anything ``log_entries`` retains (thirty days), so a read
+#: from here is the unfloored one — a full scan, but once per module.
+BEFORE_RETENTION = datetime(2000, 1, 1, tzinfo=UTC)
+
+
+@pytest.fixture(scope="module")
+def probe_instant():
+    """A whole second strictly after the newest real declared reset.
+
+    Derived from the table rather than typed, because the predicate
+    answers with the *newest* reset and a literal is outranked by the
+    first real reset after it — which happened on 2026-09-30, when a
+    MODE1 reset at 17:50:13 UTC made a probe dated 2026-09-08 read the
+    real row and fail.  A minute's margin keeps ``exact - 1s`` above the
+    real row whatever its microseconds.  With no real reset retained,
+    now serves: nothing stored can be newer.
+    """
+    async def newest(session):
+        return await gpu_context.reset_since(session, BEFORE_RETENTION)
+
+    real, problem = rolled_back_drive(newest)
+    assert not problem, problem
+    floor = real.at if real is not None else datetime.now(UTC)
+    return floor.replace(microsecond=0) + timedelta(minutes=1)
+
+
 @pytest.fixture(scope="module")
 def timer_unit():
     entries = load_services(REPO_ROOT / "services.yaml").services
@@ -182,15 +208,19 @@ class TestThePredicateRunsAgainstTheLiveTable:
         for name, sighting in verdicts.items():
             assert sighting is None or sighting.at.tzinfo is not None, name
 
-    def test_a_reset_the_unit_predates_is_found_and_a_later_start_is_not(self):
+    def test_a_reset_the_unit_predates_is_found_and_a_later_start_is_not(
+        self, probe_instant
+    ):
         """The counterfactual, because the live population is empty today.
 
         One synthetic row, three start instants, one rolled-back
         transaction.  The tie is the middle one and is the only place
         rule 2 is observable at all: ``logged_at`` carries microseconds
-        live, so an exact tie cannot occur on real data.
+        live, so an exact tie cannot occur on real data.  The row sits
+        after every real reset (:func:`probe_instant`), or the newest
+        real one is what ``before`` reads.
         """
-        exact = datetime(2026, 9, 8, 12, 0, 0, tzinfo=UTC)
+        exact = probe_instant
 
         async def work(session):
             session.add(LogEntry(
@@ -277,22 +307,32 @@ class TestThePredicateRunsAgainstTheLiveTable:
         assert details[gpu_context.DETAIL_KEY]["evaluated"] is False
         assert usable, "the run's transaction did not survive the failed read"
 
-    def test_the_drive_left_no_row_behind(self):
+    def test_the_drive_left_no_row_behind(self, probe_instant):
         """The harness's own claim, asserted rather than trusted.
 
         A live drive that leaks is a control the next fix breaks — this
         repository has produced that once, when ``rolled_back_drive``
         committed three rows into ``alerts``.
+
+        The row is counted directly, not through ``reset_since``: the
+        predicate answers with the newest reset only, so any real reset
+        newer than the probe would hide a leaked probe row, and until
+        2026-09-30 this check read exactly that way and passed.
         """
-        exact = datetime(2026, 9, 8, 12, 0, 0, tzinfo=UTC)
+        from sqlalchemy import func, select
 
         async def check(session):
-            return await gpu_context.reset_since(
-                session, exact - timedelta(seconds=1)
-            )
+            return (
+                await session.execute(
+                    select(func.count()).select_from(LogEntry).where(
+                        LogEntry.message == SYNTHETIC_LINE,
+                        LogEntry.logged_at == probe_instant,
+                    )
+                )
+            ).scalar_one()
 
-        after, problem = rolled_back_drive(check)
+        leaked, problem = rolled_back_drive(check)
         assert not problem, problem
-        assert after is None or after.at != exact, (
+        assert leaked == 0, (
             "the synthetic reset from the previous test survived its rollback"
         )

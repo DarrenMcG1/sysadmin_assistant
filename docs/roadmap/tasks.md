@@ -8,6 +8,38 @@
 
 ---
 
+## Session 299: the GPU-context live test dates its probe after the newest real reset (2026-09-30)
+
+The handoff's next action, the unticked item under Session 296.
+`tests/test_gpu_context_live.py` and the roadmap. No code under
+`sysadmin/` changed, so no restart is owed.
+
+- [x] **The probe instant is derived, not typed.** A module fixture
+      reads the newest real declared reset from `log_entries` and puts
+      the probe one minute after it, whole-second. Before, a literal
+      2026-09-08 12:00 UTC was outranked by the real reset at
+      2026-09-30 17:50:13 UTC, because the predicate answers with the
+      newest reset.
+- [x] **The leak check had gone vacuous, and now counts the row.**
+      `test_the_drive_left_no_row_behind` asked the predicate for the
+      newest reset. Once a real reset is newer than the probe, a leaked
+      probe row hides behind it, so the check passed without looking.
+      It now counts the probe row directly by message and instant.
+- [x] **Falsified.** With the probe moved a minute *below* the real
+      reset, the counterfactual test fails. A scratch drive shows the
+      leak query counts 1 with a probe row in the transaction and 0
+      after rollback.
+- [x] **Suite:** 4,422 passed, 2 skipped; ruff and mypy clean.
+- [ ] **STATUS.md's opening claims went stale by two events, not by an
+      edit.** At 20:28-20:29 UTC today amdgpu logged a gfxhub page fault
+      from a `VKRenderThread`, a failed ring reset and a VRAM-lost
+      reset, opening 17 alerts after Session 298 wrote the alert
+      sentence. Then the box rebooted at 21:37:30 BST, so the daemon
+      started at 21:37:44 and not at Session 298's 21:06:32.
+      `check-ops-claims.sh` reads 23 open against the block's 4, and the
+      daemon start as moved. Found by this session's ops-claims and
+      postflight runs, not worked: a second concern.
+
 ## Session 298: the trend cap keeps each message shape's oldest group first (2026-09-30)
 
 The handoff's next action, the unticked item under Session 297.
@@ -93,8 +125,8 @@ under `sysadmin/` changed, so no restart is owed.
       tests green. A windowed `min()` alone crashes in the fold on live
       groups with no windowed row, a NULL `first_seen`, so it is red
       for a reason the test does not name.
-- [ ] **`tests/test_gpu_context_live.py` fails after any real GPU
-      reset newer than 2026-09-08.**
+- [x] **`tests/test_gpu_context_live.py` fails after any real GPU
+      reset newer than 2026-09-08.** *(Fixed by Session 299.)*
       `test_a_reset_the_unit_predates_is_found_and_a_later_start_is_not`
       inserts a reset row at a fixed 2026-09-08 12:00 UTC and expects the
       predicate to find it as the newest. A real MODE1 reset at
