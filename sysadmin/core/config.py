@@ -742,13 +742,21 @@ class LogAggregatorConfig(BaseModel):
     #: Ceiling on the number of distinct ``(source, severity, message)``
     #: groups the trend query returns.
     #:
-    #: Measured on this box: 626,906 rows collapse to **44** groups, so
-    #: this never binds here.  It exists because that collapse is a
-    #: property of the data rather than a bound — a service embedding a
-    #: request id in every line produces one group per line — and an
-    #: unbounded ``SELECT`` over the table whose unboundedness is the
-    #: problem is ``SNAG-AGENT-005``'s ``_open_alerts`` defect exactly.
-    #: Hitting it is reported as ``truncated``, never inferred.
+    #: It exists because the collapse from rows to groups is a property
+    #: of the data rather than a bound — a service embedding a request id
+    #: in every line produces one group per line — and an unbounded
+    #: ``SELECT`` over the table whose unboundedness is the problem is
+    #: ``SNAG-AGENT-005``'s ``_open_alerts`` defect exactly.  Hitting it
+    #: is reported as ``truncated``, never inferred.
+    #:
+    #: **It binds on this box.**  The first measurement was 44 groups;
+    #: on 2026-09-30 it was 2,472, because ``kernel`` and one backend put
+    #: a pid or a job id in every line.  What survives the cut is decided
+    #: by :func:`sysadmin.monitor.log_query.trend_groups`' stated order,
+    #: which keeps each message shape's oldest group first so that
+    #: ``first_seen`` stays true (``SNAG-LOG-020``).  2,070 groups had a
+    #: windowed row that day, so the cap still cost 7 signatures part of
+    #: a windowed count; raising it is the lever if that grows.
     trend_max_groups: int = 2000
 
     #: Signatures the operator has judged to be noise.  A match is raised

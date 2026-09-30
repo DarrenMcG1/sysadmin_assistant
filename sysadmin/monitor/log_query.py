@@ -56,27 +56,66 @@ from sysadmin.units.scan import declared_relations, discover_units
 #: is a question it cannot answer.
 TREND_SEVERITIES = ("warning", "error", "critical")
 
+#: What a message looks like with its digit runs collapsed: the key under
+#: which :func:`trend_groups` keeps each message's **oldest** group ahead
+#: of the cap.  It is a priority, never an identity — see that function.
+#: ``[0-9]`` rather than ``\d`` because Postgres's ``\d`` follows the
+#: locale, and the tests restate this pattern in Python.
+SHAPE_DIGITS = "[0-9]+"
 
-async def build_trend_report(
-    session: AsyncSession, days: int | None
-) -> LogTrendReport:
-    """The grouped query and the fold, shared by all three tiers.
 
-    Factored out rather than duplicated because the advice must be
-    computed off *the same* report the trend serves — two callers running
-    two queries a moment apart could rank a signature as new on one
-    surface and established on the other, which is the kind of
-    disagreement ``COLLISION_KINDS`` lives in ``ports.py`` to prevent.
+async def trend_groups(
+    session: AsyncSession,
+    window_start: datetime,
+    previous_start: datetime,
+    cap: int,
+) -> tuple[list[MessageGroup], bool]:
+    """The grouped query, in a stated order, and whether the cap cut it.
+
+    The cap (``trend_max_groups``) binds on this box: 2,472 groups on
+    2026-09-30, because ``kernel`` and one backend embed a pid or a job
+    id in every line.  Until ``SNAG-LOG-020`` the order was the
+    unwindowed ``count()`` alone, and 2,037 groups tied at one row, so
+    the executor's tie order chose which 461 were dropped.  That cut 35
+    signatures with windowed rows, 7 of them new.
+
+    The order now is, in full:
+
+    1. **The oldest group of each shape first.**  A shape is
+       ``(source, severity, message)`` with digit runs collapsed.  A
+       signature's ``first_seen`` comes from its oldest group, and
+       ``build_report`` calls a signature new when ``first_seen`` falls in
+       the current window.  So a cut that takes the old groups and keeps
+       the recent ones makes an established fault read as new, which the
+       report ranks first.  Measured: every recency-first order tried
+       served 18 kernel signatures as new that are not.
+    2. **Then ``current``, ``previous`` and ``total``, each descending**,
+       so what the cut drops next is history outside both windows, and
+       after that the quietest previous-window groups.
+    3. **Then ``last_seen`` descending, then the key in byte order**
+       (``COLLATE "C"``), so no two groups tie and the order does not
+       depend on the database's locale.
+
+    The shape is **not** the signature, and ``docs/design/logs.md`` rule 1
+    stays whole: the fold in Python still decides identity.  If a shape
+    ever covered two signatures, nothing would merge; only the older of
+    the two would be promised its ``first_seen``.  Live on 2026-09-30:
+    320 shapes over 291 signatures, and no shape spans two.
+
+    What the order cannot do is serve more than the cap.  2,070 groups
+    had a windowed row that day, so 70 were still cut, and 7 signatures
+    were served with a windowed count too low.  ``truncated`` says so.
     """
-    config = get_config().agents.log_aggregator
-    window_days = days or config.trend_window_days
-    cap = config.trend_max_groups
-
-    now = datetime.now(UTC)
-    window_start = now - timedelta(days=window_days)
-    previous_start = now - timedelta(days=window_days * 2)
-
-    grouped = await session.execute(
+    shape = func.regexp_replace(LogEntry.message, SHAPE_DIGITS, "N", "g")
+    shape_rank = (
+        func.row_number()
+        .over(
+            partition_by=(LogEntry.source, LogEntry.severity, shape),
+            order_by=(func.min(LogEntry.logged_at), LogEntry.message.collate("C")),
+        )
+        .label("shape_rank")
+    )
+    grouped = (
         select(
             LogEntry.source,
             LogEntry.severity,
@@ -93,17 +132,39 @@ async def build_trend_report(
             func.count().label("total"),
             func.min(LogEntry.logged_at).label("first_seen"),
             func.max(LogEntry.logged_at).label("last_seen"),
+            shape_rank,
         )
         .where(LogEntry.severity.in_(TREND_SEVERITIES))
         .group_by(LogEntry.source, LogEntry.severity, LogEntry.message)
-        .order_by(desc(func.count()))
+        .subquery()
+    )
+    g = grouped.c
+    result = await session.execute(
+        select(
+            g.source,
+            g.severity,
+            g.message,
+            g.current,
+            g.previous,
+            g.total,
+            g.first_seen,
+            g.last_seen,
+        )
+        .order_by(
+            (g.shape_rank > 1).asc(),
+            desc(g.current),
+            desc(g.previous),
+            desc(g.total),
+            desc(g.last_seen),
+            g.source.collate("C"),
+            g.severity.collate("C"),
+            g.message.collate("C"),
+        )
         # One over the cap, so hitting it is observed rather than assumed
         # from a length that happens to equal the limit.
         .limit(cap + 1)
     )
-    rows = grouped.all()
-    truncated = len(rows) > cap
-
+    rows = result.all()
     groups = [
         MessageGroup(
             source=r.source,
@@ -117,6 +178,30 @@ async def build_trend_report(
         )
         for r in rows[:cap]
     ]
+    return groups, len(rows) > cap
+
+
+async def build_trend_report(
+    session: AsyncSession, days: int | None
+) -> LogTrendReport:
+    """The grouped query and the fold, shared by all three tiers.
+
+    Factored out rather than duplicated because the advice must be
+    computed off *the same* report the trend serves — two callers running
+    two queries a moment apart could rank a signature as new on one
+    surface and established on the other, which is the kind of
+    disagreement ``COLLISION_KINDS`` lives in ``ports.py`` to prevent.
+    """
+    config = get_config().agents.log_aggregator
+    window_days = days or config.trend_window_days
+
+    now = datetime.now(UTC)
+    window_start = now - timedelta(days=window_days)
+    previous_start = now - timedelta(days=window_days * 2)
+
+    groups, truncated = await trend_groups(
+        session, window_start, previous_start, config.trend_max_groups
+    )
 
     return build_report(
         groups,

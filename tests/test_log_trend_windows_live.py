@@ -19,12 +19,13 @@ The last row is the whole test.  It is counted by ``total`` and moves
 ``first_seen``, and it is counted by neither window.
 
 **The group cap is lifted for this drive, and that is not a judgement
-on the cap.**  The query ranks on the unwindowed ``count()`` before
-``.limit(trend_max_groups + 1)``, and this box holds more groups than
-the shipped 2,000 (2,461 on 2026-09-30).  A three-row probe would sit
-below the cut, and the drive would then fail on the cap and not on the
-windowing, which is a different question.  Whether the cap should rank
-on ``total`` is Session 295's second task.
+on the cap.**  This box holds more groups than the shipped 2,000 (2,461
+on 2026-09-30).  When this was written the query ranked on the
+unwindowed ``count()``, so a three-row probe sat below the cut and the
+drive would have failed on the cap and not on the windowing.  Since
+``SNAG-LOG-020`` the probe is its shape's oldest group and survives any
+cap above the shape count, but the lift stays: this file asks about
+windows, and ``tests/test_log_trend_cap_live.py`` asks about the cap.
 
 The rows are real and the transaction is rolled back.
 :func:`build_trend_report` does not commit, and the session joins the

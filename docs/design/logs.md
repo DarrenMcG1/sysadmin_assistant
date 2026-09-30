@@ -89,6 +89,29 @@ all four settled by the live table rather than by argument:
    caller caps the set and reports `truncated`. Note the
    anti-correlation: the messages that do *not* collapse under `GROUP BY
    message` are the ones the signature helps most.
+
+   **The cap binds, so its order is part of the rule** (Session 298,
+   `SNAG-LOG-020`). By 2026-09-30 the 44 groups had become 2,472
+   against a cap of 2,000, and the query ordered by unwindowed
+   `count()` alone: 2,037 groups tied at one row, and the executor chose
+   which 461 went. `trend_groups` now keeps **each shape's oldest group
+   first** — a shape being the message with digit runs collapsed — then
+   orders by `current`, `previous`, `total`, `last_seen`, and the key in
+   byte order. The first key is the opposite of the obvious one. The
+   obvious fix ranks recent groups first, and it fabricates novelty:
+   `first_seen` is a minimum over groups, so keeping a pid-embedding
+   message's recent groups and dropping its old ones makes an old fault
+   read as new. Measured: every recency-first order tried served 18
+   kernel signatures as new that were not, while the shipped order
+   dropped 7 that were. The new order served 291 of 291 signatures and
+   161 of 161 new ones, with 7 windowed counts still too low because
+   2,070 groups had a windowed row. **The shape is a priority, not an
+   identity, and that is why it does not break this rule.** The fold
+   still applies `signature()`; a shape covering two signatures would
+   merge nothing and only weaken the promise about `first_seen`. It uses
+   `[0-9]+` rather than `signature()`'s hex rule, so it splits where a
+   hex address varies (320 shapes over 291 signatures live, none
+   spanning two). `tests/test_log_trend_cap_live.py` drives the order.
 2. **"New" is a first sighting, measured against all retained history.**
    `previous == 0` was the obvious test and one live row refutes it: the
    Bluetooth firmware signature reads `current=39,919, previous=0` and

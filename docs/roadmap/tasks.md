@@ -8,6 +8,41 @@
 
 ---
 
+## Session 298: the trend cap keeps each message shape's oldest group first (2026-09-30)
+
+The handoff's next action, the unticked item under Session 297.
+`sysadmin/monitor/log_query.py`, `sysadmin/core/config.py`, new
+`tests/test_log_trend_cap_live.py`, a docstring in
+`tests/test_log_trend_windows_live.py`, `docs/design/logs.md` and the
+roadmap. Code under `sysadmin/` changed; daemon restarted at
+2026-09-30 21:06:32.
+
+- [x] **Measured the candidate orders before choosing.** Each order was
+      simulated in Python over the uncapped groups, capped at 2,000, and
+      folded with `build_report`. Windowed-first, recency-first and
+      `total` with a `last_seen` tie-break all served 18 kernel
+      signatures as `new` that are not, because keeping a pid-embedding
+      message's recent groups and dropping its old ones moves
+      `first_seen` into the window. The entry's shape (a) was one of them.
+- [x] **Chose oldest-of-shape first.** A shape is the message with
+      `[0-9]+` collapsed. After it come `current`, `previous`, `total`
+      and `last_seen`, all descending, then the key under `COLLATE "C"`.
+      Result: 291 of 291 signatures served, 161 of 161 `new`, 7 windowed
+      counts still too low. The query moved into `trend_groups` so a
+      test can read its rows.
+- [x] **Driven live.** A six-group probe message, capped at the table's
+      shape count, is served from its oldest group and not as new. The
+      uncapped rows arrive in the order the docstring states, restated
+      in Python. Five mutations of the order turn the tests red.
+- [x] **Restart paid.** `kill -TERM` on the main PID, `NRestarts` 4 → 5.
+      `GET /api/logs/trends` then served 291 signatures, 161 new.
+- [ ] **The cap still costs 7 signatures part of a windowed count.**
+      2,070 groups had a windowed row against a cap of 2,000, so no
+      order can serve them all. Raising `trend_max_groups` is the lever.
+      It was not pulled here: that bound exists for `SNAG-AGENT-005`'s
+      reason and wants its own measurement of query cost at the higher
+      cap. `truncated: true` already reports it.
+
 ## Session 297: the trend cap drops signatures with windowed rows (2026-09-30)
 
 The handoff's next action, the unticked item under Session 295. A
@@ -21,13 +56,16 @@ measurement only: `docs/roadmap/` and `HANDOFF.md`. No code under
       **7** of them `new`, and 4 more are under-counted. The cut falls
       inside a block of 2,037 groups tied at one row, so the executor's
       tie order decides it. Filed as `SNAG-LOG-020`.
-- [ ] **Fix `SNAG-LOG-020`: give the cap a stated ordering.** The
+- [x] **Fix `SNAG-LOG-020`: give the cap a stated ordering.** The
       smallest shape is to order windowed counts first, then give a
       stated tie-break. The entry says why that still cuts 59 groups
       today, and why raising the cap or grouping by signature in SQL
       costs more. Correct the `#:` comment on `trend_max_groups`
       (still "44 groups") in the same change, because it owes the same
-      restart.
+      restart
+      *(Done by Session 298, 2026-09-30, but not by the smallest shape:
+      windowed-first fabricates 18 false `new` signatures. The cap now
+      keeps each shape's oldest group first. See `SNAG-LOG-020`.)*
 
 ## Session 296: a live test pins which trend counts are windowed (2026-09-30)
 

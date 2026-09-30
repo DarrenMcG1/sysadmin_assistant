@@ -1,21 +1,64 @@
-# Handoff — 2026-09-30 (Session 297)
+# Handoff — 2026-09-30 (Session 298)
 
 ## Next action
 
-Fix SNAG-LOG-020: give `build_trend_report`'s group cap a stated ordering, since today it cuts 35 signatures with windowed rows, 7 of them new. *(For: session)*
+Fix `tests/test_gpu_context_live.py`: its probe reset is dated 2026-09-08, so today's real 17:50 UTC reset outranks it and the suite stays red. *(For: session)*
 
-It is the first unticked item in tasks.md, under Session 297. The
-entry's shape (a) is the smallest change: order windowed counts first,
-then give a stated tie-break. It explains why that still cuts 59 groups
-on today's data. Correct the stale `#:` comment on `trend_max_groups`
-in `sysadmin/core/config.py` in the same change, since both owe the
-same daemon restart.
+It is the unticked item under Session 296 in tasks.md. A red suite
+hides any new red behind it, so it comes before the next unticked item
+in file order, Session 298's (raise `trend_max_groups`), which only
+recovers 7 part-counted signatures and wants its own cost measurement.
+The probe instant should come after the table's newest real reset row,
+not from a date literal.
 
 ## Scheduled action
 
 After the next reboot, read that boot's mosquitto journal: the first
 under estate ADR-0216's gate. The task under Session 290 says what to
 expect and what would mean the gate did not run as written.
+
+## Session 298: the trend cap keeps each message shape's oldest group first
+
+Session 297's next action, `SNAG-LOG-020`. `sysadmin/monitor/log_query.py`,
+`sysadmin/core/config.py`, new `tests/test_log_trend_cap_live.py`, a
+docstring in `tests/test_log_trend_windows_live.py`,
+`docs/design/logs.md` and the roadmap. Daemon restarted at 21:06:32.
+
+- **Rejected: the entry's shape (a), windowed counts first.** It trades
+  one defect for a worse one. A signature's `first_seen` is the oldest
+  of its groups, and "new" is decided on it. So keeping a pid-embedding
+  message's recent groups and cutting its old ones makes an old fault
+  read as new, and the report ranks new first. Simulated over the
+  uncapped groups, every recency-first order served 18 kernel
+  signatures as `new` that were not. The shipped order made none, but
+  only by accident.
+- **Decided: each shape's oldest group first**, where a shape is the
+  message with `[0-9]+` collapsed. Then `current`, `previous`, `total`,
+  `last_seen` descending, then the key under `COLLATE "C"`. That serves
+  291 of 291 signatures and 161 of 161 new. 7 are still under-counted,
+  because 2,070 groups had a windowed row against a cap of 2,000.
+- **Rejected: raising the cap here.** It would recover the 7. But the
+  cap exists to bound an unbounded `SELECT` (`SNAG-AGENT-005`'s reason)
+  and a higher one wants its query cost measured. Recorded as a task.
+- **Rejected: grouping by signature in SQL** (the entry's shape (c)).
+  `docs/design/logs.md` rule 1 refuses a second statement of the
+  identity. The shape used here is a priority, not an identity: if it
+  ever covered two signatures, nothing would merge. The rule now says
+  so.
+- **Verified:** live, `GET /api/logs/trends` serves 291 signatures and
+  161 new after the restart. The new test file drives the real query in
+  a rolled-back transaction, and five mutations of the order turn it red.
+- **Also fixed, because the restart claim shares the block:** STATUS.md's
+  test count (4,416 → 4,424; Session 296 had left it) and its alerts
+  sentence, which now names `llama-server degraded` (open since
+  18:05:58 UTC, after the GPU reset). Session 297 had recorded both as
+  not worked. `check-ops-claims.sh` reads every claim `ok`.
+- **Suite:** 4,421 passed, 1 failed, 2 skipped; ruff and mypy clean.
+  The failure is `tests/test_gpu_context_live.py`, the next action
+  above. The six `test_ops_claims.py` failures Session 296 saw are gone:
+  the older restart times are unbolded.
+- **Left open:** estate message `8190bde0` (estate-manager deleted the
+  nudge wording fields behind `SNAG-ESTATE-002`), for its own session.
 
 ## Session 297: the trend cap drops signatures with windowed rows
 
