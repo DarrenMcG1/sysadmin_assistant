@@ -8,6 +8,49 @@
 
 ---
 
+## Session 301: the trend cap is raised to 5,000 after pricing it (2026-09-30)
+
+The handoff's next action, the unticked item under Session 298.
+`sysadmin/core/config.py`, `config.yaml`, a docstring in
+`sysadmin/monitor/log_query.py` and in
+`tests/test_log_trend_windows_live.py`, `tests/test_config_defaults.py`,
+`docs/design/logs.md` and the roadmap. Code under `sysadmin/` changed;
+daemon restarted at 2026-09-30 22:19:24.
+
+- [x] **Measured the cost at several caps against the live table.**
+      1,313,382 rows, 2,582 groups, 2,177 with a windowed row. The
+      stated order needed 2,262 places to reach the last windowed
+      group. Query median 165 ms at 2,000 and 194-207 ms at every cap
+      from 2,500 to uncapped: the aggregate over every retained row is
+      the cost, and `LIMIT` applies after it.
+- [x] **Priced the slope the cap exists to bound.** 50,000 distinct
+      messages added in a rolled-back transaction, one group each. The
+      report took 390 ms at 2,000, 405 ms at 5,000 and 450 ms at 10,000,
+      so each served group costs about 5-7 µs.
+- [x] **Chose 5,000.** It covers today's 2,262 places with room for a
+      burst that doubles them, for about 15 ms in the worst case
+      measured. Before: 9 signatures under-counted, `truncated` true.
+      After, in one session: none, `first_seen` exact for all 301. Live
+      after the restart: `truncated` false, 301 signatures, 171 new.
+- [x] **Rejected: 10,000 or uncapped.** Uncapped drops the bound
+      `SNAG-AGENT-005` asked for. 10,000 costs four times as much again
+      for headroom nothing measured asks for; `truncated` reports when
+      5,000 is passed.
+- [x] **Stale comment fixed:** `config.yaml` still said the cap was 44
+      groups and never binds. The model default and the file both change,
+      so `TestTheTrendCapIsOneNumber` pins them equal; setting the file
+      back to 2,000 turns it red.
+- [x] **Checks:** suite 4,424 passed, 2 skipped (4,426 collected); ruff
+      and mypy clean; `check-ops-claims.sh` all `ok` after STATUS.md's
+      new headline, and after its alerts sentence named
+      `venture-chat unreachable` (`info`, opened 22:24:27 BST when
+      systemd stopped the unit cleanly; the cause was not traced).
+- **No live test pins the coverage.** Asserting "not truncated" on
+      the live table would pin a value that grows with the data, and
+      redden the suite on a noisy week rather than on a defect.
+      `truncated` on `GET /api/logs/trends` is the signal. Not a task
+      to do; recorded so nobody adds one thinking it was forgotten.
+
 ## Session 300: STATUS.md's opening claims are level with the box after a GPU reset and a reboot (2026-09-30)
 
 The handoff's next action, the unticked item under Session 299.
@@ -97,12 +140,13 @@ roadmap. Code under `sysadmin/` changed; daemon restarted at
       in Python. Five mutations of the order turn the tests red.
 - [x] **Restart paid.** `kill -TERM` on the main PID, `NRestarts` 4 → 5.
       `GET /api/logs/trends` then served 291 signatures, 161 new.
-- [ ] **The cap still costs 7 signatures part of a windowed count.**
+- [x] **The cap still costs 7 signatures part of a windowed count.**
       2,070 groups had a windowed row against a cap of 2,000, so no
       order can serve them all. Raising `trend_max_groups` is the lever.
       It was not pulled here: that bound exists for `SNAG-AGENT-005`'s
       reason and wants its own measurement of query cost at the higher
       cap. `truncated: true` already reports it.
+      *(Done by Session 301, 2026-09-30: measured, then raised to 5,000.)*
 
 ## Session 297: the trend cap drops signatures with windowed rows (2026-09-30)
 

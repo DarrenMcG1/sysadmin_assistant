@@ -105,7 +105,13 @@ all four settled by the live table rather than by argument:
    kernel signatures as new that were not, while the shipped order
    dropped 7 that were. The new order served 291 of 291 signatures and
    161 of 161 new ones, with 7 windowed counts still too low because
-   2,070 groups had a windowed row. **The shape is a priority, not an
+   2,070 groups had a windowed row. **The cap then went to 5,000, once
+   its cost was measured** (Session 301): the aggregate over every
+   retained row is what costs, 165 ms at 2,000 against 200 ms uncapped,
+   and the cap bounds only what is shipped and folded, about 5-7 µs a
+   group. At 2,000 the order needed 2,262 places to reach the last
+   windowed group and 9 signatures were under-counted; at 5,000 none
+   were and `truncated` was false. **The shape is a priority, not an
    identity, and that is why it does not break this rule.** The fold
    still applies `signature()`; a shape covering two signatures would
    merge nothing and only weaken the promise about `first_seen`. It uses

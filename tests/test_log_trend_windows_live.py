@@ -19,10 +19,10 @@ The last row is the whole test.  It is counted by ``total`` and moves
 ``first_seen``, and it is counted by neither window.
 
 **The group cap is lifted for this drive, and that is not a judgement
-on the cap.**  This box holds more groups than the shipped 2,000 (2,461
-on 2026-09-30).  When this was written the query ranked on the
-unwindowed ``count()``, so a three-row probe sat below the cut and the
-drive would have failed on the cap and not on the windowing.  Since
+on the cap.**  This box held more groups than the cap of 2,000 then
+shipped (2,461 on 2026-09-30).  When this was written the query ranked
+on the unwindowed ``count()``, so a three-row probe sat below the cut
+and the drive would have failed on the cap and not on the windowing.  Since
 ``SNAG-LOG-020`` the probe is its shape's oldest group and survives any
 cap above the shape count, but the lift stays: this file asks about
 windows, and ``tests/test_log_trend_cap_live.py`` asks about the cap.

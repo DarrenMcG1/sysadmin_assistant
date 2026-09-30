@@ -754,10 +754,20 @@ class LogAggregatorConfig(BaseModel):
     #: a pid or a job id in every line.  What survives the cut is decided
     #: by :func:`sysadmin.monitor.log_query.trend_groups`' stated order,
     #: which keeps each message shape's oldest group first so that
-    #: ``first_seen`` stays true (``SNAG-LOG-020``).  2,070 groups had a
-    #: windowed row that day, so the cap still cost 7 signatures part of
-    #: a windowed count; raising it is the lever if that grows.
-    trend_max_groups: int = 2000
+    #: ``first_seen`` stays true (``SNAG-LOG-020``).
+    #:
+    #: **5,000, raised from 2,000 on 2026-09-30 after pricing it.**  At
+    #: 2,000 the cut fell among groups with windowed rows: 2,582 groups,
+    #: and the order needed 2,262 places to reach the last windowed one,
+    #: so 9 signatures were served with a week's count too low.  The
+    #: cost is the aggregate over every retained row, which the cap does
+    #: not bound: 165 ms at 2,000 against 200 ms uncapped.  What it does
+    #: bound is what is shipped and folded, about 5-7 µs a group: with
+    #: 50,000 distinct messages added in a rolled-back transaction the
+    #: report took 390 ms at 2,000, 405 ms at 5,000 and 450 ms at 10,000.
+    #: So 5,000 keeps the bound and covers a burst that doubles today's
+    #: windowed groups.  Past that, ``truncated`` says so again.
+    trend_max_groups: int = 5000
 
     #: Signatures the operator has judged to be noise.  A match is raised
     #: at ``info`` instead of ``warning``/``critical`` — see

@@ -102,9 +102,11 @@ async def trend_groups(
     the two would be promised its ``first_seen``.  Live on 2026-09-30:
     320 shapes over 291 signatures, and no shape spans two.
 
-    What the order cannot do is serve more than the cap.  2,070 groups
-    had a windowed row that day, so 70 were still cut, and 7 signatures
-    were served with a windowed count too low.  ``truncated`` says so.
+    What the order cannot do is serve more than the cap.  At 2,000,
+    2,070 groups had a windowed row that day, so 7 signatures were served
+    with a windowed count too low.  The cap went to 5,000 the same day,
+    after measuring what it costs (see ``trend_max_groups``).  Past it,
+    ``truncated`` says so again.
     """
     shape = func.regexp_replace(LogEntry.message, SHAPE_DIGITS, "N", "g")
     shape_rank = (

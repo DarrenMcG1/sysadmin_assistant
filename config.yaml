@@ -561,12 +561,15 @@ agents:
     # itself to whatever survives the nightly purge without saying so.
     trend_window_days: 7
     # Ceiling on distinct (source, severity, message) groups the trend
-    # query returns. Measured 2026-08-17: 626,906 rows collapse to 44
-    # groups, so this does not bind on this box. It is here because that
-    # collapse is a property of the data, not a bound — a service that
-    # embeds a request id in every line has one group per line — and
-    # hitting it is reported as `truncated` rather than inferred.
-    trend_max_groups: 2000
+    # query returns. The collapse from rows to groups is a property of
+    # the data, not a bound — a service that embeds a request id in every
+    # line has one group per line — and hitting it is reported as
+    # `truncated` rather than inferred. 44 groups on 2026-08-17; 2,582 on
+    # 2026-09-30, when the stated order needed 2,262 places to serve every
+    # group with a windowed row. Raised from 2,000 that day: each served
+    # group costs about 5-7 µs, the aggregate itself does not move. The
+    # measurement is on trend_max_groups in sysadmin/core/config.py.
+    trend_max_groups: 5000
 
 tray:
   status_poll_seconds: 30

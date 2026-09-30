@@ -1,23 +1,53 @@
-# Handoff — 2026-09-30 (Session 300)
+# Handoff — 2026-09-30 (Session 301)
 
 ## Next action
 
-Measure the trend query's cost at a higher `trend_max_groups`, then raise it so every group with a windowed row is served. *(For: session)*
+Read the mosquitto journal of the 21:37:30 BST boot, the first under estate ADR-0216's gate, against the task under Session 290 in tasks.md. *(For: session)*
 
-It is the unticked item under Session 298 in tasks.md. The cap is
-2,000 and 2,070 groups had a windowed row when Session 298 measured,
-so 7 signatures still lose part of a week's count, which
-`truncated: true` already reports. The bound exists for
-`SNAG-AGENT-005`'s reason (the query's cost), so measure the query at
-the higher cap before raising it, not after.
+The box rebooted at 2026-09-30 21:37:30 BST, which is the event that
+task waited on, so it can start now. ADR-0216 is estate-manager's
+decision to gate mosquitto's start on its listener address being
+assigned. The task says what a clean boot looks like and what would
+mean the gate did not run as written (file that at estate-manager).
+Sessions 299 and 300 left it under a scheduled heading; it is the
+first startable unticked item in tasks.md.
 
-## Scheduled action
+## Session 301: the trend cap is raised to 5,000 after pricing it
 
-**Due now: the box rebooted at 2026-09-30 21:37:30 BST.** Read that
-boot's mosquitto journal, the first boot under estate ADR-0216's gate.
-The task under Session 290 says what to expect, and what would mean the
-gate did not run as written. It is its own session, not the next
-action above.
+Session 300's next action. `sysadmin/core/config.py`, `config.yaml`,
+docstrings in `sysadmin/monitor/log_query.py` and
+`tests/test_log_trend_windows_live.py`, `tests/test_config_defaults.py`,
+`docs/design/logs.md` and the roadmap. Daemon restarted at 22:19:24.
+
+- **Measured: the cap does not bound the query's cost.** Postgres
+  aggregates all 1.3M retained rows before `LIMIT` applies, so the
+  query took 165 ms at 2,000 and about 200 ms at any higher cap or
+  uncapped. What the cap bounds is what is shipped and folded: with
+  50,000 distinct messages added in a rolled-back transaction, the
+  report took 390 ms at 2,000, 405 ms at 5,000, 450 ms at 10,000.
+- **Decided: 5,000.** Today the order needs 2,262 places to serve every
+  group with a windowed row (2,582 groups, 2,177 windowed). 5,000
+  covers a burst that doubles that for about 15 ms in the worst case
+  measured. At 2,000, 9 signatures were under-counted; at 5,000 none,
+  and live `GET /api/logs/trends` reads `truncated: false`, 301
+  signatures, 171 new.
+- **Rejected: 10,000 or uncapped.** Uncapped drops the bound
+  `SNAG-AGENT-005` (an unbounded `SELECT` defect) asked for; 10,000 buys
+  headroom nothing measured asks for. `truncated` reports a pass.
+- **Rejected: a live test asserting "not truncated".** It would pin a
+  value that grows with the data and redden the suite on a noisy week.
+- **Found on the way:** `config.yaml`'s comment still said the cap was
+  44 groups and never binds. Fixed, and the model default and the file
+  are now pinned equal by `TestTheTrendCapIsOneNumber`.
+- **Checks:** suite 4,424 passed, 2 skipped; ruff and mypy clean;
+  `check-ops-claims.sh` all `ok` after STATUS.md's new headline. A new
+  `info` row, `venture-chat unreachable`, opened at 22:24:27 BST when
+  systemd stopped that unit cleanly, and the alerts sentence now names
+  it. What asked for the stop was not traced.
+- **Left open:** estate messages `8190bde0` (estate-manager deleted the
+  nudge wording fields behind `SNAG-ESTATE-002`) and `49b9e620`
+  (venture-assistant moves reddit's 429 backoff line from WARNING to
+  INFO), each for its own session.
 
 ## Session 300: STATUS.md's opening claims are level with the box
 

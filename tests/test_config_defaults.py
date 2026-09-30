@@ -1076,3 +1076,23 @@ class TestEveryTrayLeafHasAReader:
         in_file = source.count("dashboard_url")
         assert in_file > 0, "the note explaining the removal is gone"
         assert comments.count("dashboard_url") == in_file
+
+
+class TestTheTrendCapIsOneNumber:
+    """``trend_max_groups`` is set in the model and in the shipped file.
+
+    Raised from 2,000 to 5,000 on 2026-09-30 after pricing it
+    (``SNAG-LOG-020``'s follow-up; the measurement is on the model's
+    field).  The raise had to touch both places, and the file's comment
+    had already drifted once: it said the cap never binds, for a month
+    after it did.  Which of the two is live depends on whether the file
+    sets the leaf, so they are pinned equal rather than either trusted.
+    """
+
+    def test_the_shipped_file_sets_the_models_default(self):
+        raw = yaml.safe_load(REPO_CONFIG.read_text(encoding="utf-8"))
+        shipped = raw["agents"]["log_aggregator"]["trend_max_groups"]
+        assert shipped == AppConfig().agents.log_aggregator.trend_max_groups
+
+    def test_the_cap_is_the_priced_one(self):
+        assert AppConfig().agents.log_aggregator.trend_max_groups == 5000
