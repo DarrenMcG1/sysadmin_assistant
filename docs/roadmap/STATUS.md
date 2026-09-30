@@ -3,6 +3,16 @@
 **Last Updated**: 2026-09-30
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **Measured: the log trend report's size cap drops real faults**
+> (2026-09-30, Session 297). The trend query keeps at most 2,000
+> distinct log messages. This box has 2,461, most of them one-off lines
+> that differ only by a process id. On the live table the cap removes
+> 35 fault signatures that logged this fortnight, 7 of them first seen
+> this week. Which ones go is decided by the database's internal order
+> among messages tied at one line each, not by any stated rule. Filed as
+> `SNAG-LOG-020` with three shapes of fix. Measurement only, no restart
+> owed.
+
 > **A live test now pins which log trend counts are windowed**
 > (2026-09-30, Session 296). It puts three rows of one fault in the real
 > database (this week, last week, and three weeks ago) and checks that

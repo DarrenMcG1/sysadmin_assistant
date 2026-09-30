@@ -1,22 +1,50 @@
-# Handoff — 2026-09-30 (Session 296)
+# Handoff — 2026-09-30 (Session 297)
 
 ## Next action
 
-Measure whether `build_trend_report`'s group cap, which ranks on unwindowed `total`, drops any signature with rows in the trend windows. *(For: session)*
+Fix SNAG-LOG-020: give `build_trend_report`'s group cap a stated ordering, since today it cuts 35 signatures with windowed rows, 7 of them new. *(For: session)*
 
-It is the first unticked item in tasks.md, under Session 295. This box
-has 2,461 warning-or-worse groups against the cap of 2,000, and the live
-report reads `truncated: true`. So a signature first seen this week can
-lose its place to old rows outside both windows. Nobody has measured
-whether one has. The `#:` comment on `trend_max_groups` in
-`sysadmin/core/config.py` still says 44 groups and "never binds here";
-that goes with this task.
+It is the first unticked item in tasks.md, under Session 297. The
+entry's shape (a) is the smallest change: order windowed counts first,
+then give a stated tie-break. It explains why that still cuts 59 groups
+on today's data. Correct the stale `#:` comment on `trend_max_groups`
+in `sysadmin/core/config.py` in the same change, since both owe the
+same daemon restart.
 
 ## Scheduled action
 
 After the next reboot, read that boot's mosquitto journal: the first
 under estate ADR-0216's gate. The task under Session 290 says what to
 expect and what would mean the gate did not run as written.
+
+## Session 297: the trend cap drops signatures with windowed rows
+
+Session 295's open question, the one the handoff named. A measurement
+only: the roadmap and this file. No code under `sysadmin/` changed, so
+no restart is owed.
+
+- **Answer: yes.** Capped and uncapped `build_trend_report` were run in
+  one read-only `REPEATABLE READ` snapshot with `now` frozen. The cap
+  keeps 2,000 of 2,461 raw message groups. 35 signatures with rows in a
+  window disappear from the served report (7 `new`, 15 `returned`), 4
+  more are under-counted, and one reads `gone` instead of `returned`.
+  The full numbers are in `SNAG-LOG-020`.
+- **The question was framed a little wrong.** Only 424 groups have more
+  than one row, so the cut falls inside 2,037 groups tied at one row
+  each. Postgres's tie order decides which go, not the ranking on
+  `total`. A windowed ranking alone would not fix it either: 2,059
+  groups have a windowed row, more than the cap.
+- **Decided: the stale `trend_max_groups` comment moves to the fix.**
+  Editing it now would owe a daemon restart
+  (`check-ops-claims.sh` reads "serves the code on disk: ok" today). The
+  fix owes one anyway, and what the comment should say depends on which
+  ordering the fix picks.
+- **Not worked, a second concern:** STATUS.md's Quick Status test count
+  reads 4,416 against 4,420 collected, and its open-alert count is one
+  short (`llama-server degraded`). Both predate this session.
+  `check-ops-claims.sh` reports them. The estate's inbox message
+  `8190bde0` (they deleted the nudge wording fields behind
+  `SNAG-ESTATE-002`) is left open for its own session.
 
 ## Session 296: a live test pins which trend counts are windowed
 

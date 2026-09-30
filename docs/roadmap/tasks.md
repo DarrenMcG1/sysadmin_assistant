@@ -8,6 +8,27 @@
 
 ---
 
+## Session 297: the trend cap drops signatures with windowed rows (2026-09-30)
+
+The handoff's next action, the unticked item under Session 295. A
+measurement only: `docs/roadmap/` and `HANDOFF.md`. No code under
+`sysadmin/` changed, so no restart is owed.
+
+- [x] **Measured the cap against the live table.** Capped and uncapped
+      `build_trend_report` were run in one read-only `REPEATABLE READ`
+      snapshot with `now` frozen. The cap cuts 461 groups. **35**
+      signatures with rows in a window vanish from the served report,
+      **7** of them `new`, and 4 more are under-counted. The cut falls
+      inside a block of 2,037 groups tied at one row, so the executor's
+      tie order decides it. Filed as `SNAG-LOG-020`.
+- [ ] **Fix `SNAG-LOG-020`: give the cap a stated ordering.** The
+      smallest shape is to order windowed counts first, then give a
+      stated tie-break. The entry says why that still cuts 59 groups
+      today, and why raising the cap or grouping by signature in SQL
+      costs more. Correct the `#:` comment on `trend_max_groups`
+      (still "44 groups") in the same change, because it owes the same
+      restart.
+
 ## Session 296: a live test pins which trend counts are windowed (2026-09-30)
 
 The handoff's next action, the first unticked item under Session 295.
@@ -72,7 +93,7 @@ restarted at 2026-09-30 16:10:56.
       pattern of `tests/test_desktop_store_live.py`, with one row older
       than two windows would pin it
       *(Done by Session 296, 2026-09-30: `tests/test_log_trend_windows_live.py`.)*
-- [ ] **Ask whether the group cap should rank on `total`.** The query
+- [x] **Ask whether the group cap should rank on `total`.** The query
       orders by unwindowed `count()` before `.limit(trend_max_groups + 1)`,
       and the live report reads `truncated: true`. So a signature first
       seen this week with few rows can lose its place to old rows outside
@@ -82,6 +103,9 @@ restarted at 2026-09-30 16:10:56.
       cap of 2,000, and the `#:` comment on `trend_max_groups` in
       `sysadmin/core/config.py` still reads "44 groups, so this never
       binds here". That figure is stale and belongs to this task
+      *(Measured by Session 297, 2026-09-30: yes. 35 signatures with
+      windowed rows are cut, 7 of them new. `SNAG-LOG-020`. The stale
+      comment moved to the fix, which owes the restart anyway.)*
 
 ## Session 294: the log review's narrative keeps to its 150-word limit (2026-09-30)
 
