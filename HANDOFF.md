@@ -1,21 +1,15 @@
-# Handoff — 2026-10-01 (Session 318)
+# Handoff — 2026-10-01 (Session 319)
 
 ## Next action
 
-File at alfred-glance asking for a renderer for `estate/alerts/raised`, giving the topic and payload; the Kotlin change and any release are theirs. *(For: session)*
+Decide whether `BaseAgent.run`'s `_flush_events` drops `alert.raised` after a failed run, then fix it with a test (tasks.md, Session 39 block). *(For: session)*
 
-It is the next unchecked item in tasks.md's Session 39 block ("Register
-the topic in alfred-glance"), and the only one there that can start now.
-Nothing subscribes to `estate/alerts/…` yet, measured today: alfred-glance's
-`BusEvents.kt` holds only `alfred/events/…` topics, Alfred's desktop shell
-takes `alfred/events/#`, and project-manager's role reads
-`estate/sessions/#` alone. A filing is a message, not a ruling, and the
-renderer, whether a critical buzzes the phone, and any cap across
-producers are glance's to decide (its ideas.md entry `2026-08-24-1`,
-risk 2). The wire shape is in tasks.md under that item. In the same
-filing or beside it, tell estate-manager the publisher is live: their
-`lib/estate/bus.py` docstring and their tasks.md Session 2 note still call
-it unbuilt.
+It is the first startable unchecked item in tasks.md. Today a run that
+raises an alert and then fails rolls the row back but still announces
+it, so the SSE stream and the desktop notifier hear about an alert that
+does not exist. Session 318 guarded only the MQTT publisher (it reads the
+row back first). The item above it, the alfred-glance renderer, is now
+waiting on glance and cannot be started here.
 
 ## Scheduled action
 
@@ -40,6 +34,36 @@ from 01:30. Read it in this order:
 If only `skipped` lines appear, the card never suspended (a monitor
 stayed on), and the drive needs another night. Then fix `gpu.py`'s
 rule 5 docstring in the same change as the code.
+
+## Session 319: the renderer for `estate/alerts/raised` was asked for
+
+Session 318's next action. Documents and register messages only; no code
+changed and nothing was restarted.
+
+- **Filed at alfred-glance**, message
+  `fe35a2fa-9f1b-4a62-a708-e5796979b0e9`: whether glance will render
+  `estate/alerts/raised`, with the topic, QoS 1, never retained, the flat
+  payload `{source, id, agent, severity, title, message, published_at}`,
+  the volume (4 critical rows in the seven days to today), and that no
+  broker change is needed. Its phones' role, `alfred-subscriber`, already
+  has subscribe access to `estate/#` in `estate-manager/mqtt/dynsec.yaml`.
+  The Kotlin, the buzz and any release are glance's. The filing names the
+  limit glance's own ideas.md entry `2026-08-24-1` records: its MQTT
+  connects in the foreground, so an alert arrives when the app is next
+  opened. Declining is a legitimate answer, and the tasks.md item closes
+  either way.
+- **Filed at estate-manager**, message
+  `4cfb3600-2853-4787-8764-24793937c8d4`: the publisher is live, so
+  their `lib/estate/bus.py` docstring (line 5) and tasks.md (lines 185
+  and 463) that call it unbuilt are stale. Told, not edited: the estate's
+  tree is theirs.
+- **Closed estate message `bfdfc34c`**, which said the board's
+  next-action marker gains a `none` value and asked nothing. Verified
+  first: `_FOR_MARKER` in `sysadmin/snag_claims.py` strips the new forms
+  unchanged.
+
+Rejected: writing the renderer here. It is another repository's code,
+and whether a host alert should buzz a phone is its owner's decision.
 
 ## Session 318: raised alerts are published to the estate bus
 

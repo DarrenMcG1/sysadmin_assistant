@@ -15687,6 +15687,11 @@ work:
       title, message, published_at}`, every value a string or null;
       `source` is `sysadmin-assistant`. The writing is alfred-glance's,
       so this item is a filing at it plus that repository's own session)*
+      *(Filed 2026-10-01 by Session 319, estate message
+      `fe35a2fa-9f1b-4a62-a708-e5796979b0e9`, asking glance whether it will
+      render the topic, with the wire shape, the measured volume and the
+      broker ACL its phones already hold. Waiting on glance's reply; it
+      closes here either way, a declined renderer included)*
 - [ ] **A failed run still announces the alerts its rollback removed.**
       `BaseAgent.run` flushes its buffered events whatever the outcome, so
       an `alert.raised` for a row that was never committed reaches the SSE

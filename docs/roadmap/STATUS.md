@@ -10,7 +10,8 @@
 > to the estate's MQTT broker on `estate/alerts/raised`, as
 > `sysadmin-publisher`, so something away from the desk can pick it
 > up. Nothing subscribes to that topic yet: the phone app needs a
-> renderer for it first, and that is the next task. The daemon
+> renderer for it first, which was requested from alfred-glance the
+> same evening, and whether to build one is that repository's call. The daemon
 > restarted at **2026-10-01 21:26:01** <!--check:deploy-->
 > <!--check:daemon_start--> to load the change, and a test publish
 > from the new code reached the broker as that identity.
