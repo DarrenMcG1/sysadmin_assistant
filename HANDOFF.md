@@ -1,6 +1,80 @@
-# Handoff — 2026-10-01 (Session 313)
+# Handoff — 2026-10-01 (Session 314)
 
 ## Next action
+
+Turn the suite's three live reds green: README's service count, the health-path check, and the audit's `work/automation-side-income` path. *(For: session)*
+
+It is the first unchecked item in tasks.md that can start now (Session
+314's block). The full suite ended 3 failed, 4,440 passed. All three are
+live checks broken by changes made elsewhere today, not by this session:
+venture-manager's 36th `services.yaml` entry against README's stated
+35; the health-path check reading `mismatch`, which may clear once the
+owner restarts the daemon (not measured); and the estate audit naming a
+project path two levels deep that is not a directory, probably the
+estate's discovery depth moving from 2 to 3 (their message `262209cd`).
+The dGPU item is waiting for tonight's drive, so it is under "Scheduled
+action" below.
+
+## Scheduled action
+
+From 05:30 on 2026-10-02, read
+`~/.local/state/sysadmin/dgpu-wake-drive-2026-10-02.jsonl` and choose how
+the collector stops waking a suspended dGPU. The transient
+`sysadmin-dgpu-wake-drive.timer` runs `scripts/dgpu-wake-drive.py`
+from 01:30. Read it in this order:
+
+1. **The positive control must read `woke`.** `rocm_smi_all` is
+   today's call. If it does not read `woke`, the instrument cannot see
+   a wake and nothing else in the log counts.
+2. **Then `idle`'s wake rate**: how often something else woke the card
+   inside a 2 s window. A candidate is clean only if its rate is no
+   worse than this.
+3. **Then the six candidates.** Check each against `journalctl -k
+   -o short-monotonic --grep 'PSP is resuming'` by the `mono` field.
+   Check `rocm_smi_igpu`'s `result.cards` reads `0000:47:00.0` alone.
+   Note the `errno` a refused `hwmon` read returns: `_read_int` catches
+   only `PermissionError`, so any other errno would raise.
+
+If only `skipped` lines appear, the card never suspended (a monitor
+stayed on), and the drive needs another night. Then fix `gpu.py`'s
+rule 5 docstring in the same change as the code.
+
+## For the owner
+
+`sudo systemctl restart sysadmin.service`. Two of today's
+`services.yaml` commits (venture-chat moving to :8301 and
+venture-manager's API on :8900) are not polled until the daemon
+restarts. It started at 15:12:12 BST, before both. Their messages,
+`898794e9` and `2e3a4bb6`, stay open until then. *(For: owner, ~2 min)*
+
+## Session 314: the overnight drive is scheduled
+
+Session 313's next action. `scripts/dgpu-wake-drive.py` and the roadmap
+only; no `sysadmin/` change, no restart owed.
+
+- **Instrument.** One read per trial, starting only from a card that
+  has read `suspended` for a full second. `runtime_status` and
+  `runtime_active_time` are read either side of the read; both are PM
+  core attributes and wake nothing. Six candidates, plus two controls
+  (`idle`, `rocm_smi_all`), shuffled each round, one round every 300 s.
+- **Decided: the iGPU index comes from KFD topology.** Asking
+  `rocm-smi --showbus` would itself be the read under test. KFD's GPU
+  node order (`03:00.0` then `47:00.0`) matches `--showbus`, so the
+  iGPU is index 1, and every metrics trial re-checks it from the
+  payload's `PCI Bus`.
+- **Rejected: committing to a method on the strength of the kernel
+  source.** amdgpu's `hwmon` handlers are believed to refuse a
+  suspended device rather than wake it, but that was not driven on this
+  kernel (7.2.7), and it is what the drive measures.
+- **Not done, a second concern**: the four open estate messages. Two
+  wait on the owner's restart above. The other two (`bfdfc34c`, the
+  board's new `"none"` marker value, and `262209cd`, estate.registry's
+  discovery depth rising from 2 to 3) seem from their summaries to
+  ask nothing of this repository. Neither was read in full.
+- **Not done, a second concern**: the three live reds above. Recorded
+  as a task in tasks.md (Session 314's block), not worked here.
+
+## What Session 313 handed on (done by Session 314)
 
 Schedule an overnight `systemd-run --user` oneshot that logs a suspended dGPU's `runtime_status` around `rocm-smi -d <iGPU>` and the sysfs hwmon reads. *(For: session)*
 

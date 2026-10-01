@@ -3,6 +3,17 @@
 **Last Updated**: 2026-10-01
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A one-night test of which reads leave the sleeping card asleep is
+> scheduled** (2026-10-01, Session 314). From 01:30 to 05:30 on 2
+> October a temporary timer will take one reading at a time while the
+> card is powered down, and record whether the card woke. The readings
+> are `rocm-smi` limited to the built-in graphics, and the card's own
+> temperature, power and memory files. Two controls run beside them:
+> one does nothing, which gives the rate at which something else wakes
+> the card, and one is today's call, which is known to wake it. The
+> results are read the next morning and decide the fix. No service
+> code changed.
+
 > **This service's 5-minute poll wakes the sleeping graphics card**
 > (2026-10-01, Session 313). Measured over the night of 27 September,
 > when the monitors were off: the kernel logged the card waking 283

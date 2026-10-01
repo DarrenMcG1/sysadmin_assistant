@@ -8,6 +8,69 @@
 
 ---
 
+## Session 314: the overnight drive is scheduled (2026-10-01)
+
+Session 313's next action. `scripts/dgpu-wake-drive.py` and the roadmap
+only; no `sysadmin/` change, no restart owed.
+
+- [x] **Wrote the instrument, `scripts/dgpu-wake-drive.py`.** Each
+      trial waits for the dGPU to read `suspended` for a full second,
+      makes one read, and records `power/runtime_status` and
+      `power/runtime_active_time` before and after it. Both are the PM
+      core's attributes, so asking them never wakes the card. A trial
+      `woke` the card if the active time grew or the status left
+      `suspended` within 0.5 s. Six candidates: `rocm-smi -d <iGPU>`
+      with the collector's metrics arguments, the same with
+      `--showproductname`, `hwmon` `temp1_input` and `power1_average`,
+      and `mem_info_vram_used` and `mem_info_vram_total`. Two controls:
+      `idle` (2 s doing nothing: how often something else wakes the
+      card inside a trial) and `rocm_smi_all` (today's call, which must
+      read `woke` or the instrument is blind). Order is shuffled each
+      round, one round every 300 s. Each line carries `CLOCK_MONOTONIC`
+      for matching against `journalctl -k -o short-monotonic`.
+- [x] **The iGPU index comes from KFD topology, not from `rocm-smi`.**
+      Asking `rocm-smi --showbus` for it would be the read under test.
+      GPU nodes in node order are `location_id` 768 (`03:00.0`, the
+      dGPU) then 18176 (`47:00.0`), the same order `--showbus` printed,
+      so the iGPU is index 1. The metrics trial records the `PCI Bus` of
+      every card that answered, which checks this on each run: `-d 1`
+      returned `card1` at `0000:47:00.0` alone.
+- [x] **Dry-run on the awake card.** All eight kinds ran without error.
+      The `hwmon` and `mem_info` reads returned values; nothing about
+      waking can be read from that, because the card was already
+      awake.
+- [x] **Scheduled**: transient `sysadmin-dgpu-wake-drive.timer`,
+      `OnCalendar=2026-10-02 01:30:00`, running to 05:30 under
+      `RuntimeMaxSec=4h 30min`, logging JSON lines to
+      `~/.local/state/sysadmin/dgpu-wake-drive-2026-10-02.jsonl` and to
+      the user journal. Linger is on, so it runs without a login. A
+      transient unit does not survive a reboot. Cost: the positive
+      control wakes the card about 48 times, plus any candidate that
+      also wakes it.
+- [x] **Left alone, as a second concern**: four open estate messages.
+      Two of them (`898794e9`, venture-manager's new :8900 entry, and
+      `2e3a4bb6`, venture-chat's move to :8301) need `sysadmin.service`
+      restarted. It started at 15:12:12 BST, before both commits, so the
+      restart is still owed, and it is the owner's (`sudo`).
+- [x] **Suite: 3 failed, 4,440 passed, 2 skipped.** All three are live
+      checks broken by changes made elsewhere today, not by this
+      session, which touched only a script and the roadmap.
+- [ ] **Turn the three live reds green.**
+      `test_the_stated_service_count_is_the_measured_one`: README says
+      35 services, `services.yaml` declares 36 since venture-manager's
+      commit `46950f2`.
+      `TestTheHealthPathCheck::test_the_check_holds_on_this_box`:
+      reads `mismatch`. It may clear once the owner restarts the daemon
+      to pick up today's two `services.yaml` entries; not measured.
+      `test_every_docs_finding_names_a_directory_under_the_projects_root`:
+      the estate audit publishes `detail.project='work/automation-side-income'`,
+      which is not a directory under `~/projects`. The likely cause is
+      estate message `262209cd`, which deepens the estate's repository
+      discovery (`discover_repositories` / `DEFAULT_DEPTH`) from 2 to 3
+      levels; not measured. If so, `scripts/check-estate-docs.sh`'s
+      reader may now match nothing (`SNAG-DOCS-022`, where a reader
+      matching nothing reports health). Read the message in full first.
+
 ## Session 313: the 5-minute poll wakes a suspended dGPU, every time (2026-10-01)
 
 Session 312's next action. A measurement; the roadmap and
@@ -64,6 +127,9 @@ Session 312's next action. A measurement; the roadmap and
       against `journalctl -k` the next morning. Then choose: query the
       iGPU alone, or take the dGPU row from sysfs with the three fields
       `None`. Fix `gpu.py`'s rule 5 docstring in the same change.
+      *(Drive scheduled by Session 314 for 01:30–05:30 on 2026-10-02.
+      Read `~/.local/state/sysadmin/dgpu-wake-drive-2026-10-02.jsonl`
+      that morning.)*
 
 ## Session 312: a failed LLM call logs llama-server's own reason (2026-10-01)
 
