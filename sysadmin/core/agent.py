@@ -145,7 +145,8 @@ class BaseAgent(ABC):
     - `name` property — agent identifier
     """
 
-    #: Events buffered during a run, published once the transaction commits.
+    #: Events buffered during a run, published once the transaction commits
+    #: and discarded if it rolls back — see :meth:`run`'s ``except``.
     #: ``None`` means "not inside run()" — events then publish immediately.
     _pending_events: list[tuple[str, dict[str, Any]]] | None = None
 
@@ -361,6 +362,18 @@ class BaseAgent(ABC):
         except Exception as e:
             duration = time.monotonic() - start
             details = {"error": str(e)}
+            # The work's transaction rolled back, so every event it
+            # buffered describes a write that never happened: an
+            # `alert.raised` for a row nobody can fetch, an
+            # `alert.resolved` for alerts still open. Until 2026-10-01
+            # they were flushed anyway, and the desktop notifier — whose
+            # "is this the only one open?" count assumes the row it is
+            # reacting to exists — toasted the phantom as a new incident
+            # both when nothing with that title was open and when one
+            # older alert was, which is the case it exists to silence.
+            # Only `agent.run` below survives, because it describes
+            # `_record_outcome`'s row, which commits on its own.
+            self._pending_events = []
 
             logger.exception(
                 AGENT_RUN_FAILED_EVENT,

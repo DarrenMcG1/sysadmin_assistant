@@ -1,15 +1,15 @@
-# Handoff — 2026-10-01 (Session 319)
+# Handoff — 2026-10-01 (Session 320)
 
 ## Next action
 
-Decide whether `BaseAgent.run`'s `_flush_events` drops `alert.raised` after a failed run, then fix it with a test (tasks.md, Session 39 block). *(For: session)*
+Make a failed monitor run stop leaving `_last_status` claiming a transition nobody heard, with a test (tasks.md, Session 320 block). *(For: session)*
 
-It is the first startable unchecked item in tasks.md. Today a run that
-raises an alert and then fails rolls the row back but still announces
-it, so the SSE stream and the desktop notifier hear about an alert that
-does not exist. Session 318 guarded only the MQTT publisher (it reads the
-row back first). The item above it, the alfred-glance renderer, is now
-waiting on glance and cannot be started here.
+It is the first startable unchecked item in tasks.md, and this session
+found it. `MonitorAgent` updates `_last_status` in memory when it queues
+`service.status`. A failed run now drops that event but keeps the
+memory, so the next run never announces the change. No live reader of
+that event was found, so it is small. The `rocm-smi` item below it waits
+on the overnight drive (Scheduled action) and cannot start yet.
 
 ## Scheduled action
 
@@ -34,6 +34,39 @@ from 01:30. Read it in this order:
 If only `skipped` lines appear, the card never suspended (a monitor
 stayed on), and the drive needs another night. Then fix `gpu.py`'s
 rule 5 docstring in the same change as the code.
+
+## Session 320: a failed run announces only that it failed
+
+Session 319's next action. Service code changed and is live: the daemon
+was restarted at 22:00:32 by `kill -TERM` on its main PID, as the
+claims check suggests (`NRestarts=2`), and `/api/health` answered 200.
+Full suite 4,469 passed, 2 skipped; ruff and mypy clean; every claim
+`check-ops-claims.sh` reads is `ok`.
+
+- **Decided: drop every buffered event on a failed run, not only
+  `alert.raised`.** `alert.resolved` and `service.status` describe
+  writes the same rollback removed. Only `agent.run` is published,
+  because its row commits in its own transaction. The fix is one line in
+  `BaseAgent.run`'s `except` (`sysadmin/core/agent.py`).
+  Rejected: filtering to `alert.raised` only. It would leave
+  `alert.resolved` announcing closures that did not happen.
+- **A failed commit takes the same path.** The work's session commits
+  inside the `try`, so a clean `_execute` followed by a failed commit
+  also drops its events. Two tests in `tests/test_event_bus.py`, one per
+  path; both went red with the fix line removed.
+- **The desktop notifier, answered.** Its "new incident" gate counts
+  open rows with the title and allows at most one, assuming that one is
+  the alert it heard about. A phantom is not counted, so it toasted both
+  when nothing was open and when one older row was. That second case is
+  the duplicate the gate exists to prevent. No change there: the phantom
+  no longer reaches it.
+- **Kept `mqtt_alerts.py`'s read-back**, with its docstring corrected:
+  on today's code it refuses nothing, and costs one read per alert.
+- **Recorded, not fixed (second concern):** `MonitorAgent._last_status`
+  is not rolled back with a failed run. It is the next action.
+- **STATUS.md**: new top block, test count 4,469 → 4,471, and the
+  open-alert claim 2 → 3. The third row is `venture-chat unreachable`
+  (`info`, opened 21:46:04). It was named and not traced.
 
 ## Session 319: the renderer for `estate/alerts/raised` was asked for
 

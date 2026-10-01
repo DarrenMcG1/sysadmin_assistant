@@ -276,3 +276,82 @@ class TestAgentEventPublishing:
         assert data["status"] == "failed"
         assert data["agent"] == "log_aggregator"
         assert data["run_type"] == "manual"
+
+    @pytest.mark.asyncio
+    async def test_a_failed_run_announces_nothing_its_rollback_removed(
+        self, recording_bus, mock_session
+    ):
+        """The alert row went down with the transaction, so must its event.
+
+        Before the fix this published ``alert.raised`` and
+        ``alert.resolved`` ahead of ``agent.run``: the SSE stream and both
+        ``alert.raised`` subscribers heard about a row that was never
+        committed and a resolution that never happened.
+        """
+        from sysadmin.core.agent import BaseAgent
+
+        bus, events = recording_bus
+
+        class _Agent(BaseAgent):
+            name = "sysadmin"
+
+            async def _execute(self, session):
+                await self.raise_alert(session, severity="critical", title="Disk full")
+                self._queue_event("alert.resolved", {"agent": self.name, "count": 1})
+                raise RuntimeError("boom")
+
+        @asynccontextmanager
+        async def fake_session():
+            yield mock_session
+
+        with (
+            patch("sysadmin.core.agent.event_bus", bus),
+            patch("sysadmin.core.agent.get_scheduler_session", fake_session),
+        ):
+            await _Agent().run()
+            await asyncio.sleep(0)
+
+        assert [t for t, _ in events] == ["agent.run"]
+        assert events[0][1]["status"] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_a_failed_commit_announces_nothing_either(
+        self, recording_bus, mock_session
+    ):
+        """``_execute`` returned normally; the commit after it did not.
+
+        The case a fix keyed on ``_execute`` raising would miss: the
+        exception arrives from leaving the session's block, after the work
+        has buffered its events and handed back a result.
+        """
+        from sysadmin.core.agent import AgentResult, BaseAgent
+
+        bus, events = recording_bus
+        sessions = 0
+
+        class _Agent(BaseAgent):
+            name = "sysadmin"
+
+            async def _execute(self, session):
+                await self.raise_alert(session, severity="critical", title="Disk full")
+                return AgentResult(alerts_raised=1)
+
+        @asynccontextmanager
+        async def fake_session():
+            nonlocal sessions
+            sessions += 1
+            yield mock_session
+            # The second session is the work's (`_record_start` is first).
+            if sessions == 2:
+                raise RuntimeError("commit failed")
+
+        with (
+            patch("sysadmin.core.agent.event_bus", bus),
+            patch("sysadmin.core.agent.get_scheduler_session", fake_session),
+        ):
+            result = await _Agent().run()
+            await asyncio.sleep(0)
+
+        assert result is None
+        assert [t for t, _ in events] == ["agent.run"]
+        assert events[0][1]["status"] == "failed"

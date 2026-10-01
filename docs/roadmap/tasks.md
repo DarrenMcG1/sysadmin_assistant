@@ -8,6 +8,54 @@
 
 ---
 
+## Session 320: a failed run announces only that it failed (2026-10-01)
+
+Session 319's next action. Suite 4,469 passed, 2 skipped; ruff and mypy
+clean. The daemon was restarted at 22:00:32 to load it.
+
+- [x] **Every buffered event is dropped, not only `alert.raised`.**
+      Before the fix, a failed run published the events its work had
+      queued. All of them describe writes the rollback removed:
+      `alert.raised` (a row nobody can fetch), `alert.resolved` (alerts
+      still open) and `service.status` (a `service_health` row that never
+      landed). The monitor agent's own comment already refuses the last
+      one. The fix is one line in `run()`'s `except`, and it makes
+      `_pending_events`' docstring ("published once the transaction
+      commits") true. `agent.run` survives because it describes
+      `_record_outcome`'s row, which commits separately.
+- [x] **The commit failing is the same case.** The work's session
+      commits as `run()` leaves its `async with` block, inside the `try`,
+      so an `_execute` that returned normally and then failed to commit
+      reaches the same `except`. One test drives each path in
+      `tests/test_event_bus.py`. Both went red with the line removed.
+- [x] **The desktop notifier's incident count, answered.** It asks
+      whether this title has **at most one** open row, assuming the one
+      it is reacting to exists. A phantom is not in the table, so it
+      toasted when no row with that title was open, and also when exactly
+      one older row was open. The second case is the duplicate the gate
+      exists to stop. It also wrote the phantom into
+      `desktop_notifications`, until the next reminder sweep found the
+      title closed and deleted the entry without speaking. No change was needed there, because
+      the phantom no longer reaches it.
+- [x] **Not a live path at the per-service savepoint.** The monitor
+      agent raises inside a `begin_nested()` per service, and an event
+      queued there would survive that savepoint rolling back. In practice
+      `raise_alert`'s flush is the last write in that block, so nothing
+      left can fail after the event is queued. Left as is.
+- [x] **`mqtt_alerts.py`'s read-back is kept.** Its docstring said the
+      run flushes whatever the outcome; it now says the guard refuses
+      nothing on today's code and stays because it costs one read.
+- [ ] **A failed monitor run leaves `_last_status` claiming a transition
+      nobody heard.** `MonitorAgent` records each service's new status in
+      memory as it queues `service.status`. When the run then fails, the
+      event is now dropped but the memory is not rolled back, so the next
+      run sees no change and never announces it. Before the fix it was
+      announced from a row that did not exist. No live reader of the SSE
+      `service.status` event was found (the tray does not use the stream;
+      a search of `~/projects` found only archived code), so this was
+      recorded rather than fixed. *(Second concern, raised by this
+      session)*
+
 ## Session 317: STATUS.md's opening block agrees with the box (2026-10-01)
 
 Session 316's next action. Suite 4,444 passed, 2 skipped. Roadmap files
@@ -15692,7 +15740,7 @@ work:
       render the topic, with the wire shape, the measured volume and the
       broker ACL its phones already hold. Waiting on glance's reply; it
       closes here either way, a declined renderer included)*
-- [ ] **A failed run still announces the alerts its rollback removed.**
+- [x] **A failed run still announces the alerts its rollback removed.**
       `BaseAgent.run` flushes its buffered events whatever the outcome, so
       an `alert.raised` for a row that was never committed reaches the SSE
       stream and both subscribers. Found by Session 318, which guarded only
@@ -15700,6 +15748,9 @@ work:
       concern it did not take. Decide whether `_flush_events` drops
       `alert.raised` on a failed run, and what the desktop notifier's
       incident count does with a phantom meanwhile
+      *(Done 2026-10-01 by Session 320: a failed run discards **every**
+      event `_execute` buffered, not only `alert.raised`, and publishes
+      `agent.run` alone. See that session's block at the top of this file)*
 - [ ] **`Type=notify` + `WatchdogSec=` on `sysadmin.service`**, with the
       ping issued from the async loop. **Risk to rehearse before enabling**:
       if `READY=1` is never sent, systemd treats startup as failed and kills

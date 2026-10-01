@@ -29,12 +29,14 @@ repository that owns the phone. So:
 4. **Raises nothing.** A callback that raises takes down the event bus's
    task for every other subscriber.
 
-**The row is read back before it is announced.** ``BaseAgent.run``
-flushes buffered events after a run whatever its outcome, so a run that
-raised an alert and then failed announces a row its rollback removed.
-The tray refetches and finds nothing, which is harmless; on the bus it
-would be an alert nobody can find. One indexed read per published alert,
-at well under one a day.
+**The row is read back before it is announced.** Until 2026-10-01
+``BaseAgent.run`` flushed buffered events whatever the run's outcome, so
+a run that raised an alert and then failed announced a row its rollback
+removed. ``run()`` now discards a failed run's events, and every
+``raise_alert`` caller is inside a run, so on today's code the read-back
+refuses nothing. It stays because a phantom on the bus is an alert
+nobody can find, and the guard costs one indexed read per published
+alert, at well under one a day.
 
 **What a zero exit proves.** ``mosquitto_pub`` exits 0 for an
 unauthorised publish — the broker drops it silently (``estate.bus``'s
