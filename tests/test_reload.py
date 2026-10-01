@@ -320,7 +320,8 @@ def files(tmp_path):
     config = tmp_path / "config.yaml"
     config.write_text(yaml.safe_dump({
         "service": {"name": "sysadmin-service", "port": 8500},
-        "agents": {"project_organiser": {"projects_root": str(projects)}},
+        "projects_root": str(projects),
+        "agents": {},
     }))
     services = tmp_path / "services.yaml"
     services.write_text(yaml.safe_dump({
@@ -446,7 +447,7 @@ def test_services_registry_is_checked_against_the_new_projects_root(
         )
     )
     raw = yaml.safe_load(config.read_text())
-    raw["agents"]["project_organiser"]["projects_root"] = str(root)
+    raw["projects_root"] = str(root)
     config.write_text(yaml.safe_dump(raw))
     services.write_text(yaml.safe_dump({
         "schema": 1,
@@ -458,6 +459,22 @@ def test_services_registry_is_checked_against_the_new_projects_root(
 
     assert not report.ok
     assert "ghost" in (report.error or "")
+
+    # The accepting half, which is the one that proves the root was read.
+    # ``ghost`` is unknown under *any* root, so the refusal above passes
+    # just as well when the new root is ignored — which is what a fixture
+    # still writing the pre-2026-10-01 ``agents.project_organiser`` path
+    # would do, the key going unobeyed and the default root standing in.
+    # ``known`` exists only under ``elsewhere``.
+    services.write_text(yaml.safe_dump({
+        "schema": 1,
+        "services": [{"name": "alpha", "kind": "http",
+                      "url": "http://localhost:1/health", "project": "known"}],
+    }))
+
+    report = reload_configuration(config_path=config, services_path=services)
+
+    assert report.ok, report.error
 
 
 # ── pruning ──────────────────────────────────────────────────────────

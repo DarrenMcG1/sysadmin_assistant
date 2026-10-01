@@ -752,14 +752,13 @@ class ServiceDiscoveryAgent(BaseAgent):
     @staticmethod
     def _registry(config):
         """The estate registry, or ``None`` when the projects root is gone."""
-        organiser_config = config.agents.project_organiser
-        root = Path(organiser_config.projects_root)
+        root = Path(config.projects_root)
         if not root.exists():
             return None
         # Partial (``SNAG-SVC-007``): a malformed manifest anywhere used to
         # fail this sweep's whole run. What it costs now is handled by
         # :func:`_refs_from`, which keeps the refused tree as a project.
-        return load_registry(root, organiser_config.discovery_depth, partial=True)
+        return load_registry(root, config.discovery_depth, partial=True)
 
     @staticmethod
     def _project_refs(config) -> list[ProjectRef]:
@@ -776,13 +775,12 @@ class ServiceDiscoveryAgent(BaseAgent):
         orphans because this sweep could not see the project they belong
         to.
         """
-        organiser_config = config.agents.project_organiser
-        root = Path(organiser_config.projects_root)
+        root = Path(config.projects_root)
         if not root.exists():
             return []
 
         return _refs_from(
-            load_registry(root, organiser_config.discovery_depth, partial=True)
+            load_registry(root, config.discovery_depth, partial=True)
         )
 
     async def _maintain_alert(

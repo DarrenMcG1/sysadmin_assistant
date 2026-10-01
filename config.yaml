@@ -204,6 +204,23 @@ events:
   max_queued_events: 100   # per-client buffer; oldest dropped when full
   retry_ms: 5000           # client reconnect hint
 
+# Where the estate's repositories live. Read by the registry this daemon
+# checks services.yaml against (startup and every reload), by the unit
+# sweep and its routes, by GET /api/projects/managed, and by the file
+# actions as their safety fence: nothing under it is ever moved or
+# cleaned. A reload delivers an edit here; no restart is owed.
+#
+# Until 2026-10-01 this sat under agents.project_organiser, an agent that
+# left for the estate's 8400 service on 2026-08-13 (ADR-0005). None of
+# its seven readers was that agent, so the key moved and the block went.
+# A copy left at the old path is not obeyed: config_keys names it as an
+# unknown key on startup and on every reload.
+#
+# `discovery_depth` (default 2) is the one further top-level field this
+# file deliberately does not set — a value stated in two places is free
+# to disagree with itself.
+projects_root: /home/gaddi/projects
+
 agents:
   sysadmin:
     enabled: true
@@ -296,37 +313,6 @@ agents:
       timer_lookback_days: 30
       limit: 20
 
-
-  project_organiser:
-    # The organiser itself lives in the estate's 8400 service since
-    # Session 4 (ADR-0005) — this daemon no longer constructs, schedules
-    # or self-monitors it.  What survived here until 2026-09-14 was the
-    # whole of its *configuration*, parsed by pydantic and read by
-    # nothing: grade bands, TODO patterns, idle-nudge thresholds,
-    # branch-prune safety rails and the estate.json output contract —
-    # every one of them arithmetic that moved with the domain and is
-    # argued for in estate-manager now.  Session 236 deleted those leaves
-    # together with the classes behind them.  Both halves had to move: a
-    # key here and a field in `config.py` are two statements of one
-    # setting and they fail in opposite directions — dropping only the
-    # key is silent (`enabled: false` would have fallen back to the
-    # model's `true`), dropping only the field is loud (`config_keys`
-    # names the orphan on every reload).
-    #
-    # `projects_root` is what remains, and it is not debt.  Seven callers
-    # read it — `main.py`, `reload.py`, `files/router.py`,
-    # `units/agent.py` (twice), `units/router.py` and
-    # `monitor/routers/projects_managed.py` — as the file domain's safety
-    # fence and as the root every units route resolves the registry
-    # through.  `reload.py` classifies it LIVE_AT_STARTUP, so an edit
-    # here is delivered by a reload and owes no restart.
-    #
-    # `ProjectOrganiserConfig` holds one further *live* leaf this file
-    # does not set: `discovery_depth`, read twice by `units/agent.py`.
-    # It keeps its model default rather than being written out here,
-    # because a value stated in two places is free to disagree with
-    # itself.
-    projects_root: /home/gaddi/projects
 
   file_organiser:
     enabled: true

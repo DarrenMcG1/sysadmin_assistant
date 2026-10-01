@@ -236,7 +236,7 @@ async def lifespan(app: FastAPI):
     # two statements of one fact. ``tests/test_services_registry.py`` pins
     # that the library still writes it.
     services = load_services_singleton(registry=load_registry(
-        config.agents.project_organiser.projects_root, partial=True
+        config.projects_root, partial=True
     ))
     logger.info(
         "services_loaded",

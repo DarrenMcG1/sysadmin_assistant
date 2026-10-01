@@ -3,6 +3,14 @@
 **Last Updated**: 2026-10-01
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **`projects_root` is a top-level config key** (2026-10-01, Session
+> 308). It sat under `agents.project_organiser`, an agent that left for
+> the estate on 2026-08-13, and none of its seven readers was that agent.
+> It and `discovery_depth` moved to the top level, and the organiser's
+> config block and model are gone. A copy left at the old path is named
+> as an unknown key on startup and every reload, never silently obeyed.
+> Daemon restarted at **2026-10-01 12:27:15** <!--check:deploy--> <!--check:daemon_start-->.
+
 > **Growth resuming after a big cleanup now raises a disk risk within days,
 > not a month** (2026-10-01, Session 307). The disk forecast fitted one
 > line over 30 days, so after the late-July cleanup it reported "not
@@ -10,7 +18,7 @@
 > It now also fits the last 7 days and keeps the sooner crossing; replayed
 > over the stored history, the warning would have appeared on 12 August.
 > The short fit can only add urgency, never remove it. Tray restarted,
-> daemon restarted at **2026-10-01 10:26:43** <!--check:deploy--> <!--check:daemon_start-->.
+> daemon restarted at 2026-10-01 10:26:43.
 
 > **The installed system units are now checked against git** (2026-10-01,
 > Session 306). The test that already caught a `sysadmin*` user unit
@@ -7713,6 +7721,15 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 308 — `projects_root` is a top-level config key (2026-10-01)
+
+- `AppConfig.projects_root` and `AppConfig.discovery_depth` replace
+  `agents.project_organiser.*`; `ProjectOrganiserConfig` is deleted and
+  all seven readers repointed. Tests pin the top-level placement, the
+  seven readers, and that an old-path copy is reported by `config_keys`.
+  `test_reload.py`'s root test gained the accepting half, which a
+  mutation showed was the only half that could fail.
 
 ### Session 307 — a 7-day secondary window on the disk fit (2026-10-01)
 

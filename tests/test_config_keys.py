@@ -408,14 +408,16 @@ class TestTheAsymmetryIsDeliberateAndStays:
         # ``BranchActionsConfig``, ``CodeCommitIgnoreConfig``,
         # ``EstateConfig`` and ``IdleNudgeConfig``.  Re-measured at 32,
         # which is what the assertion message asks for rather than a
-        # number to be nudged past a red.
+        # number to be nudged past a red.  31 since 2026-10-01, when
+        # Session 308 moved ``projects_root`` and ``discovery_depth`` to
+        # the top level and ``ProjectOrganiserConfig`` went with the block.
         #
         # Note *which* count moved: the asymmetry this class guards is
         # ``0 of N`` here against ``M of M`` in services.py, and it is the
         # **0** and the **all** that must not move.  ``N`` is the
         # denominator, and five models leaving for a reason that has
         # nothing to do with ``extra=`` does not touch the claim.
-        assert models >= 32, "the module shrank; re-measure before trusting this"
+        assert models >= 31, "the module shrank; re-measure before trusting this"
         assert strict == 0, (
             f"{strict} model(s) in sysadmin/core/config.py now forbid unknown "
             "keys — the shipped config.yaml carries keys the tray owns, so "

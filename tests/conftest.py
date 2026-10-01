@@ -18,7 +18,6 @@ from sysadmin.core.config import (
     AppConfig,
     DatabaseConfig,
     FileOrganiserConfig,
-    ProjectOrganiserConfig,
     ServiceConfig,
     SysAdminAgentConfig,
     Thresholds,
@@ -72,6 +71,7 @@ def mock_config():
             sync_url="postgresql+psycopg2://test@localhost/test",
             schema="sysadmin_test",
         ),
+        projects_root="/tmp/test_projects",
         agents=AgentsConfig(
             sysadmin=SysAdminAgentConfig(
                 enabled=True,
@@ -81,13 +81,6 @@ def mock_config():
                     disk_critical_percent=90,
                     ram_warning_percent=85,
                 ),
-            ),
-            # Trimmed to its two live leaves by Session 236 with the
-            # block itself; the four kwargs that stood here named fields
-            # that no longer exist (``enabled``, ``stale_branch_days``,
-            # ``track_todos``, ``todo_patterns``).
-            project_organiser=ProjectOrganiserConfig(
-                projects_root="/tmp/test_projects",
             ),
             file_organiser=FileOrganiserConfig(
                 enabled=True,

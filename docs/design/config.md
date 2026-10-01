@@ -10,7 +10,7 @@ a record in [`../adr/`](../adr/). The other design documents are listed in
 
 What the deletion did **not** reach was `SNAG-CFG-004`, and the entry's
 own headline fix was refuted by the file it was about (Session 136).
-`config.yaml`'s models inherit `extra="ignore"` (**0 of 32**) while
+`config.yaml`'s models inherit `extra="ignore"` (**0 of 31**) while
 `services.yaml`'s all set `extra="forbid"` (**5 of 5** since
 2026-09-23's `HttpExpectation`; 4 of 4 when written), so
 `briefing_hourr: 9` parses cleanly and the briefing stays at 6. **The
@@ -19,7 +19,9 @@ one of them*: the denominator read **37** until 2026-09-14, when Session
 236 trimmed `agents.project_organiser` to its two live leaves and deleted
 the five nested models behind the rest (`HealthGradeBands`,
 `BranchActionsConfig`, `CodeCommitIgnoreConfig`, `EstateConfig`,
-`IdleNudgeConfig`). The claim is `0 of N` against `M of M`, so what must
+`IdleNudgeConfig`), and read 32 until 2026-10-01, when Session 308
+moved `projects_root` and `discovery_depth` to the top level and
+`ProjectOrganiserConfig` went with the emptied block. The claim is `0 of N` against `M of M`, so what must
 not move is the **0** and the **all**; `N` and `M` are how many models
 exist — the second read 4 until a fifth arrived forbidding like the rest
 and a test pinning `== 4` went red on a change that kept the claim — and

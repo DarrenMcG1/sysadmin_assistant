@@ -869,7 +869,7 @@ def action_client(mock_config, test_client, tmp_path):
     organiser = mock_config.agents.file_organiser
     organiser.scan_root = str(tmp_path)
     organiser.actions.trash_dir = str(tmp_path / ".local" / "share" / "Trash")
-    mock_config.agents.project_organiser.projects_root = str(tmp_path / "projects")
+    mock_config.projects_root = str(tmp_path / "projects")
     return test_client
 
 

@@ -14930,10 +14930,19 @@ Routes unchanged (55 → 55), suite 1509 → 1512. The registry is still unwired
       in `agents/service_discovery.py` with the library import — resolving the
       drift the existing comment warns about, rather than relying on convention
       *(Ticked by Session 266, 2026-09-27, re-measuring the file: Done by Session 35 Phase 4, 2026-08-08 (`e4165f6`): both agents call `load_registry`, and nothing in `sysadmin/` or `tests/` imports `discover_projects`.)*
-- [ ] Promote `agents.project_organiser.projects_root` to a **top-level config
+- [x] Promote `agents.project_organiser.projects_root` to a **top-level config
       key**. Three consumers read it (`service_discovery`, `routers/files` as a
       safety confinement rule, `branch_actions`) and only one is the organiser
       *(Re-read by Session 266, 2026-09-27, and left open: still `agents.project_organiser.projects_root` in `config.yaml` and `sysadmin/core/config.py`. The organiser has left, so none of the key's seven readers is the section it sits under, and the case is stronger than when this was written. No refusal is recorded.)*
+      *(Done by Session 308, 2026-10-01: `projects_root` and `discovery_depth` are top-level fields on `AppConfig`, the `agents.project_organiser` block and `ProjectOrganiserConfig` are deleted, and all seven readers read `config.projects_root`. A copy at the old path is reported by `config_keys` as `agents.project_organiser`, pinned in `tests/test_config_defaults.py::TestProjectsRootIsTopLevel`.)*
+- [ ] **Hand `discovery_depth` to every `load_registry` caller, or delete
+      it.** Only `units/agent.py` passes `config.discovery_depth`; `main.py`,
+      `reload.py`, `units/router.py` and `monitor/routers/projects_managed.py`
+      take estate-lib's default. Both are 2 today, so nothing differs, but
+      setting the key to 1 would give the unit sweep a different project
+      set from the registry `services.yaml` is checked against — the drift
+      `load_registry` exists to remove. Found by Session 308 while moving
+      the key; left because it changes behaviour, which the move did not
 - [x] Define and implement the `.project.yaml` manifest — `schema`, `id`,
       `name`, `category`, `status`, `summary`, `supersedes`, `alert_threshold`,
       `decisions[]`. Reader **and** validator live in the library

@@ -582,7 +582,10 @@ than this paragraph.
   two leaves that do have readers — `projects_root` (seven) and
   `discovery_depth` (two, and in no `config.yaml`, so a sweep of the file
   alone reads it as dead) — and deleted the other eleven with the five
-  nested models holding them. Estate side: their ADR-0004 (the decision) and ADR-0008
+  nested models holding them. **The block itself went on 2026-10-01**
+  (Session 308): both survivors are top-level keys now, `projects_root`
+  in `config.yaml` and `discovery_depth` on `AppConfig` alone, because
+  none of their readers was the organiser. Estate side: their ADR-0004 (the decision) and ADR-0008
   (the migration's shape).
 - **[0006-wiring-joins-ports.md](docs/adr/0006-wiring-joins-ports.md)** —
   **read this before adding a third check to `JUDGED_AUDIT_CHECKS`.**

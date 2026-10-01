@@ -290,55 +290,6 @@ class SysAdminAgentConfig(BaseModel):
     weekly_review: bool = True
 
 
-class ProjectOrganiserConfig(BaseModel):
-    """What is left of the organiser's configuration: two live leaves.
-
-    The agent itself moved to the estate's 8400 service on 2026-08-13
-    (ADR-0005), and ADR-0005 recorded this block as knowingly untidy —
-    still parsed here, read by almost nothing.  Session 236 measured
-    "almost" and trimmed to it.  Every threshold the organiser reasoned
-    with (``grade_bands``, ``alert_threshold``, ``max_todo_penalty``,
-    ``todo_patterns``, ``stale_branch_days``, ``idle_nudges``,
-    ``branch_actions``, ``estate``/``code_commit_ignore``) went with the
-    domain and is argued for in estate-manager; the five nested models
-    that held them are deleted rather than left declaring defaults no
-    caller can reach, which is ``SNAG-CFG-001``'s shape.
-
-    **Both halves had to move together, and they fail in opposite
-    directions.**  A key in ``config.yaml`` with no field here is *loud*
-    — :mod:`sysadmin.core.config_keys` walks ``model_fields`` and names
-    the orphan in the lifespan and on ``POST /api/sysadmin/reload``.  A
-    field here with no key there is *silent*: the value simply falls back
-    to this class's default, which for ``enabled`` would have inverted
-    the file's recorded ``false`` into a parsed ``true``.  Trimming one
-    side alone is therefore not half the job in either direction.
-
-    The two survivors are kept for measured readers, not for tidiness:
-
-    - ``projects_root`` — seven callers (:mod:`sysadmin.main`,
-      :mod:`sysadmin.reload`, ``files/router.py``, ``units/agent.py``
-      twice, ``units/router.py``, ``monitor/routers/projects_managed.py``).
-      It is the file domain's safety fence and the root every units route
-      resolves the registry through, and ``reload.py`` lists it in
-      ``LIVE_AT_STARTUP`` because it is read at startup *and* rebuilt on
-      every reload.
-    - ``discovery_depth`` — two callers, both in ``units/agent.py``,
-      handed to ``load_registry``.  It appears in no ``config.yaml``
-      shipped here and is easy to mistake for debt on a sweep of the
-      *file*; it is not, which is why a trim scoped to the file alone
-      would have missed that it must survive.
-    """
-
-    projects_root: str = "/home/gaddi/projects"
-    # How deep discovery may look for project markers. 1 = the old
-    # behaviour (immediate children of projects_root only); 2 lets a
-    # *category* directory (one with no markers of its own, e.g. apps/)
-    # hold projects.  Directories that ARE projects are never descended
-    # into, whatever the depth — a repo's vendored sub-repos are its own
-    # business.
-    discovery_depth: int = 2
-
-
 class FileActionsConfig(BaseModel):
     """Mutating filesystem actions (``POST /api/files/organise``, ``/clean/*``).
 
@@ -1092,7 +1043,6 @@ class EventsConfig(BaseModel):
 
 class AgentsConfig(BaseModel):
     sysadmin: SysAdminAgentConfig = Field(default_factory=SysAdminAgentConfig)
-    project_organiser: ProjectOrganiserConfig = Field(default_factory=ProjectOrganiserConfig)
     file_organiser: FileOrganiserConfig = Field(default_factory=FileOrganiserConfig)
     log_aggregator: LogAggregatorConfig = Field(default_factory=LogAggregatorConfig)
     service_discovery: ServiceDiscoveryConfig = Field(
@@ -1114,6 +1064,30 @@ class AppConfig(BaseModel):
     schedules: SchedulesConfig = Field(default_factory=SchedulesConfig)
     self_monitor: SelfMonitorConfig = Field(default_factory=SelfMonitorConfig)
     events: EventsConfig = Field(default_factory=EventsConfig)
+
+    #: Where the estate's repositories live.  Top level since 2026-10-01
+    #: (Session 308): until then it sat under ``agents.project_organiser``,
+    #: an agent that left for the estate's 8400 service on 2026-08-13
+    #: (ADR-0005), and none of its seven readers was that agent.  They are
+    #: ``main.py`` and ``reload.py`` (the registry ``services.yaml`` is
+    #: checked against), ``units/agent.py`` twice and ``units/router.py``
+    #: (the root unit sweeps resolve projects through),
+    #: ``monitor/routers/projects_managed.py``, and ``files/router.py``,
+    #: where it is the file actions' safety fence.  ``reload.py`` lists it
+    #: in ``LIVE_AT_STARTUP``: read at startup *and* rebuilt on every
+    #: reload, so an edit owes no restart.
+    projects_root: str = "/home/gaddi/projects"
+    #: How deep registry discovery may look for project markers, handed
+    #: to ``load_registry`` beside :attr:`projects_root`.  1 = immediate
+    #: children only; 2 lets a *category* directory (one with no markers
+    #: of its own, e.g. ``apps/``) hold projects.  Directories that ARE
+    #: projects are never descended into, whatever the depth.  Read only
+    #: by ``units/agent.py``; the other five ``load_registry`` callers
+    #: take the library's default, which is also 2.  Set in no shipped
+    #: ``config.yaml``, so a sweep of the *file* reads it as dead — it
+    #: is not.
+    discovery_depth: int = 2
+
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
 
 

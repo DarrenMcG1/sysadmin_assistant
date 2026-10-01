@@ -562,7 +562,7 @@ def _excluded_roots(config: AppConfig) -> list[Path]:
     work in progress, not to a tidy-up.
     """
     roots: list[Path] = []
-    projects_root = config.agents.project_organiser.projects_root
+    projects_root = config.projects_root
     if projects_root:
         roots.append(Path(projects_root).expanduser().resolve())
     return roots

@@ -1,21 +1,70 @@
-# Handoff — 2026-10-01 (Session 307)
+# Handoff — 2026-10-01 (Session 308)
 
 ## Next action
 
-Promote `agents.project_organiser.projects_root` to a top-level config key, since none of its seven readers is the organiser it sits under. *(For: session)*
+Pass `discovery_depth` to all five `load_registry` callers, or delete it, so the unit sweep and the services registry cannot resolve different project sets. *(For: session)*
 
-It is the first unchecked item in tasks.md that can start now. The one
-above it, moving `UV_PYTHON` in `ci.yml`, still waits on the box's
-interpreter changing. Session 266 re-read it and found the case
-stronger: the organiser has left. The fix to the disk fit's
+It is the first startable unchecked item in tasks.md, added today. Only
+`units/agent.py` passes the key; the other four callers take estate-lib's
+default. Both are 2, so nothing differs on the box now. Deleting the key
+is the smaller fix if nobody wants to tune depth. The disk fit's
 fitted-line-above-threshold branch, `SNAG-FILES-001`, is the other
-startable candidate and is smaller. Estate message `49b9e620`
-(venture-assistant moves reddit's 429 backoff line to INFO) still asks
-nothing of this repository and can be closed. The two estate-manager
-messages filed today (`ba17667d`, `81c4070e`) announce additive
-estate-lib changes and have still not been read in full.
+startable candidate. Estate message `49b9e620` (venture-assistant moves
+reddit's 429 backoff line to INFO) still asks nothing of this repository
+and can be closed. The two estate-manager messages filed today
+(`ba17667d`, `81c4070e`) announce additive estate-lib changes and have
+still not been read in full.
+
+## Session 308: `projects_root` is a top-level config key
+
+Session 307's next action. `sysadmin/core/config.py`, `config.yaml`, the
+seven reader sites (`main.py`, `reload.py`, `files/router.py`,
+`units/agent.py` twice, `units/router.py`,
+`monitor/routers/projects_managed.py`), six test modules,
+`docs/design/config.md`, `docs/ARCHITECTURE.md`, `CLAUDE.md` and the
+roadmap. Daemon restarted at 12:27:15 BST (`kill -TERM`, `NRestarts`
+3 → 4).
+
+- **What changed.** `AppConfig.projects_root` and
+  `AppConfig.discovery_depth` replace `agents.project_organiser.*`.
+  `ProjectOrganiserConfig` and the `config.yaml` block are deleted.
+- **Decided: `discovery_depth` moved too.** It was the block's only
+  other field and is passed to `load_registry` beside `projects_root`.
+  Leaving it would have kept the whole model alive for one leaf no
+  `config.yaml` sets. It stays unset in the file.
+- **Decided: two top-level scalars, not a new section.** That matches
+  estate-manager's own config, which has `projects_root` and
+  `discovery_depth` at the top level.
+- **Rejected: honouring the old path as a fallback.** Two places for
+  one setting is a second truth. No other repository reads this key
+  (swept `~/projects`; estate-manager keeps its own). A copy at the old
+  path parses, is ignored, and `config_keys` names it as unknown on
+  startup and every reload; a test pins that.
+- **Found: `test_reload.py`'s root test could not fail.** The test only
+  asserted that an unknown id is refused after the root changes, and
+  that id is unknown under any root. Mutating `reload.py` to ignore the
+  new root left that half green. The test now also asserts that an id
+  existing only under the new root is accepted, which went red under
+  the same mutation.
+- **Found and recorded, not fixed: `discovery_depth` is honoured by
+  one caller of five.** Fixing it changes behaviour, so it is a task in
+  tasks.md (the next action above), not part of this move.
+- **Counts re-measured, not nudged.** Config models 32 → 31
+  (`test_config_keys.py`'s floor, and `docs/design/config.md`'s
+  "0 of N"); config sub-sections 31 → 30.
+- **Verified.** Suite 4,429 passed, 2 skipped; ruff and mypy clean.
+  Live: `registry_loaded` from `/home/gaddi/projects` (30 repositories),
+  `/api/projects/managed` lists 30, `POST /api/sysadmin/reload` returns
+  `ok` with no unknown keys and nothing owing a restart.
+  `check-ops-claims.sh` 15 of 15 `ok` after moving the daemon-start
+  markers to the new headline.
+
+*One concern held.* The `discovery_depth` inconsistency was the only
+second concern, recorded in tasks.md.
 
 ## Session 307: a 7-day secondary window on the disk fit
+
+_Its next action, since carried out:_ _Promote `agents.project_organiser.projects_root` to a top-level config key, since none of its seven readers is the organiser it sits under._
 
 Session 306's next action. `sysadmin/files/forecast.py`,
 `sysadmin/files/recommendations.py`, `sysadmin_tray/widgets/disk_forecast.py`,

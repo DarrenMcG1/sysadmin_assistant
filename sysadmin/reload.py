@@ -132,7 +132,7 @@ RESTART_ONLY: tuple[tuple[str, str], ...] = (
 LIVE_AT_STARTUP: tuple[tuple[str, str], ...] = (
     ("api.auth_token", "require_auth reads it on every request"),
     (
-        "agents.project_organiser.projects_root",
+        "projects_root",
         "this module rebuilds the registry from it on every reload",
     ),
 )
@@ -385,7 +385,7 @@ def reload_configuration(
             # ``registry_manifest_refused`` WARNING is what says why, and
             # on the SIGHUP path that line is the only report there is.
             registry = load_registry(
-                new_config.agents.project_organiser.projects_root,
+                new_config.projects_root,
                 partial=True,
             )
             new_services = load_services(

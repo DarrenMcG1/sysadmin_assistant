@@ -177,8 +177,11 @@ table are the same set.
 `ProjectOrganiserAgent` is **not** in this table because it is not in this
 repository: it moved to estate-manager on 2026-08-13
 ([ADR-0005](adr/0005-project-state-leaves.md)). Its name survives in
-`self_monitor.AGENT_NAMES` and in a disabled `agents.project_organiser` config
-block, both of which that ADR records as knowingly untidy.
+`self_monitor.AGENT_NAMES`, which that ADR records as knowingly untidy. The
+`agents.project_organiser` config block it also left behind is gone: trimmed to
+two leaves on 2026-09-14, and on 2026-10-01 those two (`projects_root`,
+`discovery_depth`) moved to the top level of `config.yaml`, since none of
+their readers was the organiser.
 
 ### Scheduler — APScheduler bridge
 

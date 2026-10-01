@@ -424,7 +424,7 @@ def test_project_refs_come_from_the_registry(mock_config, tmp_path):
     (tmp_path / "thing" / ".project.yaml").write_text(
         "schema: 1\nid: thing\nname: thing\nstatus: active\n", encoding="utf-8"
     )
-    mock_config.agents.project_organiser.projects_root = str(tmp_path)
+    mock_config.projects_root = str(tmp_path)
 
     refs = ServiceDiscoveryAgent._project_refs(mock_config)
 
@@ -435,7 +435,7 @@ def test_project_refs_include_undeclared_repositories(mock_config, tmp_path):
     """An undeclared repository still owns its units. Omitting it would
     misreport every one of them as an orphan."""
     (tmp_path / "mystery" / ".git").mkdir(parents=True)
-    mock_config.agents.project_organiser.projects_root = str(tmp_path)
+    mock_config.projects_root = str(tmp_path)
 
     refs = ServiceDiscoveryAgent._project_refs(mock_config)
 
@@ -456,7 +456,7 @@ def test_project_refs_keep_a_refused_repository(mock_config, tmp_path):
     every unit in it as an orphan. Live, because its status is inside the
     file that failed."""
     _refused_tree(tmp_path)
-    mock_config.agents.project_organiser.projects_root = str(tmp_path)
+    mock_config.projects_root = str(tmp_path)
 
     refs = ServiceDiscoveryAgent._project_refs(mock_config)
 
@@ -470,7 +470,7 @@ def test_project_inputs_keep_a_refused_repository_too(mock_config, tmp_path):
     tests — and its alias map, where the directory is the only name a
     tree with an unreadable id has."""
     _refused_tree(tmp_path)
-    mock_config.agents.project_organiser.projects_root = str(tmp_path)
+    mock_config.projects_root = str(tmp_path)
 
     refs, aliases = ServiceDiscoveryAgent._project_inputs(mock_config)
 
@@ -484,7 +484,7 @@ def test_an_armed_unit_in_a_refused_repository_is_not_an_orphan(mock_config, tmp
     which is ``critical``: one broken manifest would have announced that
     the project was gone, louder than the row saying what broke."""
     tree = _refused_tree(tmp_path)
-    mock_config.agents.project_organiser.projects_root = str(tmp_path)
+    mock_config.projects_root = str(tmp_path)
     unit = UnitFile(
         name="thing-backend.service",
         scope="user",
@@ -503,7 +503,7 @@ def test_an_armed_unit_in_a_refused_repository_is_not_an_orphan(mock_config, tmp
 
 
 def test_project_refs_are_empty_when_the_root_is_missing(mock_config):
-    mock_config.agents.project_organiser.projects_root = "/definitely/not/here"
+    mock_config.projects_root = "/definitely/not/here"
     assert ServiceDiscoveryAgent._project_refs(mock_config) == []
 
 

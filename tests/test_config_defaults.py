@@ -17,14 +17,15 @@ import yaml
 from pydantic import BaseModel
 
 from sysadmin.core.config import (
+    AgentsConfig,
     AppConfig,
     FileOrganiserConfig,
-    ProjectOrganiserConfig,
     SchedulesConfig,
     ServiceConfig,
     get_config,
     load_config,
     parse_config,
+    unknown_config_keys,
 )
 from sysadmin.core.defaults import DEFAULT_API_HOST, DEFAULT_API_PORT, default_api_url
 from sysadmin.monitor.services import ServiceEntry
@@ -78,7 +79,7 @@ class TestLiftedMagicNumbers:
     def test_app_config_exposes_new_sections(self):
         cfg = AppConfig()
         assert cfg.schedules.briefing_hour == 6
-        assert cfg.agents.project_organiser.projects_root == "/home/gaddi/projects"
+        assert cfg.projects_root == "/home/gaddi/projects"
         assert cfg.agents.file_organiser.reclaimable_milestones_mb[0] == 1024
 
 
@@ -570,142 +571,75 @@ class TestTheVacatedReviewLeavesStayGone:
         assert not hasattr(parsed, "review_hour")
 
 
-class TestTheOrganiserBlockIsTrimmedToItsReaders:
-    """Session 236 — what survives ``agents.project_organiser``, and why.
+class TestProjectsRootIsTopLevel:
+    """Session 308 — the organiser block's last two leaves left it.
 
-    The agent left on 2026-08-13 (ADR-0005) and its configuration stayed
-    behind: thirteen leaves across five nested models, parsed by pydantic
-    and — for all but two of them — read by nothing.  That is
-    ``SNAG-CFG-001``'s shape, and the trim that removed it has to be
-    guarded from both sides, because **a key in the file and a field in
-    the model are two statements of one setting that fail in opposite
-    directions**.  A key with no field is loud (``config_keys`` names the
-    orphan on every reload); a field with no key is silent (the value
-    falls back to the model default, which for ``enabled`` would have
-    turned the file's recorded ``false`` into a parsed ``true``).
+    ``agents.project_organiser`` outlived its agent, which moved to the
+    estate's 8400 service on 2026-08-13 (ADR-0005).  Session 236 trimmed
+    it from thirteen leaves to the two with readers, and this sitting
+    moved those two to the top level and deleted the block and its model,
+    because none of the readers was the organiser: ``projects_root`` is
+    the registry root, the unit sweep's root and the file actions' safety
+    fence, and ``discovery_depth`` is handed to ``load_registry`` beside
+    it.
 
-    So there are two guards with different reaches, and the difference is
-    measured rather than asserted:
-
-    - the **file** half is exact.  A key is a key; there is nothing to
-      collide with, so it catches every leaf re-added to ``config.yaml``.
-    - the **model** half keys on ``attribute_reads``, which compares the
-      final segment of an attribute load — ``ast.Attribute.attr`` — and
-      therefore cannot tell this block's leaf from another block's leaf
-      of the same name.  Driven at the twelve deleted leaves it reports
-      **seven** correctly unread (``max_todo_penalty``, ``todo_patterns``,
-      ``stale_branch_days``, ``track_todos``, ``idle_nudges``,
-      ``branch_actions``, ``estate``) and is masked on **five** by
-      collisions elsewhere in the tree: ``enabled`` (44 reads),
-      ``scan_interval_hours`` (7), ``weekly_review`` (3),
-      ``alert_threshold`` (1, the unit sweep's patience knob) and
-      ``grade_bands`` (1, ``ReliabilityGradeBands``).
-
-    The residue is stated rather than implied: a **model-only** field
-    whose name collides — ``weekly_review`` is the one real specimen,
-    since it was never in the file — escapes both guards.  It is small
-    and it is the honest limit; narrowing ``attribute_reads`` to a
-    qualified path would make it a second implementation of the attribute
-    chain, which is ``SNAG-DB-003``'s shape.
+    **A key and its field fail in opposite directions**, which is why
+    both halves moved together and why both are pinned here.  A key with
+    no field is loud — ``config_keys`` names it on startup and on every
+    reload.  A field with no key is silent, falling back to its default.
+    So a copy left at the old path is not obeyed, and the guard that says
+    so is the loud one, asserted below rather than assumed.
     """
 
-    #: The leaves deleted on 2026-09-14, as the falsification population.
-    #: Restoring any of them must turn one of these tests red.
-    TRIMMED = (
-        "enabled",
-        "scan_interval_hours",
-        "stale_branch_days",
-        "track_todos",
-        "todo_patterns",
-        "grade_bands",
-        "alert_threshold",
-        "weekly_review",
-        "max_todo_penalty",
-        "branch_actions",
-        "estate",
-        "idle_nudges",
-    )
+    def _raw(self) -> dict:
+        return yaml.safe_load(REPO_CONFIG.read_text(encoding="utf-8"))
 
-    def _organiser_block(self) -> dict:
-        raw = yaml.safe_load(REPO_CONFIG.read_text(encoding="utf-8"))
-        return raw["agents"]["project_organiser"]
+    def test_the_shipped_file_sets_it_at_the_top_level(self):
+        raw = self._raw()
+        assert raw["projects_root"] == "/home/gaddi/projects"
+        assert "project_organiser" not in raw["agents"]
 
-    def test_the_shipped_file_sets_only_the_reloadable_leaf(self):
-        """The exact half.  Every re-added key is caught here, collision or not."""
-        assert set(self._organiser_block()) == {"projects_root"}
+    def test_the_model_declares_it_at_the_top_level_only(self):
+        assert {"projects_root", "discovery_depth"} <= set(AppConfig.model_fields)
+        assert "project_organiser" not in AgentsConfig.model_fields
 
-    def test_no_trimmed_leaf_returned_to_the_file(self):
-        """Stated positively as well, so a red names the leaf rather than a set diff."""
-        block = self._organiser_block()
-        assert [leaf for leaf in self.TRIMMED if leaf in block] == []
+    def test_a_copy_at_the_old_path_is_named_not_obeyed(self, tmp_path):
+        """The failure the move could introduce, driven rather than argued.
 
-    def test_every_declared_field_has_a_reader(self):
-        """The model half.  A field nothing reads is the shape that was removed.
-
-        Driven at ``sysadmin/`` alone: a leaf read only by its own tests
-        is a leaf kept alive by the thing testing it.
+        A config written before 2026-10-01 parses, and its root is the
+        default rather than the one it names — the silent half.  What
+        stops that being invisible is the key report, so the report is
+        what this asserts.
         """
-        unread = [
-            name
-            for name in ProjectOrganiserConfig.model_fields
-            if not attribute_reads(frozenset({name}), [REPO_ROOT / "sysadmin"])
-        ]
-        assert unread == []
+        old = tmp_path / "config.yaml"
+        old.write_text(yaml.safe_dump(
+            {"agents": {"project_organiser": {"projects_root": "/elsewhere"}}}
+        ))
+        parsed = AppConfig.model_validate(yaml.safe_load(old.read_text()))
+        assert parsed.projects_root == "/home/gaddi/projects"
+        assert unknown_config_keys(old).unknown == ["agents.project_organiser"]
 
-    def test_the_model_guard_is_falsified_by_seven_of_the_twelve(self):
-        """The guard above is driven at the defect, and its reach is pinned.
-
-        Seven of the twelve deleted leaves have no same-named reader
-        anywhere under ``sysadmin/``, so re-adding any of them to
-        :class:`ProjectOrganiserConfig` turns
-        ``test_every_declared_field_has_a_reader`` red.  Pinning the
-        number is what stops the reach being quietly overstated: if a
-        future module happens to read a field called ``estate``, this
-        goes red and the docstring above is the thing to correct.
-        """
-        caught = [
-            leaf
-            for leaf in self.TRIMMED
-            if not attribute_reads(frozenset({leaf}), [REPO_ROOT / "sysadmin"])
-        ]
-        assert sorted(caught) == [
-            "branch_actions",
-            "estate",
-            "idle_nudges",
-            "max_todo_penalty",
-            "stale_branch_days",
-            "todo_patterns",
-            "track_todos",
-        ]
+    def test_projects_root_has_its_seven_readers(self):
+        """The count the move was argued from, pinned so it cannot drift silently."""
+        reads = attribute_reads(frozenset({"projects_root"}), [REPO_ROOT / "sysadmin"])
+        assert len(reads) == 7, reads
 
     def test_discovery_depth_is_live_and_deliberately_unset(self):
-        """The asymmetry the whole sitting turned on, pinned in both directions.
+        """Read twice in ``units/agent.py`` and set in no shipped ``config.yaml``.
 
-        ``discovery_depth`` has two readers in ``units/agent.py`` and
-        appears in no shipped ``config.yaml``.  A trim scoped to the file
-        cannot see it, and would have read its absence there as evidence
-        it was dead — the handoff that opened this sitting named seven
-        readers and only ``projects_root``.  It is not written into the
-        file either: a value stated in two places is free to disagree
-        with itself.
-
-        **The declaration is asserted, and the first draft of this test
-        did not assert it.**  Driven as a mutation, deleting the field
-        from :class:`ProjectOrganiserConfig` left all five of these tests
-        green — ``attribute_reads`` measures ``units/agent.py``, which the
-        deletion does not touch, and
-        ``test_every_declared_field_has_a_reader`` merely loops over one
-        field fewer.  A no-op mutation is not a control, so the missing
-        half is here.  The full suite does catch that deletion, in
-        ``tests/test_units_api.py::test_project_refs_come_from_the_registry``
-        and as an ``AttributeError`` rather than as a statement about
-        this block — which is cover, not the thing this docstring claims.
+        A sweep of the *file* reads its absence as death; Session 236's
+        handoff named seven readers and only ``projects_root`` for that
+        reason.  It stays out of the file because a value stated in two
+        places is free to disagree with itself.  The declaration is
+        asserted as well as the reads: deleting the field leaves
+        ``units/agent.py`` untouched, so a reads-only assertion stays
+        green over the very mutation it exists to catch.
         """
-        assert "discovery_depth" in ProjectOrganiserConfig.model_fields
+        assert "discovery_depth" in AppConfig.model_fields
         reads = attribute_reads(frozenset({"discovery_depth"}), [REPO_ROOT / "sysadmin"])
         assert len(reads) == 2
         assert all("units/agent.py" in hit for hit in reads)
-        assert "discovery_depth" not in self._organiser_block()
+        assert "discovery_depth" not in self._raw()
 
 
 # --- The general case of the organiser trim (Session 237) ---------------
@@ -857,8 +791,9 @@ class TestEveryConfigLeafHasAReader:
 
         A container nothing reads takes its entire subtree out of the
         sweep above — every leaf beneath it would be reachable only
-        through a name no code loads.  Empty today across all 31
-        containers, which is a measurement and not an assumption.
+        through a name no code loads.  Empty today across all 30
+        containers (31 until Session 308 deleted ``project_organiser``
+        on 2026-10-01), which is a measurement and not an assumption.
         """
         _, containers = _config_field_names()
         unread = sorted(
