@@ -6,15 +6,18 @@
 > **This block agrees with the box again** (2026-10-01, Session 317).
 > Four of its statements had gone out of date during the day, and each
 > was re-measured before it was changed. At the owner's `sudo
-> systemctl restart`, the service restarted at **2026-10-01 15:12:12**
-> <!--check:deploy--> <!--check:daemon_start-->, after the restart
-> Session 312 recorded. One of the three open alerts the block counted
+> systemctl restart`, the service restarted at 2026-10-01 15:12:12,
+> after the restart Session 312 recorded. One of the three open alerts the block counted
 > resolved at 14:36, so two are open. Session 316 added a test and left
 > the test count one short. And two port alerts the block set aside as
 > flapping have not been seen for seven days, so those two declarations
-> were retired. A restart is still owed: Session 316's change to
-> `sysadmin/core/config.py` and two other repositories' `services.yaml`
-> entries reach the service only then. No service code changed.
+> were retired. No service code changed. The owner then restarted it
+> again: the daemon restarted at **2026-10-01 20:30:10**
+> <!--check:deploy--> <!--check:daemon_start-->, which put three
+> changes live, measured at 21:01. venture-chat is polled on its new
+> port 8301 and venture-manager's API on 8900, both `ok`, and
+> `GET /api/projects/managed` returns 32 projects, the one more that
+> Session 316's discovery depth added.
 
 > **This service now sees the same set of projects as the estate**
 > (2026-10-01, Session 316). The estate began looking one folder level

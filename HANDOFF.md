@@ -38,15 +38,17 @@ If only `skipped` lines appear, the card never suspended (a monitor
 stayed on), and the drive needs another night. Then fix `gpu.py`'s
 rule 5 docstring in the same change as the code.
 
-## For the owner
+## The owner's restart (done 20:30:10)
 
-`sudo systemctl restart sysadmin.service`. Three changes wait on it:
-two of today's `services.yaml` commits (venture-chat moving to :8301
-and venture-manager's API on :8900), and Session 316's discovery depth
-(below), which is in `sysadmin/core/config.py` and so reaches the
-daemon only at a restart. The daemon started at 15:12:12 BST, before
-all three. Messages `898794e9` and `2e3a4bb6` stay open until then.
-*(For: owner, ~2 min)*
+The owner restarted `sysadmin.service` at 20:30:10 BST, which put
+three changes live. Measured at 21:01: venture-chat is polled on :8301
+and venture-manager's API (`venture-manager-api.service`) on :8900,
+both `ok`, and `GET /api/projects/managed` returns 32 projects, the
+one more that Session 316's discovery depth added. Session 317
+recorded the new start time in STATUS.md, so every claim
+`check-ops-claims.sh` reads is `ok`, and closed the two messages that
+waited on it: `898794e9` (venture-manager) and `2e3a4bb6`
+(venture-chat).
 
 ## Session 317: STATUS.md's opening block agrees with the box
 

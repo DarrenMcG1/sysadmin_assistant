@@ -23,6 +23,10 @@ only; no restart owed for it.
 - [x] **Left `no` on purpose: the deploy claim.** Session 316's
       `config.py` edit postdates the 15:12:12 start; the restart is the
       owner's, recorded under "For the owner" in HANDOFF.md.
+- [x] **The owner restarted at 20:30:10; recorded.** STATUS.md's start
+      time moved to it, every `check-ops-claims.sh` claim reads `ok`,
+      :8301 and :8900 are polled `ok`, `/api/projects/managed` returns
+      32, and messages `898794e9` and `2e3a4bb6` are closed.
 
 ## Session 316: the registry follows the estate to depth 3 (2026-10-01)
 
