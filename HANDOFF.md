@@ -1,10 +1,59 @@
-# Handoff — 2026-10-01 (Session 303)
+# Handoff — 2026-10-01 (Session 304)
 
 ## Next action
 
-Act on estate message 633d1a86: find whether the installed `sysadmin-tray.service` unit or the git-tracked KDE autostart launches the tray, or both. *(For: session)*
+Deploy git's `systemd/sysadmin.service` with `sudo ./scripts/setup-systemd.sh`, because the installed copy still orders after the retired `ollama.service`. *(For: owner, ~10 min)*
 
-dotfiles found that `~/.config/systemd/user/sysadmin-tray.service`
+It is the first unchecked item in tasks.md, and it is the owner's
+because it needs `sudo`. The drift is harmless at runtime: ordering
+after a unit that does not exist is a no-op, which is why
+`SNAG-SYSD-003` (the backend ordered after a retired unit) could close
+in git on 2026-09-02 without anyone noticing the installed file kept
+the old line. The script now also installs the tray's user unit, which
+is byte-identical to the one running, and it reloads systemd without
+restarting the daemon. The new ordering applies from the next boot.
+For a session instead: estate message `49b9e620` (venture-assistant
+moves reddit's 429 backoff line to INFO) asks nothing and can be
+closed after reading it.
+
+## Session 304: the tray's launcher is the one in git
+
+Session 303's next action, estate message `633d1a86` (dotfiles,
+closed). `systemd/`, `scripts/setup-systemd.sh`, `README.md`,
+`tests/test_tray_launcher.py` and the roadmap. No `sysadmin/` change,
+no restart owed.
+
+- **The user unit alone launches the tray.** One process, PID 3714,
+  in the unit's cgroup. There is no `sysadmin-tray` autostart entry in
+  `~/.config/autostart` or `/etc/xdg/autostart`, and no Plasma
+  `app-*@autostart` unit. The `.desktop` file had been in git since
+  2026-02-07 and was never installed; the unit was hand-written on
+  2026-08-11 and never committed. So the repository lagged, and the
+  tray was not starting twice.
+- **Fixed in git:** the unit is tracked byte for byte as
+  `systemd/sysadmin-tray.service`, the `.desktop` file is deleted, and
+  `setup-systemd.sh` installs and enables the user unit and removes
+  any old autostart entry. The tray has no single-instance guard, and
+  Plasma turns an autostart entry into a unit of its own, so running
+  the old script on this box would have started two trays.
+- **Guarded:** `tests/test_tray_launcher.py`, 6 tests. Four were red on
+  the pre-fix tree, among them dotfiles' own finding (an installed
+  `sysadmin*` user unit matching no tracked file). The box half skips
+  in CI.
+- **Rejected: running `setup-systemd.sh` here.** It needs `sudo`, and
+  it also redeploys the system unit, which is the second concern below.
+  The script's `systemctl --user --machine=gaddi@` form was checked
+  read-only: `is-enabled` answered `enabled`.
+- **A second concern, recorded and not worked:** the installed
+  `/etc/systemd/system/sysadmin.service` lags git (it still has
+  `After=… ollama.service`). It is now the first task in tasks.md and
+  the next action above.
+
+## Session 303: a nudge's wording is ours alone
+
+_Its next action, since carried out:_ _Act on estate message 633d1a86: find whether the installed `sysadmin-tray.service` unit or the git-tracked KDE autostart launches the tray, or both._
+
+_dotfiles found that `~/.config/systemd/user/sysadmin-tray.service`
 matches no file in any repository, while this repository versions
 `systemd/sysadmin-tray.desktop` and `scripts/setup-systemd.sh`
 installs only that. Either the unit superseded the autostart and the
@@ -12,9 +61,7 @@ repository lags, or both run and the tray may start twice. It comes
 before the other open message, `49b9e620` (venture-assistant moves
 reddit's 429 backoff line to INFO), because that one asks nothing.
 The first unchecked tasks.md item waits on a Python release, so it is
-not startable.
-
-## Session 303: a nudge's wording is ours alone
+not startable._
 
 Session 302's next action, estate message `8190bde0` (closed).
 `sysadmin/snag_claims.py`, comments and docstrings in

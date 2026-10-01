@@ -142,8 +142,8 @@ Interactive API docs at <http://127.0.0.1:8500/docs> once running.
 
 Production runs as a systemd unit — `systemd/sysadmin.service`, installed by
 `./scripts/setup-systemd.sh`, with `systemd/sysadmin-failed.service` announcing
-a terminal restart loop. The tray autostarts via `systemd/sysadmin-tray.desktop`;
-the console script is `sysadmin-tray`.
+a terminal restart loop. The tray is the user unit `systemd/sysadmin-tray.service`,
+started with the graphical session; the console script is `sysadmin-tray`.
 
 The daemon **refuses to start** if the database schema does not match the
 migration head it was packaged with. That is deliberate: serving against the

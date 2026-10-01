@@ -8,6 +8,34 @@
 
 ---
 
+## Session 304: the tray's launcher is the one in git (2026-10-01)
+
+Session 303's next action, estate message `633d1a86` (dotfiles).
+`systemd/`, `scripts/setup-systemd.sh`, `README.md`, a new test module
+and the roadmap. No `sysadmin/` change, no restart owed.
+
+- [x] **Measured which launcher runs the tray: the user unit alone.**
+      One process, PID 3714, in `app.slice/sysadmin-tray.service`'s
+      cgroup; no `sysadmin-tray` entry in `~/.config/autostart` or
+      `/etc/xdg/autostart`, and no Plasma `app-*@autostart` unit. The
+      repository lagged; the tray was not starting twice.
+- [x] **Tracked the installed unit** as `systemd/sysadmin-tray.service`,
+      copied byte for byte, and deleted `systemd/sysadmin-tray.desktop`.
+- [x] **`scripts/setup-systemd.sh` installs the user unit** and removes
+      any old autostart entry. Not run: a run also redeploys
+      `sysadmin.service`, which is the task below.
+- [x] **`tests/test_tray_launcher.py`, 6 tests**: four were red on the
+      pre-fix tree, including the installed unit matching no tracked
+      file; the box half skips where no `sysadmin*` user unit exists.
+- [ ] **The installed `/etc/systemd/system/sysadmin.service` lags git.**
+      It still has `After=… ollama.service`; git dropped it on 2026-09-02
+      when `SNAG-SYSD-003` (the backend ordered itself after a retired
+      unit) closed. Found by this session, not worked here: a second
+      concern, and it needs `sudo` plus a daemon restart. Deploy it
+      (`sudo ./scripts/setup-systemd.sh` now also installs the tray
+      unit), and consider extending `tests/test_tray_launcher.py`'s
+      drift check to the two system units.
+
 ## Session 303: a nudge's wording is ours alone — `SNAG-ESTATE-002` closed (2026-10-01)
 
 Session 302's next action, estate message `8190bde0`.

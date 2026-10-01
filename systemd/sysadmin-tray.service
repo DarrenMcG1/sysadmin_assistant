@@ -1,0 +1,42 @@
+[Unit]
+Description=SysAdmin Assistant - Tray
+Documentation=file:///home/gaddi/projects/sysadmin_assistant/docs/guides/monitorable-project.md
+
+# A Qt GUI, not a headless service, so it is bound to the graphical
+# session rather than to default.target. Lingering is enabled for gaddi,
+# so a default.target unit would be started at boot with no display and
+# would restart-loop against an absent compositor until someone logged
+# in. PartOf= also stops it cleanly at logout instead of leaving an
+# orphan holding a socket to a session that has gone.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+# Restart=on-failure with RestartSec=10s puts the 5th start 40s after the
+# first; the window must be wider than that or the limit is unreachable.
+# Without this the loop never terminates, sysadmin-failed.service can never
+# fire, and `systemctl is-failed` reports a looping tray as fine.
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+# Deliberately NOT ordered after sysadmin.service: that is a system unit
+# and a user unit cannot order against one, and the tray is built to
+# tolerate the backend being down (a failed poll is rendered as
+# "connection lost", not a crash). Starting first is normal.
+
+[Service]
+Type=simple
+WorkingDirectory=/home/gaddi/projects/sysadmin_assistant
+ExecStart=/home/gaddi/projects/sysadmin_assistant/.venv/bin/sysadmin-tray
+
+# on-failure, NOT always: the tray has a Quit action in its own menu
+# (tray_icon.py), which exits 0. Restart=always would bring it straight
+# back and make that menu item a no-op.
+Restart=on-failure
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sysadmin-tray
+
+[Install]
+WantedBy=graphical-session.target
