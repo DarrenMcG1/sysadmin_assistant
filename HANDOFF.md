@@ -1,19 +1,21 @@
-# Handoff — 2026-10-01 (Session 314)
+# Handoff — 2026-10-01 (Session 315)
 
 ## Next action
 
-Turn the suite's three live reds green: README's service count, the health-path check, and the audit's `work/automation-side-income` path. *(For: session)*
+Decide whether this repository's registry follows the estate to discovery depth 3; at depth 2 it misses `work/clyde-automation/automation-side-income`. *(For: session)*
 
-It is the first unchecked item in tasks.md that can start now (Session
-314's block). The full suite ended 3 failed, 4,440 passed. All three are
-live checks broken by changes made elsewhere today, not by this session:
-venture-manager's 36th `services.yaml` entry against README's stated
-35; the health-path check reading `mismatch`, which may clear once the
-owner restarts the daemon (not measured); and the estate audit naming a
-project path two levels deep that is not a directory, probably the
-estate's discovery depth moving from 2 to 3 (their message `262209cd`).
-The dGPU item is waiting for tonight's drive, so it is under "Scheduled
-action" below.
+It is the first startable unchecked item in tasks.md (Session 315's
+block). Estate message `262209cd` moved the estate's `DEFAULT_DEPTH`
+from 2 to 3. Below level 2 it counts a directory only if it carries
+`.project.yaml`, so plain clones stay out. Every call here passes
+`config.discovery_depth`, which defaults to 2 in `AppConfig` and is
+unset in `config.yaml`. The message said the two registries agree "and
+will disagree once a declared repository exists at
+work/<category>/<product>; none exists". One does now:
+`discover_repositories` finds 31 at depth 2 and 32 at depth 3. The
+extra one is that tree, which has a `.project.yaml`. Keep `262209cd`
+open until this is decided: it is the message that hands the decision
+here.
 
 ## Scheduled action
 
@@ -46,6 +48,59 @@ rule 5 docstring in the same change as the code.
 venture-manager's API on :8900) are not polled until the daemon
 restarts. It started at 15:12:12 BST, before both. Their messages,
 `898794e9` and `2e3a4bb6`, stay open until then. *(For: owner, ~2 min)*
+
+## Session 315: the three live reds are green
+
+Session 314's next action. Full suite 4,443 passed, 2 skipped; ruff
+and mypy clean. `sysadmin/snag_claims.py` is outside the daemon's
+import graph, so no restart is owed for it.
+
+- **README's count: 35 → 36.** venture-manager's `services.yaml`
+  entry (`46950f2`) is the 36th.
+- **The health-path red was the check working as designed, so the
+  entry changed, not a threshold.** Snag entry `SNAG-UNITS-003` (the
+  generated `kind: http` url guesses `/api/health`) was titled "wrong
+  more often than right". The recount is 6 right and 6 wrong:
+  `sysadmin-service` and venture-manager's API both answer
+  `/api/health`. A tie is not "more often", and the daemon restart the
+  handoff guessed at has nothing to do with it, because the probe hits
+  the services directly. The defect stands: 4 of the 6 wrong are
+  witnesses, services whose own path answers where the guess fails.
+  **Decided:** retitle the entry to that witness claim and remove the
+  check's `wrong <= right` limb. **Rejected:** rewriting the ratio,
+  because it flips with whichever side of a tie the next service lands
+  on. The tie test became `test_the_ratio_is_no_part_of_the_claim`,
+  driven from the side the old limb refuted (every right service
+  against one witness must still `match`).
+- **The audit red cleared on its own.** `automation-side-income` moved
+  from `work/` to `work/clyde-automation/` at 15:46 BST. The audit kept
+  publishing the old path until its 18:38 run, which publishes the new
+  three-level path, and that is a directory. So the producer still
+  spells paths rather than registry ids, and `check-estate-docs.sh`'s
+  reader is unaffected (`SNAG-DOCS-022`, a reader matching nothing and
+  reporting health, does not bite). Moving a repository between audit
+  runs reds this test until the next run; not recorded as a snag,
+  because it clears itself and is rare.
+- **Two concerns stacked, both recorded as tasks:** the registry depth
+  above, and STATUS.md's opening block still dating the daemon's start
+  to 14:21:43, where the box measures 15:12:12 (`check-ops-claims.sh`
+  reads `no`).
+
+## What Session 314 handed on (done by Session 315)
+
+
+Turn the suite's three live reds green: README's service count, the health-path check, and the audit's `work/automation-side-income` path. *(For: session)*
+
+It is the first unchecked item in tasks.md that can start now (Session
+314's block). The full suite ended 3 failed, 4,440 passed. All three are
+live checks broken by changes made elsewhere today, not by this session:
+venture-manager's 36th `services.yaml` entry against README's stated
+35; the health-path check reading `mismatch`, which may clear once the
+owner restarts the daemon (not measured); and the estate audit naming a
+project path two levels deep that is not a directory, probably the
+estate's discovery depth moving from 2 to 3 (their message `262209cd`).
+The dGPU item is waiting for tonight's drive, so it is under "Scheduled
+action" below.
 
 ## Session 314: the overnight drive is scheduled
 

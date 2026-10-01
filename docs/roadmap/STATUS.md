@@ -3,6 +3,16 @@
 **Last Updated**: 2026-10-01
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The test suite is green again** (2026-10-01, Session 315). Three
+> live checks had failed because of changes made elsewhere today. The
+> README's count of monitored services was one short after
+> venture-manager added its API. A snag entry claimed the generated
+> health-check address is wrong for most services; it is now wrong for
+> exactly half, so the entry was narrowed to what still holds: it is
+> wrong for services that answer a different address. The third failure
+> cleared on its own once the estate's audit re-ran after a project
+> folder moved. No service code changed and no restart is owed.
+
 > **A one-night test of which reads leave the sleeping card asleep is
 > scheduled** (2026-10-01, Session 314). From 01:30 to 05:30 on 2
 > October a temporary timer will take one reading at a time while the

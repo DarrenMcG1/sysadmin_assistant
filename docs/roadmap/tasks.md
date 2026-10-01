@@ -8,6 +8,43 @@
 
 ---
 
+## Session 315: the three live reds are green (2026-10-01)
+
+Session 314's next action. Suite 4,443 passed, 2 skipped; ruff and mypy
+clean. `sysadmin/snag_claims.py` is outside the daemon's import graph,
+so no restart is owed.
+
+- [x] **README's service count, 35 → 36.** venture-manager's entry
+      (`46950f2`) is the 36th.
+- [x] **`SNAG-UNITS-003` retitled, and its check's ratio limb
+      removed.** The entry (the generated health url guesses
+      `/api/health`) claimed the guess was "wrong more often than
+      right". The live recount is 6–6, so its check read `mismatch`, as
+      designed. The title now claims the part that holds: the guess is
+      wrong for services that answer a path of their own (4 witnesses
+      today). `check_health_path_guess` no longer refutes at
+      `wrong <= right`. The tie test is replaced by
+      `test_the_ratio_is_no_part_of_the_claim`.
+- [x] **The audit red needed no change.** The tree moved to
+      `work/clyde-automation/` at 15:46 BST and the audit's 18:38 run
+      publishes the new path, which is a directory, so the test passes.
+- [ ] **Decide whether the registry follows the estate to discovery
+      depth 3.** Estate message `262209cd` moved the estate's default
+      from 2 to 3, and below level 2 counts only trees with
+      `.project.yaml`. Every `load_registry` call here passes
+      `config.discovery_depth`, default 2 in `AppConfig`
+      (`sysadmin/core/config.py`) and unset in `config.yaml`.
+      `discover_repositories` finds 31 at depth 2 and 32 at depth 3,
+      the extra one `work/clyde-automation/automation-side-income`
+      (declared, so the estate counts it and this repository does not).
+      Close `262209cd` when decided. *(Stacked in Session 315,
+      recorded rather than worked.)*
+- [ ] **Re-date STATUS.md's daemon-start claim.** Session 312's
+      paragraph marks `2026-10-01 14:21:43` with `check:daemon_start`,
+      and `check-ops-claims.sh` reads `no`: the daemon has run since
+      15:12:12, the owner's restart. *(Stacked in Session 315,
+      recorded rather than worked.)*
+
 ## Session 314: the overnight drive is scheduled (2026-10-01)
 
 Session 313's next action. `scripts/dgpu-wake-drive.py` and the roadmap
@@ -55,7 +92,8 @@ only; no `sysadmin/` change, no restart owed.
 - [x] **Suite: 3 failed, 4,440 passed, 2 skipped.** All three are live
       checks broken by changes made elsewhere today, not by this
       session, which touched only a script and the roadmap.
-- [ ] **Turn the three live reds green.**
+- [x] **Turn the three live reds green.** *(Done by Session 315; see
+      its block above. Neither guessed cause below was the cause.)*
       `test_the_stated_service_count_is_the_measured_one`: README says
       35 services, `services.yaml` declares 36 since venture-manager's
       commit `46950f2`.

@@ -1889,9 +1889,11 @@ def check_health_path_guess() -> Measurement:
     **The entry makes two claims and only one of them is a mechanism,
     which is why both are measured.**  Its body claims that
     ``_services_yaml_snippet`` emits a health path it never fetched; its
-    *title* claims that on this box the guess is "wrong more often than
-    right", counted at 4 right and 7 wrong of 11 on 2026-08-15 by an
-    author whose first draft said "two of twelve".  Rule 1 says a check
+    *title* claims that on this box the guess is wrong for services that
+    answer a path of their own.  Until 2026-10-01 the title claimed a
+    ratio — "wrong more often than right", counted at 4 right and 7 wrong
+    of 11 on 2026-08-15 — and this check retired it at a 6–6 tie, the day
+    a sixth service adopted the contract's path.  Rule 1 says a check
     tests the mechanism rather than the population — and here the
     population is the sentence in the title, so it is a claim like any
     other.  The two refute the entry for opposite reasons and the notes
@@ -1906,9 +1908,12 @@ def check_health_path_guess() -> Measurement:
     and 11 appear nowhere here.  What stops the entry's figure
     fossilising is not a constant to compare against but the recount
     printed in ``detail`` at both ends of every sitting — and a drift
-    that keeps the *direction* is deliberately **not** a mismatch, or
-    adding one service to ``services.yaml`` would send a sitting to
-    judge an entry whose substance nothing had touched.
+    in the recount is deliberately **not** a mismatch, or adding one
+    service to ``services.yaml`` would send a sitting to judge an entry
+    whose substance nothing had touched.  That sentence used to say
+    "a drift that keeps the *direction*", and on 2026-10-01 a sitting was
+    sent to do just that, because venture-manager's API made the count
+    6–6: rule 4 says why the direction stopped being part of the claim.
 
     Four rules, three of them the opposite of the obvious
     implementation:
@@ -1940,11 +1945,16 @@ def check_health_path_guess() -> Measurement:
        rather than ``match``, which is also how this degrades when the
        box is offline — so the offline behaviour is a case of the rule
        and not a special case bolted onto it.
-    4. **The population half is decided on the direction, the mechanism
-       half on the paths.**  ``wrong <= right`` refutes the title
-       whatever the generator does; a moved path refutes the body
-       whatever the box answers.  Reported in that order — a landed fix
-       is the larger news — with the recount carried on both.
+    4. **The population half is decided on whether the guess is wrong
+       at all, never on the ratio, and the mechanism half on the
+       paths.**  ``not wrong`` refutes the title whatever the generator
+       does; a moved path refutes the body whatever the box answers.
+       Reported in that order — a landed fix is the larger news — with
+       the recount carried on both.  The ratio limb (``wrong <= right``)
+       went on 2026-10-01 after it fired: a title whose truth turns on
+       which side of a tie the next service lands is a claim that flaps
+       with ``services.yaml``, while the witness count rule 3 already
+       requires is the part of it that says the guess costs something.
     """
     population, problem = health_path_population()
     if problem:
@@ -2014,19 +2024,11 @@ def check_health_path_guess() -> Measurement:
         return Measurement(
             "mismatch",
             f"{shown} answers on all {measured} services this could measure — the entry's "
-            "'wrong more often than right' no longer describes this box, and the guess it "
+            "'wrong for services that answer a path of their own' no longer describes this "
+            "box, and the guess it "
             "calls a guess is now right everywhere it was checked",
             detail,
         )
-    if len(wrong) <= len(right):
-        return Measurement(
-            "mismatch",
-            f"{shown} is right for {len(right)} of {measured} and wrong for {len(wrong)} — "
-            "still a guess, but no longer wrong more often than right, which is what the "
-            "entry's title claims",
-            detail,
-        )
-
     witnesses = [probe for probe in wrong if probe.is_witness]
     witness_ports = sorted(probe.port for probe in witnesses)
     if not witnesses:

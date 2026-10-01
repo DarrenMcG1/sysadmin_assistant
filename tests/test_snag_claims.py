@@ -1828,10 +1828,12 @@ class TestTheCodeSpanCheck:
 class TestTheHealthPathCheck:
     """``SNAG-UNITS-003``'s check — the first here that sends a request.
 
-    The entry is the registry's first whose headline is a **counted
+    The entry was the registry's first whose headline was a **counted
     population**: *"wrong more often than right"*, at 4 right and 7 wrong
     of 11, measured once on 2026-08-15 by an author whose first draft
-    said "two of twelve".  So the fixtures below are taken from the box
+    said "two of twelve" — and retired by this check at 6–6 on
+    2026-10-01, when the title was narrowed to the witness claim.  So
+    the fixtures below are taken from the box
     on every run rather than written down — a test naming
     ``venture-chat`` as a wrong one would fossilise exactly the way the
     entry did, and would go on passing after the service moved.
@@ -2112,20 +2114,28 @@ class TestTheHealthPathCheck:
         assert "no longer describes this box" in measurement.note
 
     @pytest.mark.box
-    def test_a_tie_no_longer_reads_as_wrong_more_often_than_right(self):
-        """The boundary the title's claim sits on, driven at it.
+    def test_the_ratio_is_no_part_of_the_claim(self):
+        """A guess right far more often than wrong still holds, given a witness.
 
-        ``wrong <= right`` and not ``<``: an even split is not "wrong
-        more often than right", and an off-by-one here would keep the
-        entry alive through the exact state that retires it.
+        The title claimed "wrong more often than right" until this check
+        retired it at a 6–6 tie on 2026-10-01, and the limb that fired
+        was removed rather than re-pointed: a ratio flips with whichever
+        side the next ``services.yaml`` entry lands on.  So the boundary
+        is driven from the side the old limb refuted — every service the
+        guess answers against **one** witness — and must still match,
+        because one service answering a path the generator never tried is
+        the cost the entry is about.
         """
         live = self._live()
-        count = min(len(live["right"]), len(live["witness"]))
-        assert count, "the box has no right/wrong pair to balance"
-        with self._population(live["right"][:count] + live["witness"][:count]):
+        assert live["right"], "the box has no service the guess answers"
+        assert live["witness"], "the box has no witness to hold the claim up"
+        with self._population(live["right"] + live["witness"][:1]):
             measurement = check_health_path_guess()
-        assert measurement.verdict == "mismatch"
-        assert "no longer wrong more often than right" in measurement.note
+        assert measurement.verdict == "match", measurement.note
+        assert len(live["right"]) > 1, (
+            "one right against one witness is a tie, not the far side of one — "
+            "this test no longer reaches the state the removed limb refuted"
+        )
 
     @pytest.mark.box
     def test_no_witness_is_unknown_and_never_a_match(self):
