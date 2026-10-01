@@ -82,9 +82,9 @@ import graph, so no restart is owed for it.
   runs reds this test until the next run; not recorded as a snag,
   because it clears itself and is rare.
 - **Two concerns stacked, both recorded as tasks:** the registry depth
-  above, and STATUS.md's opening block still dating the daemon's start
-  to 14:21:43, where the box measures 15:12:12 (`check-ops-claims.sh`
-  reads `no`).
+  above, and STATUS.md's opening block, where `check-ops-claims.sh`
+  reads two claims stale: the daemon's start (14:21:43 stated, 15:12:12
+  measured) and the unresolved-alert count (3 stated, 2 measured).
 
 ## What Session 314 handed on (done by Session 315)
 

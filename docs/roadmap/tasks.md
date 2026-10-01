@@ -39,11 +39,15 @@ so no restart is owed.
       (declared, so the estate counts it and this repository does not).
       Close `262209cd` when decided. *(Stacked in Session 315,
       recorded rather than worked.)*
-- [ ] **Re-date STATUS.md's daemon-start claim.** Session 312's
-      paragraph marks `2026-10-01 14:21:43` with `check:daemon_start`,
-      and `check-ops-claims.sh` reads `no`: the daemon has run since
-      15:12:12, the owner's restart. *(Stacked in Session 315,
-      recorded rather than worked.)*
+- [ ] **Bring STATUS.md's opening block back in line with the box.**
+      `check-ops-claims.sh` reports two stale claims there. Session
+      312's paragraph marks `2026-10-01 14:21:43` with
+      `check:daemon_start`, but the daemon has run since 15:12:12, the
+      owner's restart. The block also counts 3 unresolved alerts, and
+      the box measured 2 at 18:5x BST: one row it treats as open has
+      resolved, so an action it asks for may already be done. Re-measure
+      both before editing. *(Stacked in Session 315, recorded rather
+      than worked.)*
 
 ## Session 314: the overnight drive is scheduled (2026-10-01)
 
