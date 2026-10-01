@@ -1,20 +1,68 @@
-# Handoff — 2026-10-01 (Session 306)
+# Handoff — 2026-10-01 (Session 307)
 
 ## Next action
 
-Add a shorter secondary window to `sysadmin/files/forecast.py`'s disk fit, so growth resuming after a large cleanup is caught. *(For: session)*
+Promote `agents.project_organiser.projects_root` to a top-level config key, since none of its seven readers is the organiser it sits under. *(For: session)*
 
-It is the first unchecked item in tasks.md that can start now
-(Session 266 re-read it and left it open). One 30-day least-squares
-fit goes flat after a big cleanup, so no disk threshold can fire for a
-month. The item above it, moving `UV_PYTHON` in `ci.yml`, waits on the
-box's interpreter changing; it is `3.12.12` on both today. Estate
-message `49b9e620` (venture-assistant moves reddit's 429 backoff line
-to INFO) still asks nothing of this repository and can be closed. The
-two estate-manager messages filed today (`ba17667d`, `81c4070e`)
-announce additive estate-lib changes and were still not read in full.
+It is the first unchecked item in tasks.md that can start now. The one
+above it, moving `UV_PYTHON` in `ci.yml`, still waits on the box's
+interpreter changing. Session 266 re-read it and found the case
+stronger: the organiser has left. The fix to the disk fit's
+fitted-line-above-threshold branch, `SNAG-FILES-001`, is the other
+startable candidate and is smaller. Estate message `49b9e620`
+(venture-assistant moves reddit's 429 backoff line to INFO) still asks
+nothing of this repository and can be closed. The two estate-manager
+messages filed today (`ba17667d`, `81c4070e`) announce additive
+estate-lib changes and have still not been read in full.
+
+## Session 307: a 7-day secondary window on the disk fit
+
+Session 306's next action. `sysadmin/files/forecast.py`,
+`sysadmin/files/recommendations.py`, `sysadmin_tray/widgets/disk_forecast.py`,
+three test modules, `docs/design/files.md` and the roadmap. Daemon
+restarted at 10:26:43 BST (`kill -TERM`, `NRestarts` 2 → 3), tray
+restarted.
+
+- **What changed.** `project_disk_thresholds` fits the last
+  `SECONDARY_WINDOW_DAYS` (7) beside the whole series. For each
+  threshold the sooner `projected` crossing wins. A date the short fit
+  decided carries `ThresholdProjection.window_days`, and the risk item
+  and the tray say "last 7 days".
+- **Decided: the short fit only adds urgency.** It may bring a date
+  forward or turn `not_growing` into `projected`, never the reverse. It
+  is the noisier fit, and a quiet week must not hide a month's growth.
+- **Decided: a week, not 3 days or 14.** Measured by replaying the
+  stored snapshots one day at a time. After the 2026-07-27 cleanup the
+  30-day slope stayed negative until 08-23, while usage was back past
+  80 % on 08-31. The 7-day slope turned positive on 08-03. The 3-day
+  slope swings by several pp/day on one download. At 14 days it did
+  not turn positive until 08-10.
+- **Replayed at the route's 30-day window**: 31 of 89 days change and
+  none becomes less urgent. The post-cleanup risk now fires from 08-12,
+  where it used to wait until 08-24. The cost is over-urgency after a
+  step up: "80 % in 1 day" on 08-18 to 08-22 while usage sat at 77.4 %,
+  and one spurious risk on 08-03, from the rebound after the cleanup.
+- **Decided: skip the short fit when the series spans under twice the
+  window.** Without that, the weekly review (fitted over its own 7 days)
+  would re-fit nearly the same points and label the date as short-window.
+- **Rejected: widening `DiskThresholdInfo`** on `GET /api/files/actions`.
+  `window_days` would be a published-surface change owing a filing; the
+  risk item's prose already names the window.
+- **Found and left: `SNAG-FILES-001`.** When the fitted line has already
+  passed a threshold that the latest reading has not reached,
+  `_project_fit` returns `not_growing`, against its own comment. It fired
+  on 5 of 89 days for the 30-day fit, all just before the real 80 %
+  crossing. A test's data had to keep a step outside the window to
+  avoid it.
+- **Verified.** Suite 4,429 passed, 2 skipped; ruff and mypy clean.
+  `check-ops-claims.sh` 15 of 15 `ok` after moving the daemon-start
+  markers to the new headline. Live, `/api/files/actions` reads "already
+  past 90 %" (the disk is at 94 %), so the new path is not visible on
+  the box today.
 
 ## Session 306: the drift check reads the system units too
+
+_Its next action, since carried out:_ _Add a shorter secondary window to `sysadmin/files/forecast.py`'s disk fit, so growth resuming after a large cleanup is caught._
 
 Session 305's next action. `tests/test_tray_launcher.py` and the
 roadmap only; no restart owed.

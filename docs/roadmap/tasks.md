@@ -13695,12 +13695,21 @@ Still open:
       seven over; `hold_to_word_limit` in `sysadmin/files/review.py` asks
       once more, shorter, and cuts at a sentence boundary with a visible
       marker when that also misses. See its block above.)*
-- [ ] A single large cleanup flattens the 30-day disk fit for a month
+- [x] A single large cleanup flattens the 30-day disk fit for a month
       (usage fell 92.8 % → 67.3 % in late July, so every threshold reads
       `not_growing` and no risk can fire). Inherent to a least-squares
       fit over a fixed window; a shorter secondary window, or fitting
       only since the last sharp drop, would catch a resumption sooner
       *(Re-read by Session 266, 2026-09-27, and left open: `sysadmin/files/forecast.py` is unchanged since `512af01` (2026-08-08): still one fixed-window least-squares fit. The late-July drop has aged out of the window, but the limit stands.)*
+      *(Done by Session 307, 2026-10-01: `project_disk_thresholds` fits
+      the last `SECONDARY_WINDOW_DAYS` (7) beside the whole series, and
+      per threshold the sooner projected crossing wins, so the short fit
+      only ever adds urgency. Replayed daily over the stored snapshots at
+      the route's 30-day window: after the 2026-07-27 cleanup the old fit
+      raised no risk until 08-24 and the new one raises it from 08-12;
+      the real 80 % crossing was 08-31. 31 of 89 days change, none to
+      less urgent. The fitted-line-above-threshold branch both fits share
+      is left as `SNAG-FILES-001`.)*
 
 ### ✅ Session 25: Service reliability scoring (done 2026-08-25)
 

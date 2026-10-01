@@ -234,6 +234,73 @@ class TestProjectDiskThresholds:
         assert projections[0].days_from_now > 0
 
 
+class TestSecondaryWindow:
+    """The 7-day fit beside the whole-series one: it may only add urgency."""
+
+    @staticmethod
+    def _series(percents: list[float]) -> list[tuple[datetime, float]]:
+        return [(BASE + timedelta(days=i), pct) for i, pct in enumerate(percents)]
+
+    def test_growth_resuming_after_a_cleanup_is_projected(self):
+        # A month: 90 % for ten days, a cleanup to 60 %, flat, then the
+        # last week climbs 1 pp/day.  The whole-series line still slopes
+        # down — the defect — so only the short fit can see the climb.
+        percents = [90.0] * 10 + [60.0] * 13 + [61.0 + i for i in range(7)]
+        series = self._series(percents)
+        assert project_disk_thresholds(series, secondary_days=None)[0].state == (
+            "not_growing"
+        )
+
+        projections = project_disk_thresholds(series)
+
+        assert [p.state for p in projections] == ["projected", "projected"]
+        assert projections[0].days_from_now == pytest.approx(13.0, abs=0.05)
+        assert projections[1].days_from_now == pytest.approx(23.0, abs=0.05)
+        assert all(p.window_days == 7.0 for p in projections)
+
+    def test_a_quiet_week_never_postpones_the_whole_series_crossing(self):
+        # Three weeks of 1 pp/day, then a flat week: the short fit reads
+        # not_growing, and that must not hide the month's growth.
+        percents = [50.0 + i for i in range(21)] + [70.0] * 8
+        projections = project_disk_thresholds(self._series(percents))
+
+        assert projections[0].state == "projected"
+        assert projections[0].window_days is None
+
+    def test_the_sooner_of_two_projected_crossings_wins(self):
+        # Slow growth for three weeks, fast growth in the last.
+        percents = [50.0 + 0.1 * i for i in range(22)] + [
+            52.2 + 2.0 * i for i in range(1, 8)
+        ]
+        series = self._series(percents)
+        whole = project_disk_thresholds(series, secondary_days=None)[0]
+
+        chosen = project_disk_thresholds(series)[0]
+
+        assert whole.state == "projected"
+        assert chosen.window_days == 7.0
+        assert chosen.days_from_now is not None
+        assert whole.days_from_now is not None
+        assert chosen.days_from_now < whole.days_from_now
+
+    def test_a_series_under_twice_the_window_gets_no_second_fit(self):
+        # Thirteen days: the whole-series fit is already short, so a
+        # second one would only re-fit most of the same points.
+        percents = [80.0] * 6 + [60.0 + i for i in range(7)]
+        projections = project_disk_thresholds(self._series(percents))
+
+        assert all(p.window_days is None for p in projections)
+        assert projections[0].state == "not_growing"
+
+    def test_exceeded_is_read_from_the_latest_sample_either_way(self):
+        percents = [95.0] * 10 + [60.0] * 12 + [80.0 + i for i in range(8)]
+        projections = project_disk_thresholds(self._series(percents))
+
+        assert projections[0] == ThresholdProjection(80.0, "exceeded")
+        assert projections[1].state == "projected"
+        assert projections[1].window_days == 7.0
+
+
 class TestMostUrgentProjection:
     """Which of several crossings is the one worth warning about."""
 

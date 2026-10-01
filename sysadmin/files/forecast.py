@@ -19,7 +19,8 @@ Two separate forecasts feed the Disk Growth widget:
     ``GET /api/sysadmin/resources/history``, projecting the date each
     configured threshold (80 % warning, 90 % critical) is crossed.
     This is the only series that actually answers "when does the disk
-    fill up".
+    fill up".  A second fit over the last ``SECONDARY_WINDOW_DAYS`` may
+    bring a crossing forward, never push one back — see that constant.
 
 ``describe_reclaimable_forecast``
     Presentation of the regression the backend already computes in
@@ -43,6 +44,16 @@ from sysadmin.core.contracts import (
 DISK_WARNING_PERCENT = 80
 DISK_CRITICAL_PERCENT = 90
 
+# The short fit beside the whole-series one in ``project_disk_thresholds``.
+# One least-squares line over 30 days stays flat for a month after a big
+# cleanup: on this box usage fell 94.8 % -> 61.5 % on 2026-07-27 and the
+# 30-day slope stayed negative until 2026-08-23, while usage climbed back
+# past 80 % on 2026-08-31.  Replayed over the stored snapshots, the 7-day
+# slope turned positive on 2026-08-03 and stood at +1.16 pp/day by
+# 2026-08-13.  Shorter windows (3 days) swing by several pp/day on a
+# single download, so a week is the shortest that tracks a trend.
+SECONDARY_WINDOW_DAYS = 7.0
+
 
 class LinearFit(NamedTuple):
     """Result of a least-squares fit ``y = slope * x + intercept``."""
@@ -61,12 +72,17 @@ class ThresholdProjection(NamedTuple):
     ``"projected"``  — a future crossing date was computed
     ``"exceeded"``   — the latest reading is already at or past it
     ``"not_growing"``— the series is flat or shrinking
+
+    ``window_days`` is ``None`` when the fit spans the whole series, and
+    the secondary window's length when that shorter fit decided the
+    date — so a reader can say which trend the date is on.
     """
 
     percent: float
     state: str
     days_from_now: float | None = None
     date: str | None = None
+    window_days: float | None = None
 
 
 def linear_fit(points: Sequence[tuple[float, float]]) -> LinearFit | None:
@@ -172,13 +188,60 @@ def growth_rate_per_day(series: list[tuple[datetime, float]]) -> float | None:
 def project_disk_thresholds(
     series: list[tuple[datetime, float]],
     thresholds: tuple[int, ...] = (DISK_WARNING_PERCENT, DISK_CRITICAL_PERCENT),
+    secondary_days: float | None = SECONDARY_WINDOW_DAYS,
 ) -> list[ThresholdProjection]:
     """Project when disk usage crosses each threshold.
 
     Days are measured from the *most recent* sample, matching how the
     backend's reclaimable forecast reports its projections.  Returns an
     empty list when there is not enough history to fit a line at all.
+
+    Two fits are made: one over the whole series and one over its last
+    ``secondary_days``.  For each threshold the *sooner* projected
+    crossing wins, so the short fit can only add urgency.  It is
+    never allowed to remove it: a quiet week must not hide a month of
+    growth, and a short fit is the noisier of the two.  The short fit
+    is skipped when the series spans less than twice
+    ``secondary_days`` (the whole-series fit is already short), or
+    when ``secondary_days`` is ``None``.
     """
+    primary = _project_fit(series, thresholds, window_days=None)
+    if not primary or secondary_days is None:
+        return primary
+
+    latest_ts = series[-1][0]
+    if (latest_ts - series[0][0]) < timedelta(days=2 * secondary_days):
+        return primary
+
+    window_start = latest_ts - timedelta(days=secondary_days)
+    recent = [point for point in series if point[0] >= window_start]
+    secondary = _project_fit(recent, thresholds, window_days=secondary_days)
+    if not secondary:
+        return primary
+
+    return [
+        short if _sooner(short, whole) else whole
+        for whole, short in zip(primary, secondary, strict=True)
+    ]
+
+
+def _sooner(candidate: ThresholdProjection, incumbent: ThresholdProjection) -> bool:
+    """Whether ``candidate`` projects a crossing before ``incumbent`` does."""
+    if candidate.state != "projected" or candidate.days_from_now is None:
+        return False
+    if incumbent.state != "projected" or incumbent.days_from_now is None:
+        # ``exceeded`` reads the same latest sample in both fits, so it
+        # never reaches here as the incumbent against a projection.
+        return incumbent.state == "not_growing"
+    return candidate.days_from_now < incumbent.days_from_now
+
+
+def _project_fit(
+    series: list[tuple[datetime, float]],
+    thresholds: tuple[int, ...],
+    window_days: float | None,
+) -> list[ThresholdProjection]:
+    """One least-squares fit over ``series``, projected to each threshold."""
     if len(series) < 2:
         return []
 
@@ -217,6 +280,7 @@ def project_disk_thresholds(
                 state="projected",
                 days_from_now=round(days_from_now, 1),
                 date=target_date.strftime("%Y-%m-%d"),
+                window_days=window_days,
             )
         )
     return projections

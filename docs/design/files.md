@@ -30,6 +30,25 @@ inside 30 days outranks every byte total. Counts come from the audit row's
 columns, never from `findings` — the findings lists are truncated to 50–100
 entries before storage, so sizes summed from them are a lower bound and say so.
 
+**The occupancy fit is two fits, and the short one may only add urgency**
+(Session 307, 2026-10-01). One least-squares line over 30 days stays flat
+for a month after a big cleanup: usage fell 94.8 % → 61.5 % on 2026-07-27,
+the 30-day slope stayed negative until 08-23, and usage was back past 80 %
+on 08-31. `project_disk_thresholds` therefore also fits the last
+`SECONDARY_WINDOW_DAYS` (7) and, per threshold, keeps the sooner projected
+crossing. The asymmetry is the design: a short fit is the noisier one, so it
+may bring a date forward and never push one back or turn a crossing into
+`not_growing` — a quiet week must not hide a month's growth. Its cost is
+over-urgency after a step: replayed, it read "80 % in 1 day" on 18–22 August
+while usage sat at 77.4 %, and raised one spurious risk on 08-03 from the
+rebound after the cleanup. Three days was rejected because its slope swings
+by several pp/day on one download. The short fit is skipped when the series
+spans under twice the window, which is why the weekly review — fitted over
+its own 7-day period — is unchanged. A date the short fit decided carries
+`window_days`, and the tray and the risk item say "last 7 days" so they do not
+contradict the whole-series Growth rate beside them; `DiskThresholdInfo` on
+the route was deliberately not widened.
+
 `GET /api/files/review` is the weekly disk review, stored in its own
 `disk_reviews` table. It was built as the mirror of the project review
 that has since moved to 8400. It is one of three LLM-narrated reviews this

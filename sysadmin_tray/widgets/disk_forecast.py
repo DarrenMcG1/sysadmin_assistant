@@ -57,7 +57,12 @@ def projection_text(projection: ThresholdProjection) -> tuple[str, str]:
         return caption, "already exceeded"
     if projection.state == "not_growing" or projection.days_from_now is None:
         return caption, "not on current trend"
-    return caption, f"{projection.date}  ({format_days(projection.days_from_now)})"
+    value = f"{projection.date}  ({format_days(projection.days_from_now)})"
+    if projection.window_days is not None:
+        # The Growth row above is the whole-series rate, so a date from
+        # the short fit must say so or the two rows contradict.
+        value += f"  · last {projection.window_days:.0f} days"
+    return caption, value
 
 
 def projection_colour(projection: ThresholdProjection) -> str:

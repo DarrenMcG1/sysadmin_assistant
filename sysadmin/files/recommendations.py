@@ -127,10 +127,17 @@ def _disk_risk(
         days = projection.days_from_now
         if days is None or days > RISK_HORIZON_DAYS:
             return None
+        trend = (
+            "current growth trend"
+            if projection.window_days is None
+            # The short fit decided it, and the longer one is flatter —
+            # usually growth resuming after a cleanup.
+            else f"growth of the last {projection.window_days:.0f} days"
+        )
         detail = (
             f"Disk usage is projected to cross {projection.percent:.0f}% "
             f"on {projection.date} — about {days:.0f} days away, on the "
-            "current growth trend."
+            f"{trend}."
         )
     else:  # unknown state — say nothing rather than guess
         return None

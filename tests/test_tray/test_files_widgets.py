@@ -218,6 +218,18 @@ class TestProjectionFormatting:
         assert "2026-08-05" in value
         assert "12 days" in value
 
+    def test_a_date_from_the_short_fit_names_its_window(self):
+        # The Growth row is the whole-series rate; without this the two
+        # rows can read "shrinking" beside a date a week away.
+        _, whole = projection_text(
+            ThresholdProjection(80.0, "projected", 12.0, "2026-08-05")
+        )
+        _, short = projection_text(
+            ThresholdProjection(80.0, "projected", 12.0, "2026-08-05", 7.0)
+        )
+        assert "last" not in whole
+        assert short.endswith("· last 7 days")
+
     def test_exceeded_is_explicit(self):
         _, value = projection_text(ThresholdProjection(80.0, "exceeded"))
         assert value == "already exceeded"

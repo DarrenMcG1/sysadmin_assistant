@@ -173,6 +173,18 @@ class TestDiskRiskRanking:
         assert "2026-08-18" in recs[0].detail
         assert recs[1].kind == "duplicates"  # 5 GB still ranks second
 
+    def test_a_crossing_from_the_short_fit_names_its_window(self, agent_config):
+        whole = ThresholdProjection(
+            percent=80.0, state="projected", days_from_now=12.0, date="2026-08-18"
+        )
+        short = whole._replace(window_days=7.0)
+
+        whole_detail = recommendations_for_audit({}, agent_config, whole)[0].detail
+        short_detail = recommendations_for_audit({}, agent_config, short)[0].detail
+
+        assert "current growth trend" in whole_detail
+        assert "growth of the last 7 days" in short_detail
+
     def test_crossing_beyond_the_horizon_is_a_trend_not_a_risk(self, agent_config):
         projection = ThresholdProjection(
             percent=90.0,
