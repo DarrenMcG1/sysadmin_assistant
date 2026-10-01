@@ -1588,272 +1588,6 @@ class TestTheTrayReportUnheardCheck:
         assert check_tray_report_unheard().verdict == "mismatch"
 
 
-class TestTheNudgeWordingCheck:
-    """``SNAG-ESTATE-002``'s check — the second with a cross-repo instrument.
-
-    The registry's first such check closed its own entry one sitting after
-    it was written, and it left three things behind that are exercised
-    here rather than re-derived: the three verdicts, the coupling that
-    would silently disarm a probe, and the fact that *not being able to
-    run* is ``unknown`` and never a skip.
-
-    The producer is stubbed rather than mocked out.  A stub package on
-    disk driven by this interpreter exercises :func:`estate_probe`'s
-    subprocess, its JSON contract and the verdict logic together — and it
-    runs where estate-manager is not installed, which is CI.
-
-    Every stub deliberately omits ``from __future__ import annotations``,
-    which the real module has.  That makes ``dataclasses.fields(...).type``
-    a type *object* here and a *string* over there, so the probe is driven
-    against the annotation form it will not meet in production — the
-    reverse of the usual fixture risk, and it is why ``filler_for`` reads
-    both.
-    """
-
-    WORDING = (
-        "    @property\n"
-        "    def title(self):\n"
-        '        return "Project " + str(self.project_name) + " next action idle"\n'
-        "\n"
-        "    @property\n"
-        "    def message(self):\n"
-        '        return "Unchanged for " + str(self.days) + " days"\n'
-        "\n"
-        "    @property\n"
-        "    def details(self):\n"
-        '        return {"project": self.project_name}\n'
-    )
-
-    def _stub(
-        self,
-        tmp_path: Path,
-        *,
-        properties: str | None = None,
-        extra_fields: tuple[str, ...] = (),
-        bare_route: bool = True,
-    ) -> Path:
-        """A minimal ``estate_service.projects`` holding the two modules."""
-        pkg = tmp_path / "estate_service" / "projects"
-        pkg.mkdir(parents=True)
-        (tmp_path / "estate_service" / "__init__.py").write_text("", encoding="utf-8")
-        (pkg / "__init__.py").write_text("", encoding="utf-8")
-
-        fields = "".join(f"    {line}\n" for line in extra_fields)
-        body = self.WORDING if properties is None else properties
-        (pkg / "nudges.py").write_text(
-            "from dataclasses import dataclass\n\n\n"
-            "@dataclass(frozen=True)\n"
-            "class Nudge:\n"
-            "    project_name: str\n"
-            "    days: int\n"
-            "    at_window_edge: bool\n"
-            f"{fields}\n"
-            f"{body or '    pass\n'}",
-            encoding="utf-8",
-        )
-        element = (
-            "asdict(nudge)"
-            if bare_route
-            else '{**asdict(nudge), "title": nudge.title, "message": nudge.message}'
-        )
-        (pkg / "oversight.py").write_text(
-            "from dataclasses import asdict\n\n\n"
-            "def attention(items):\n"
-            f"    due = [{element} for nudge in items]\n"
-            '    return {"nudges": due}\n',
-            encoding="utf-8",
-        )
-        return tmp_path
-
-    def _drive(self, tmp_path, monkeypatch, **kwargs):
-        import sys as _sys
-
-        monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", self._stub(tmp_path, **kwargs))
-        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", Path(_sys.executable))
-        return snag_claims.check_nudge_wording_unpublished()
-
-    # ── the claim holding ────────────────────────────────────────────
-
-    def test_wording_computed_and_dropped_is_the_claim_holding(self, tmp_path, monkeypatch):
-        """What the live producer does, and what Session 45 measured."""
-        found = self._drive(tmp_path, monkeypatch)
-        assert found.verdict == "match"
-        assert "Nudge offers title, message, details" in found.detail[0]
-        assert "'Project probe next action idle'" in found.detail[2], (
-            "the specimen came back unfilled, so `filler_for` is reading only one of the "
-            "two annotation forms — and the stub deliberately uses the other one"
-        )
-
-    # ── the three remedies the entry offers ──────────────────────────
-
-    def test_wording_published_as_fields_is_a_candidate_for_closure(self, tmp_path, monkeypatch):
-        """Remedy one: convert the properties.
-
-        Also the test that the specimen adapts to a changed constructor.
-        A probe holding its own copy of the field list would raise
-        ``TypeError`` here and report ``unknown`` for ever — the removed
-        ``SNAG-ROADMAP-001`` check's own defect, which is why the
-        arguments come from ``dataclasses.fields``.
-        """
-        found = self._drive(
-            tmp_path,
-            monkeypatch,
-            properties="",
-            extra_fields=("title: str", "message: str", "details: str"),
-        )
-        assert found.verdict == "mismatch"
-        assert "reaches the wire" in found.note
-
-    def test_a_producer_that_stops_computing_the_wording_is_refuted(self, tmp_path, monkeypatch):
-        """Remedy three: delete the properties and the "one place" comment.
-
-        A refutation rather than a failure to measure.  The entry's
-        complaint is that both sides think they own the format and
-        neither says so; a producer that has stopped claiming it has
-        answered that, so ``unknown`` would be the wrong verdict and
-        ``match`` a false one.
-        """
-        found = self._drive(tmp_path, monkeypatch, properties="")
-        assert found.verdict == "mismatch"
-        assert "no longer computes" in found.note
-
-    def test_a_partial_fix_is_refuted_with_the_residue_named(self, tmp_path, monkeypatch):
-        """The entry's own warning, made into a verdict.
-
-        Its body says a fix converting ``title`` and ``message`` and
-        stopping there "leaves the same defect one field over".  Reporting
-        that as ``match`` hides the fix and reporting it as a clean
-        refutation hides the residue, so it is a candidate for closure
-        whose note names what is still dropped.
-        """
-        found = self._drive(
-            tmp_path,
-            monkeypatch,
-            properties=(
-                "    @property\n"
-                "    def details(self):\n"
-                '        return {"project": self.project_name}\n'
-            ),
-            extra_fields=("title: str", "message: str"),
-        )
-        assert found.verdict == "mismatch"
-        assert "title, message now reach the wire" in found.note
-        assert "details still" in found.note
-
-    def test_a_route_that_augments_the_payload_is_unknown(self, tmp_path, monkeypatch):
-        """Remedy two is the one ``asdict`` cannot see, so it is not guessed.
-
-        Augmenting beside the ``asdict`` call leaves the dataclass exactly
-        as it is, so every other signal here reads "claim holding" while
-        the wire carries the wording.  Answering ``match`` there is the
-        trap the removed check spent its docstring on — measuring that a
-        remedy is *absent from where you looked* rather than that the
-        fault is gone.
-        """
-        found = self._drive(tmp_path, monkeypatch, bare_route=False)
-        assert found.verdict == "unknown"
-        assert "bare asdict()" in found.note
-
-    # ── every way of not knowing ─────────────────────────────────────
-
-    def test_an_absent_interpreter_is_unknown_and_never_a_skip(self, tmp_path, monkeypatch):
-        """Rule 5, and the question the tenth check's sitting settled.
-
-        A test may ``skip`` when estate-manager is not on the box —
-        :class:`TestAgainstTheOwningParser` does, because it asserts two
-        readers agree and has nothing to assert with one.  A *check*
-        reports on a claim, so not being able to test it is the third
-        verdict rather than a fourth thing.
-        """
-        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", tmp_path / "nowhere" / "python")
-        found = snag_claims.check_nudge_wording_unpublished()
-        assert found.verdict == "unknown"
-        assert "interpreter" in found.note
-
-    def test_a_producer_that_will_not_import_is_unknown_naming_why(self, tmp_path, monkeypatch):
-        """The state estate-manager's tree was actually in on 2026-08-25.
-
-        A half-applied rename is neither a claim holding nor a claim
-        refuted, and the sentence naming the import failure is what a
-        sitting needs at that moment.
-        """
-        import sys as _sys
-
-        pkg = tmp_path / "estate_service" / "projects"
-        pkg.mkdir(parents=True)
-        (tmp_path / "estate_service" / "__init__.py").write_text("", encoding="utf-8")
-        (pkg / "__init__.py").write_text("", encoding="utf-8")
-        (pkg / "nudges.py").write_text("raise ImportError('half-applied')\n", encoding="utf-8")
-        (pkg / "oversight.py").write_text("", encoding="utf-8")
-        monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", tmp_path)
-        monkeypatch.setattr(snag_claims, "ESTATE_PYTHON", Path(_sys.executable))
-        found = snag_claims.check_nudge_wording_unpublished()
-        assert found.verdict == "unknown"
-        assert "would not import or run" in found.note
-
-    # ── the coupling guard the last cross-repo check paid for ────────
-
-    def test_the_probe_touches_nothing_private(self):
-        """**The guard for the defect the tenth check's falsification found.**
-
-        Its first draft called ``roadmap._first_meaningful`` to evidence
-        the strip — a private helper whose *name* is what estate-manager's
-        fix renamed — so driven at the real fix it reported ``unknown``
-        and would have gone on reporting it for ever, structurally unable
-        to witness the closure it exists to notice.  A check coupled to
-        the implementation it measures is the shape of the bug it
-        measures, and nothing else here would catch it coming back: the
-        stubs above define only public names, so a probe reaching for a
-        private one fails the same way against every fixture and reads as
-        an environment problem.
-
-        **Dunders are exempt and single underscores are not**, which is
-        the rule stated precisely rather than the tenth check's blanket
-        ``startswith("_")``.  That version passed only because its probe
-        happened to touch none; this one reads ``exc.__class__.__name__``
-        and ``annotation.__name__``, which are language protocol on
-        stdlib objects and private to nobody.  What must never appear is
-        a single-underscore name — the shape of ``_first_meaningful`` —
-        or *any* attribute reached off the producer's own names, which is
-        the stronger half and the one a blanket rule could not express.
-        """
-        import ast
-
-        probe = snag_claims.NUDGE_PROBE.format(service="/x", wording=snag_claims.NUDGE_WORDING)
-        tree = ast.parse(probe)
-        attributes = [node for node in ast.walk(tree) if isinstance(node, ast.Attribute)]
-        private = {
-            node.attr
-            for node in attributes
-            if node.attr.startswith("_") and not node.attr.startswith("__")
-        }
-        assert private == set(), "the probe reaches for a private symbol"
-
-        producer = {"nudges", "oversight"}
-        reached = {
-            node.attr
-            for node in attributes
-            if isinstance(node.value, ast.Name)
-            and node.value.id in producer
-            and node.attr.startswith("_")
-        }
-        assert reached == set(), f"the probe reaches into the producer: {sorted(reached)}"
-
-    def test_the_probe_names_no_field_of_its_own(self):
-        """The other half of the same lesson, stated positively.
-
-        The specimen's arguments must come from the producer's dataclass.
-        A field name written into the probe is a second statement of a
-        signature estate-manager owns, and the day they change it this
-        check reports ``unknown`` for ever instead of the closure it
-        exists to notice.
-        """
-        probe = snag_claims.NUDGE_PROBE.format(service="/x", wording=snag_claims.NUDGE_WORDING)
-        assert "dataclasses.fields" in probe
-        for field_name in ("project_name", "next_action", "at_window_edge", "threshold"):
-            assert field_name not in probe, f"the probe names {field_name} itself"
-
-
 class TestEstateModuleState:
     """Which tree the verdict was measured against — ``ports_checked``'s rule.
 
@@ -1872,7 +1606,7 @@ class TestEstateModuleState:
         """
         if not snag_claims.ESTATE_SERVICE.exists():
             pytest.skip("estate-manager is not beside this checkout")
-        state = snag_claims.estate_module_state(snag_claims.ESTATE_NUDGE_MODULES)
+        state = snag_claims.estate_module_state(snag_claims.ESTATE_AUDIT_MODULES)
         assert "could not be read" not in state
         if "uncommitted" not in state:
             assert "not the same as deployed" in state
@@ -1880,7 +1614,7 @@ class TestEstateModuleState:
     def test_an_unreadable_checkout_is_a_sentence_and_never_a_raise(self, tmp_path, monkeypatch):
         """Never a reason to fail — the evidence degrades, the check does not."""
         monkeypatch.setattr(snag_claims, "ESTATE_SERVICE", tmp_path / "nowhere")
-        state = snag_claims.estate_module_state(snag_claims.ESTATE_NUDGE_MODULES)
+        state = snag_claims.estate_module_state(snag_claims.ESTATE_AUDIT_MODULES)
         assert "could not be read" in state
 
     def test_naming_no_module_is_reported_rather_than_asked_of_git(self, monkeypatch):
@@ -1891,25 +1625,6 @@ class TestEstateModuleState:
         """
         state = snag_claims.estate_module_state(())
         assert "no estate-manager module was named" in state
-
-
-class TestTheNudgeCheckAgainstTheRealProducer:
-    """The live half, skipped rather than failed when they are not here.
-
-    :class:`TestTheNudgeWordingCheck` drives stubs, which pin the verdict
-    logic and can never notice the producer moving.  This one runs the
-    real thing — the same split ``TestAgainstTheOwningParser`` makes, and
-    the reason the tenth check caught estate-manager mid-edit at all.
-    """
-
-    def test_the_real_producer_yields_one_of_the_three_verdicts(self):
-        if not snag_claims.ESTATE_PYTHON.exists():
-            pytest.skip("estate-manager's venv is not on this box")
-        found = snag_claims.check_nudge_wording_unpublished()
-        assert found.verdict in set(EXIT_STATUS)
-        assert any("estate-manager's" in line for line in found.detail), (
-            "the verdict must carry which tree it was measured against"
-        )
 
 
 class TestTheCodeSpanCheck:
@@ -5284,8 +4999,8 @@ async def findings(session: Any = Depends(get_db_session)) -> dict[str, Any]:
         level, so a producer publishing it inside ``detail`` has ended
         the entry's claim and left the consumer reading ``None``.  A
         check reporting that as a clean closure would hide the line owed
-        — ``check_nudge_wording_unpublished``'s partial-fix rule, one
-        surface over.
+        — the partial-fix rule ``SNAG-ESTATE-002``'s check (retired
+        2026-10-01) applied, one surface over.
         """
         found = self._drive(
             tmp_path,

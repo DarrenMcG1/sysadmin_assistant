@@ -1,19 +1,42 @@
-# Handoff — 2026-10-01 (Session 302)
+# Handoff — 2026-10-01 (Session 303)
 
 ## Next action
 
-Act on estate message 8190bde0: estate-manager deleted `Nudge`'s wording members, so re-run our nudge-wording check and fix the docstrings naming them. *(For: session)*
+Act on estate message 633d1a86: find whether the installed `sysadmin-tray.service` unit or the git-tracked KDE autostart launches the tray, or both. *(For: session)*
 
-The message is estate-manager's announcement that it took the delete
-remedy for the nudge wording this repository rebuilt for itself
-(their ADR-0217): `Nudge.title`, `.message`, `.details` and the title
-helpers are gone, and the `/api/projects/attention` payload is
-unchanged. Its detail lists what it found here that names the deleted
-symbols: `check_nudge_wording_unpublished` in `sysadmin/snag_claims.py`,
-`PRODUCER_DROPPED_NUDGE_KEYS` in `tests/test_estate_project_contracts.py`,
-and docstrings in `sysadmin/estate/judgements.py`, two test modules and
-`docs/design/estate.md`. The snag entry it closes is delegated, not
-owed, so it is not named in the line above. Close the message when done.
+dotfiles found that `~/.config/systemd/user/sysadmin-tray.service`
+matches no file in any repository, while this repository versions
+`systemd/sysadmin-tray.desktop` and `scripts/setup-systemd.sh`
+installs only that. Either the unit superseded the autostart and the
+repository lags, or both run and the tray may start twice. It comes
+before the other open message, `49b9e620` (venture-assistant moves
+reddit's 429 backoff line to INFO), because that one asks nothing.
+The first unchecked tasks.md item waits on a Python release, so it is
+not startable.
+
+## Session 303: a nudge's wording is ours alone
+
+Session 302's next action, estate message `8190bde0` (closed).
+`sysadmin/snag_claims.py`, comments and docstrings in
+`sysadmin/estate/judgements.py`, three test modules,
+`docs/design/estate.md` and the roadmap. Daemon restarted at
+08:19:33 BST, comment-only changes in its import graph.
+
+- **The check saw the fix.** estate-manager's ADR-0217 deleted
+  `Nudge`'s wording properties and title helpers;
+  `check_nudge_wording_unpublished` reported its delete limb, and
+  `SNAG-ESTATE-002` (two repositories each owning a nudge's wording)
+  is closed. The check, its probe and 10 tests are retired.
+- **Kept, not deleted: the absence assertion**, renamed
+  `CONSUMER_OWNED_NUDGE_KEYS`. Rejected deleting it: the title is the
+  key our `alerts` table dedups, resolves and fingerprints on, so a
+  `title` appearing on the wire is now a regression to file, not a fix
+  to adopt. Its failure message says so.
+- **Nothing behavioural changed.** The idle-project alert titles and
+  messages are built exactly as before; only prose citing the deleted
+  symbols moved.
+- **Left open:** estate messages `633d1a86` (the next action) and
+  `49b9e620`, each for its own session.
 
 ## Session 302: the first boot under mosquitto's gate reads clean
 

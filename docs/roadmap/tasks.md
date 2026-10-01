@@ -8,6 +8,41 @@
 
 ---
 
+## Session 303: a nudge's wording is ours alone — `SNAG-ESTATE-002` closed (2026-10-01)
+
+Session 302's next action, estate message `8190bde0`.
+`sysadmin/snag_claims.py`, comments and docstrings in
+`sysadmin/estate/judgements.py`, three test modules,
+`docs/design/estate.md` and the roadmap. Daemon restarted at 08:19:33.
+
+- [x] **Re-ran `check_nudge_wording_unpublished`.** It reported
+      refuted on its delete limb: *Nudge offers none of title, message,
+      details*, against estate-manager's committed tree (their
+      `64a49aa`, ADR-0217). The route still serialises with a bare
+      `asdict()` and publishes the same ten keys, as their message said.
+- [x] **Closed `SNAG-ESTATE-002` and retired its check** — the
+      `nudge_wording_unpublished` registry row, `NUDGE_PROBE`,
+      `NUDGE_WORDING`, `ESTATE_NUDGE_MODULES` and 10 tests.
+      `estate_probe`, `estate_module_state` and `_probe_names` stay;
+      three other checks use them. `TestEstateModuleState` now drives
+      `ESTATE_AUDIT_MODULES`. The five comments that cited the retired
+      constants' reasons now cite the retired check by entry and date.
+- [x] **Kept the absence assertion and reversed what it means.**
+      `PRODUCER_DROPPED_NUDGE_KEYS` → `CONSUMER_OWNED_NUDGE_KEYS` in
+      `tests/test_estate_project_contracts.py`. Its old failure message
+      said to adopt the estate's wording; after ADR-0217 a published
+      `title` would key our `alerts` table off a string they own, so it
+      now says to file at estate-manager instead.
+- [x] **Corrected the docstrings naming the deleted symbols** — the
+      `NEXT_ACTION_CHARS` comment, the `judge_attention` docstring and
+      the `_nudge_row` comment in `judgements.py`; the module docstring
+      of `tests/test_estate_judgements.py`; a cross-reference in
+      `tests/test_estate_surface_payloads.py` the message did not list;
+      `docs/design/estate.md`.
+- [x] **STATUS.md's opening claims re-measured**: suite 4,426 → 4,416,
+      `venture-chat unreachable` resolved at 02:49:29 (4 → 3 open), the
+      restart moved the daemon start. `check-ops-claims.sh` 15 of 15 ok.
+
 ## Session 302: the first boot under mosquitto's gate reads clean, and its one warning is filed (2026-10-01)
 
 Session 301's next action. The roadmap files and `docs/design/logs.md`;

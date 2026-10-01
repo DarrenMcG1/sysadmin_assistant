@@ -426,8 +426,9 @@ class TestAuditFindingsAgainstProducerBuiltPayloads:
         assert out[0].details["ports"] == [3900, 3901, 3902, 3903, 3904, 3905]
 
     def test_the_producers_code_never_reaches_the_wire(self):
-        """Pre-staged, and it is the ``PRODUCER_DROPPED_NUDGE_KEYS``
-        shape one surface over (``SNAG-ESTATE-006``).
+        """Pre-staged, the absence-asserting shape
+        ``tests/test_estate_project_contracts.py`` first used for a
+        nudge's wording, one surface over (``SNAG-ESTATE-006``).
 
         ``Finding.code`` is a real field on the producer's dataclass —
         ``unclaimed_listener`` here — folded into ``fingerprint`` and

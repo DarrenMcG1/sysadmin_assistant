@@ -163,15 +163,16 @@ ATTENTION_NUDGE_KEYS = frozenset({
 #: trap :data:`ATTENTION_NUDGE_KEYS` describes, on a third family.
 ATTENTION_REFUSED_KEYS = frozenset({"tree", "cause", "reason"})
 
-#: The three the producer computes and ``dataclasses.asdict`` drops,
-#: because ``Nudge.title``/``.message``/``.details`` are ``@property``
-#: (``SNAG-ESTATE-002``, delegated to estate-manager as its
-#: ``SNAG-ESTATE-010``).  Asserted **absent** rather than assumed absent:
-#: the day they appear, this repository is building a title the producer
-#: has started publishing, and the right move is to take theirs.  A test
-#: that goes red on somebody else's fix reads like a false alarm, so the
-#: failure message says what to do.
-PRODUCER_DROPPED_NUDGE_KEYS = frozenset({"title", "message", "details"})
+#: A nudge's wording, which is this repository's to build.  Until
+#: 2026-09-30 the producer computed all three as ``@property`` members
+#: that ``dataclasses.asdict`` dropped (``SNAG-ESTATE-002``, their
+#: ``SNAG-ESTATE-010``); estate-manager's ADR-0217 then deleted them, so
+#: the title — the identity key of *this* repository's ``alerts`` table —
+#: has one owner and it is here.  Asserted **absent** rather than assumed
+#: absent: the day one appears, the estate is publishing a string that
+#: would key a table it does not own, which is the two-owners problem
+#: back, and the failure message says to file rather than to adopt it.
+CONSUMER_OWNED_NUDGE_KEYS = frozenset({"title", "message", "details"})
 
 
 def _load(name: str) -> dict[str, Any]:
@@ -397,12 +398,12 @@ def _assert_attention_usable(
             "judge_attention drops an entry with no `project_name` silently, so a "
             "rename empties the surface rather than breaking it"
         )
-        published = PRODUCER_DROPPED_NUDGE_KEYS & set(nudge)
+        published = CONSUMER_OWNED_NUDGE_KEYS & set(nudge)
         assert not published, (
-            f"the estate now publishes {sorted(published)} on a nudge. That is "
-            "SNAG-ESTATE-002 fixed on their side (their SNAG-ESTATE-010): stop "
-            "building the wording in sysadmin/estate/judgements.py and take the "
-            "producer's, then delete this assertion."
+            f"the estate now publishes {sorted(published)} on a nudge, against its "
+            "ADR-0217 (a nudge's wording is the consumer's). The title keys this "
+            "repository's alerts table, so two owners would be back: file at "
+            "estate-manager rather than adopting their wording."
         )
 
 

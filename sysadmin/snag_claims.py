@@ -742,37 +742,16 @@ RETIRED_UNIT = "ollama.service"
 #: the regression guard in :mod:`tests.test_config_defaults`.
 REVIEW_SCHEDULE_LEAVES = frozenset({"review_hour", "review_minute"})
 
-#: ``SNAG-ESTATE-002``'s subject is estate-manager's own code, reachable
-#: only by running it: ``estate_service`` is not installed here and is not
-#: in ``estate-lib``, so the instrument is their interpreter, the same one
+#: estate-manager's own code, reachable only by running it:
+#: ``estate_service`` is not installed here and is not in ``estate-lib``,
+#: so the instrument is their interpreter, the same one
 #: ``tests/test_snag_claims.py`` already drives ``read_snags`` with.  Held
 #: as a package root rather than as one module path because the check that
 #: first needed it — ``SNAG-ROADMAP-001``'s, removed with its entry on
-#: 2026-08-26 — was about a single module and this one is about two.
+#: 2026-08-26 — was about a single module and its successors span several.
 ESTATE_SERVICE = Path.home() / "projects" / "estate-manager" / "service"
 ESTATE_PYTHON = ESTATE_SERVICE / ".venv" / "bin" / "python"
 ESTATE_PROBE_TIMEOUT = 60
-
-#: The two modules ``SNAG-ESTATE-002`` spans: the dataclass that computes
-#: a nudge's wording, and the route that serialises it.  **Both** are
-#: named because the entry's candidate remedies land in different files —
-#: converting the properties is ``nudges.py``, augmenting the payload
-#: beside the ``asdict`` call is ``oversight.py`` — so a checkout state
-#: read for one of them would say nothing about a fix landing in the
-#: other, which is the half of ``ports_checked``'s rule that bites when
-#: the thing being reported on is somebody else's tree.
-ESTATE_NUDGE_MODULES = (
-    Path("estate_service") / "projects" / "nudges.py",
-    Path("estate_service") / "projects" / "oversight.py",
-)
-
-#: The three properties the entry says never reach the wire.  ``details``
-#: is the third and went unmentioned when the entry was filed; it is
-#: included because the entry's own body says a fix converting ``title``
-#: and ``message`` and stopping there "leaves the same defect one field
-#: over", and a check that could not see that would report such a fix as
-#: a clean closure.
-NUDGE_WORDING = ("title", "message", "details")
 
 
 def _docstring_nodes(tree: ast.Module) -> set[int]:
@@ -1361,95 +1340,6 @@ def estate_probe(script: str) -> tuple[dict[str, object] | None, str]:
     return payload, ""
 
 
-#: The probe handed to :func:`estate_probe`.  It builds one ``Nudge``,
-#: reads the wording the producer computes off it, and serialises it the
-#: way ``GET /api/projects/attention`` does.
-#:
-#: **Nothing private is touched, and nothing is typed that the producer
-#: can restate.**  ``SNAG-ROADMAP-001``'s check learned that the hard way
-#: — its first draft named a private helper whose rename was the fix it
-#: existed to notice — so the specimen's arguments come from
-#: ``dataclasses.fields(Nudge)`` rather than from a literal field list
-#: here.  That is what lets the *first* candidate remedy be seen at all:
-#: converting ``title`` and ``message`` from properties into fields
-#: changes the constructor's signature, and a probe holding its own copy
-#: of that signature would raise ``TypeError`` and report ``unknown`` for
-#: ever, structurally unable to witness the closure it exists to notice.
-#:
-#: ``textwrap.dedent`` rather than ``inspect.cleandoc``: ``cleandoc``
-#: treats the block as a docstring and dedents every line *after* the
-#: first, which happens to be a no-op on a module-level function and
-#: mangles every other kind.  The real route is module-level, so the
-#: wrong tool agreed with the only specimen it was tried against —
-#: caught by driving the detector at a nested function instead.
-NUDGE_PROBE = '''\
-import ast, dataclasses, inspect, json, sys, textwrap
-sys.path.insert(0, {service!r})
-from dataclasses import asdict
-from estate_service.projects import nudges, oversight
-
-FILLER = {{"str": "probe", "int": 7, "bool": False}}
-
-
-def filler_for(annotation):
-    """A value for one field, whichever form the annotation survives as.
-
-    ``dataclasses.fields(...).type`` is the annotation *string* under
-    ``from __future__ import annotations`` and the type *object* without
-    it.  The producer uses the future import and a stub need not, so both
-    are read rather than the live form being assumed.
-    """
-    name = annotation if isinstance(annotation, str) else getattr(annotation, "__name__", "")
-    return FILLER.get(name)
-
-
-def specimen():
-    """A Nudge built from whatever fields the dataclass declares today."""
-    kwargs = {{}}
-    for field in dataclasses.fields(nudges.Nudge):
-        kwargs[field.name] = filler_for(field.type)
-    return nudges.Nudge(**kwargs)
-
-
-def payload_is_bare_asdict(func):
-    """Does the route serialise a nudge with an unaugmented asdict()?"""
-    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
-    for node in ast.walk(tree):
-        elt = getattr(node, "elt", None)
-        if not isinstance(node, ast.ListComp) or not isinstance(elt, ast.Call):
-            continue
-        if (
-            isinstance(elt.func, ast.Name)
-            and elt.func.id == "asdict"
-            and len(elt.args) == 1
-            and isinstance(elt.args[0], ast.Name)
-            and not elt.keywords
-        ):
-            return True
-    return False
-
-
-nudge = specimen()
-offered, raised = {{}}, []
-for name in {wording!r}:
-    try:
-        offered[name] = str(getattr(nudge, name))
-    except AttributeError:
-        continue
-    except Exception as exc:
-        raised.append(name + ": " + exc.__class__.__name__)
-
-print(json.dumps({{
-    "offered": sorted(offered),
-    "raised": raised,
-    "title": offered.get("title"),
-    "message": offered.get("message"),
-    "published": sorted(asdict(nudge)),
-    "route_bare_asdict": payload_is_bare_asdict(oversight.attention),
-}}))
-'''
-
-
 def _probe_names(value: object) -> list[str]:
     """One list of names out of a probe's JSON, or none at all.
 
@@ -1464,124 +1354,6 @@ def _probe_names(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value]
-
-
-def check_nudge_wording_unpublished() -> Measurement:
-    """``SNAG-ESTATE-002`` — a wording the producer computes and drops.
-
-    ``Nudge.title``, ``.message`` and ``.details`` are ``@property``;
-    ``GET /api/projects/attention`` serialises with
-    ``dataclasses.asdict``, which emits **fields only**.  So the
-    producer's single source of truth for a nudge's wording is
-    unreachable from the consumer that renders it, and
-    :mod:`sysadmin.estate.judgements` built its own — the copy-drift
-    estate-manager exists to remove, in the one place both repositories
-    carry a comment claiming otherwise.
-
-    **The mechanism is asked, never the population** — rule 1, and this
-    entry is the one where getting it wrong would be cheapest to do.
-    ``/api/projects/attention`` has answered ``{"health": [], "nudges":
-    []}`` on every occasion anyone has looked, twice after an overnight
-    scheduled scan, so a check reading the live route would report *no
-    nudges* and could never distinguish that from *no wording on the
-    nudges there are*.  A specimen is built instead, exactly as
-    :func:`check_dropin_blind_spot` builds a unit it could not find.
-
-    **All three of the entry's candidate remedies are reachable, and
-    that is what decided the shape.**  The entry offers publishing the
-    properties as fields, augmenting the payload beside the ``asdict``
-    call, or deleting the properties and the "one place" comment so the
-    producer stops claiming a role it does not fill.  The first shows up
-    as the wording appearing in ``asdict``; the third as the wording
-    being *absent from the object*, which is a refutation and not a
-    failure to measure, because the entry's complaint is that both sides
-    think they own the format and neither says so — a producer that has
-    stopped claiming it has answered that.  The second cannot be seen in
-    ``asdict`` at all, so the route's serialisation is read as well, and
-    a route that no longer hands the list straight out of a bare
-    ``asdict`` is ``unknown`` rather than ``match``: the probe has
-    stopped isolating the question and saying so is rule 5.
-
-    **A partial fix is ``mismatch`` with the residue named.**  The entry
-    says in its own body that converting ``title`` and ``message`` and
-    stopping there "leaves the same defect one field over", so a check
-    reporting that state as ``match`` would hide the fix and one
-    reporting it as a clean refutation would hide the residue.  It is a
-    candidate for closure — rule 2 hands the judgement to a sitting
-    either way — and what that sitting needs is the name of the field
-    still being dropped, which the note carries.
-
-    Delegated, so what is measured is the **producer**, never this
-    repository's consumer: the refusal ``SNAG-ESTATE-005``'s
-    check (retired 2026-09-29) made in writing, and ``SNAG-ROADMAP-001``'s. Whether
-    :mod:`sysadmin.estate.judgements` should keep its own title is a
-    separate question the entry already answers *yes* to, and a check
-    that folded it in would be judging a decision rather than a claim.
-    """
-    payload, problem = estate_probe(
-        NUDGE_PROBE.format(service=str(ESTATE_SERVICE), wording=NUDGE_WORDING)
-    )
-    if payload is None:
-        return Measurement("unknown", problem)
-
-    #: Ordered by :data:`NUDGE_WORDING` rather than alphabetically, so a
-    #: note reading "title, message now reach the wire and details still
-    #: do not" names the fields in the order the entry argues about them.
-    seen = set(_probe_names(payload.get("offered")))
-    offered = [name for name in NUDGE_WORDING if name in seen]
-    raised = _probe_names(payload.get("raised"))
-    published = _probe_names(payload.get("published"))
-    bare = payload.get("route_bare_asdict")
-    dropped = [name for name in offered if name not in published]
-    carried = [name for name in offered if name in published]
-    detail = (
-        f"Nudge offers {', '.join(offered) or 'none of ' + ', '.join(NUDGE_WORDING)}",
-        f"the route's asdict() publishes {', '.join(published)}",
-        f"producer's title: {payload.get('title')!r}",
-        f"producer's message: {payload.get('message')!r}",
-        f"attention() serialises with a bare asdict(): {bare}",
-        estate_module_state(ESTATE_NUDGE_MODULES),
-    )
-
-    if raised:
-        return Measurement(
-            "unknown",
-            "the specimen no longer satisfies the wording it is asked for "
-            f"({'; '.join(raised)}) — the probe has stopped isolating the question",
-            detail,
-        )
-    if not offered:
-        return Measurement(
-            "mismatch",
-            "the producer no longer computes a title, message or details at all — the "
-            "entry's delete remedy, which ends the two-owners problem rather than the "
-            "publishing one",
-            detail,
-        )
-    if carried and not dropped:
-        return Measurement(
-            "mismatch",
-            "the wording the producer computes now reaches the wire — "
-            f"{', '.join(carried)} are serialised, which is the outcome the entry asks for",
-            detail,
-        )
-    if carried:
-        return Measurement(
-            "mismatch",
-            f"{', '.join(carried)} now reach the wire and {', '.join(dropped)} still "
-            "do not — the partial fix this entry warned of, so the residue is what needs "
-            "judging rather than the closure",
-            detail,
-        )
-    if bare is not True:
-        return Measurement(
-            "unknown",
-            "attention() no longer serialises a nudge with a bare asdict(), so a fix "
-            "augmenting the payload at the call site would not show here — the probe no "
-            "longer isolates what reaches the wire",
-            detail,
-        )
-    return Measurement("match", "", detail)
 
 
 # ---------------------------------------------------------------------------
@@ -1727,8 +1499,8 @@ def check_code_spans_survive() -> Measurement:
     check would be a cross-repo read of a thing that repository is
     already fixing"* as the reason five entries carry none, and
     ``SNAG-LOG-012`` is one of the five it names.  Session 88 broke that
-    once with :func:`check_nudge_wording_unpublished`, which was still a
-    cross-repo read; this breaks it the other way, and more cheaply —
+    once with ``SNAG-ESTATE-002``'s check (retired 2026-10-01), which was
+    still a cross-repo read; this breaks it the other way, and more cheaply —
     being delegated is what makes a check *worth* writing, because the
     closing move happens in a tree nothing here watches, and it need not
     cost a cross-repo read to notice.
@@ -4255,12 +4027,13 @@ def check_handover_reach_is_declared() -> Measurement:
 
 
 #: ``SNAG-ESTATE-007``'s two engines, which is where a fix to either half
-#: would land: the queue's psycopg pool and the project domain's
-#: SQLAlchemy engine.  Both are named for :data:`ESTATE_NUDGE_MODULES`'
-#: reason — a fix landing in one says nothing about the other, and this
-#: entry is precisely a claim that the two disagree.  ``api.py`` is named
-#: as well because the surface is what is measured and the route's
-#: serialiser is the third place a rendering could be decided.
+#: would land: the queue's psycopg pool and the project domain's SQLAlchemy
+#: engine.  Both are named for the reason ``SNAG-ESTATE-002``'s check
+#: (retired 2026-10-01) named two modules — a fix landing in one says
+#: nothing about the other, and this entry is precisely a claim that the
+#: two disagree.  ``api.py`` is named as well because the surface is what is
+#: measured and the route's serialiser is the third place a rendering could
+#: be decided.
 ESTATE_QUEUE_MODULES = (
     Path("estate_service") / "db.py",
     Path("estate_service") / "api.py",
@@ -4910,9 +4683,9 @@ BLIP_ADVICE_PATH = REPO_ROOT / "sysadmin" / "monitor" / "service_recommendations
 #: The families holding the evidence the entry says this row has not got
 #: — *"a correlation between the blips and the service's own logs, which
 #: is ``log_actions.group_incidents``' machinery pointed at a different
-#: table"*.  Both are named for :data:`ESTATE_NUDGE_MODULES`' reason: the
-#: correlation could be built off the trend or off the incident grouping,
-#: and a fix reaching one says nothing about the other.
+#: table"*.  Both are named for the reason ``SNAG-ESTATE-002``'s check
+#: (retired 2026-10-01) named two modules: the correlation could be built
+#: off the trend or off the incident grouping, and a fix reaching one says nothing about the other.
 BLIP_LOG_MODULES = (
     "sysadmin.monitor.log_actions",
     "sysadmin.monitor.log_trends",
@@ -5322,9 +5095,9 @@ def check_check_interval_looks_away() -> Measurement:
 # SNAG-ESTATE-006 — a finding's `code` reaches no published key
 # ---------------------------------------------------------------------------
 
-#: The three modules ``SNAG-ESTATE-006`` spans, named for
-#: :data:`ESTATE_NUDGE_MODULES`' reason and with one more file than that
-#: entry needs.  The dataclass computes ``code`` and folds it into
+#: The three modules ``SNAG-ESTATE-006`` spans, named for the reason
+#: ``SNAG-ESTATE-002``'s check (retired 2026-10-01) named two modules, and
+#: with one more file than that entry needs.  The dataclass computes ``code`` and folds it into
 #: ``fingerprint``; the ORM model is where it is lost, having no column;
 #: the route is where a key would appear.  A fix can land in any one of
 #: the three and a checkout state read for one says nothing about the
@@ -5335,13 +5108,14 @@ ESTATE_AUDIT_MODULES = (
     Path("estate_service") / "audit" / "router.py",
 )
 
-#: The field the entry is about, typed here for :data:`NUDGE_WORDING`'s
-#: reason: it is the *entry's* subject rather than a copy of the
-#: producer's schema, and the check reads whether the producer still
-#: computes it rather than assuming it does.  Nothing else about the
-#: producer's shape is written down — the specimen is built from the
-#: fields and columns their code declares today, so a fix that publishes
-#: ``code`` is seen without this module being edited.
+#: The field the entry is about, typed here for the reason
+#: ``SNAG-ESTATE-002``'s check (retired 2026-10-01) typed its three: it is
+#: the *entry's* subject rather than a copy of the producer's schema, and
+#: the check reads whether the producer still computes it rather than
+#: assuming it does.  Nothing else about the producer's shape is written
+#: down — the specimen is built from the fields and columns their code
+#: declares today, so a fix that publishes ``code`` is seen without this
+#: module being edited.
 AUDIT_FINDING_CODE = "code"
 
 #: The surface id in :data:`sysadmin.estate.client.SURFACE_PATHS`.  Taken
@@ -5596,12 +5370,12 @@ def check_audit_code_unpublished() -> Measurement:
     what the consumer reads; across **135 audit runs it has never once
     been clean**, minimum one finding, so its population is not the
     weather in the way ``/api/projects/attention``'s was for
-    :func:`check_nudge_wording_unpublished`.  But an audit that finds
-    nothing publishes ``"findings": []``, and a route that has never
+    ``SNAG-ESTATE-002``'s check (retired 2026-10-01).  But an audit that
+    finds nothing publishes ``"findings": []``, and a route that has never
     served a finding says nothing about its own key set — so a wire-only
     check reports ``unknown`` on precisely the morning the estate becomes
     conformant.  The specimen answers whatever the audit found, and it is
-    built the way that check builds a ``Nudge``: from the fields and
+    built the way that check built a ``Nudge``: from the fields and
     columns the producer declares today, never from a list typed here.
 
     **The wire can refute and cannot confirm.**  A ``code`` key on a
@@ -5617,8 +5391,8 @@ def check_audit_code_unpublished() -> Measurement:
     change here.  Publishing it inside ``detail`` is a fix on the
     producer's side that our consumer still reads past, because
     ``judge_audit_findings`` reads it at the top level — the residue
-    shape ``check_nudge_wording_unpublished`` reports for ``details``, one
-    surface over, and the one place a ``mismatch`` here owes this
+    shape ``SNAG-ESTATE-002``'s check (retired 2026-10-01) reported for
+    ``details``, one surface over, and the one place a ``mismatch`` here owes this
     repository a line.  Adding the column without publishing a key is the
     storage half of the cause landing while the claim stands, so it is
     ``match`` **with the residue named**: a check that reported it as
@@ -8641,12 +8415,6 @@ CHECKS: dict[str, Check] = {
             "SNAG-UNITS-006",
             "the unit sweep cannot read a drop-in",
             check_dropin_blind_spot,
-        ),
-        Check(
-            "nudge_wording_unpublished",
-            "SNAG-ESTATE-002",
-            "the estate's nudge wording never reaches the wire",
-            check_nudge_wording_unpublished,
         ),
         Check(
             "code_spans_survive",

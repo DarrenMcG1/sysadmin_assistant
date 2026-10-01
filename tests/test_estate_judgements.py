@@ -12,10 +12,11 @@ them.**  ``GET /api/projects/attention`` has answered ``{"health": [],
 asserts exactly that (``test_nudges_are_published_not_stored``).  The
 populated shape has never been observed on either side of the seam, so
 the payloads below are built from the producer's dataclass fields
-(``estate_service/projects/nudges.py``) rather than from a capture — and
-the ``asdict``-drops-properties finding is what makes that distinction
-worth stating: ``Nudge.title`` and ``Nudge.message`` are properties and
-never reach the wire.
+(``estate_service/projects/nudges.py``) rather than from a capture.
+``Nudge`` carries fields only — its wording properties were deleted by
+estate-manager's ADR-0217 on 2026-09-30 (``SNAG-ESTATE-002``) — so a
+nudge's title and message are this repository's to build, from those
+fields.
 
 Live values used below, read from 8400 on 2026-08-13:
 

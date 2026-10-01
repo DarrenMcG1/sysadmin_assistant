@@ -140,17 +140,14 @@ from sysadmin.core.text import truncate_at_word
 #: defect: *a cut that nothing marks is indistinguishable from a
 #: sentence that happened to end there*.  So the cut is
 #: :func:`~estate.text.truncate_at_word`'s, which always marks it, and
-#: the full text stays in ``details['next_action']`` — the place the
-#: producer's own ``Nudge.details`` docstring reserves for "everything
-#: the message had to compress".
+#: the full text stays in ``details['next_action']``, for everything the
+#: message had to compress.
 #:
-#: 120 is the producer's number for the same destination
-#: (``nudges._MESSAGE_ACTION_CHARS``), and reaching the same figure
-#: independently is not a copy to be deduplicated: it is unreachable
-#: from here (a private constant behind a property ``asdict`` drops —
-#: ``SNAG-ESTATE-002``), and this repository's prefix spends ~60
-#: characters the producer's does not, so the totals differ even where
-#: the budget for the action agrees.
+#: The number is this repository's alone.  The producer once held a
+#: matching 120 for a message nothing serialised; estate-manager's
+#: ADR-0217 deleted it with the rest of ``Nudge``'s wording on
+#: 2026-09-30 (``SNAG-ESTATE-002``), so there is no second figure left to
+#: drift from.
 NEXT_ACTION_CHARS = 120
 
 #: How much of one errored check's reason reaches the message.
@@ -557,15 +554,12 @@ def judge_attention(payload: dict[str, Any], max_rows: int) -> list[Judgement]:
     severity that stays on screen and breaks DND is reserved for faults
     that have already been announced and ignored.
 
-    Two things the payload does not carry, discovered by reading the
-    producer rather than by trusting its dataclass: ``Nudge.title`` and
-    ``Nudge.message`` are ``@property``, and ``oversight.attention``
-    serialises with ``dataclasses.asdict``, which emits **fields only**.
-    So the estate's "one place a nudge's title is built" never reaches
-    the wire, and the title below is this repository's own.  That is
-    defensible — the title is the identity key in *this* table — but it
-    is a duplication to know about rather than to discover later, and it
-    is filed as a snag.
+    The payload carries a nudge's numbers and none of its wording, and
+    the title and message below are this repository's own.  That is the
+    settled division: the title is the identity key in *this* table, and
+    estate-manager's ADR-0217 deleted the wording ``Nudge`` once computed
+    and never serialised (``SNAG-ESTATE-002``, closed 2026-10-01), so the
+    format has one owner rather than two that each believed it theirs.
 
     **Session 52 ran this against a populated payload for the first
     time**, which is the rest of that snag: ``/api/projects/attention``
@@ -761,10 +755,10 @@ def _health_rollup(health: list[dict[str, Any]], max_rows: int) -> Judgement:
 def _nudge_row(nudge: dict[str, Any]) -> Judgement:
     name = nudge["project_name"]
     days, threshold = nudge.get("days"), nudge.get("threshold")
-    # `at_least` is the producer's hedge and is kept: a streak
-    # reaching the edge of the retention window has an unknown true
-    # length, and restating it as exact is the small dishonesty the
-    # estate's own Nudge.message docstring refuses to commit.
+    # `at_least` renders the producer's `at_window_edge` hedge: a
+    # streak reaching the edge of the retention window has an unknown
+    # true length, and restating it as exact would be a small
+    # dishonesty.
     at_least = "at least " if nudge.get("at_window_edge") else ""
     plural = "day" if days == 1 else "days"
     action = truncate_at_word(str(nudge.get("next_action") or ""), NEXT_ACTION_CHARS)

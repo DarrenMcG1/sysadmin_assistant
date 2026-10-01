@@ -400,10 +400,11 @@ sighting `standing_days: 0.0`, and "Standing 0 days" reads as a rounding
 artefact. Session 57 then re-drove the whole path against the real `ss`
 and the real findings payload, which is what caught rule 6.
 
-Two gaps are filed rather than assumed settled: `SNAG-ESTATE-002` (the
-producer's `Nudge.title`/`.message` are `@property` and `asdict` drops
-them, so this repository builds a format the estate believes it owns) and
-`SNAG-ESTATE-003` (no escalation; the loud rung would be `critical`,
+Two gaps were filed rather than assumed settled: `SNAG-ESTATE-002` (the
+producer's `Nudge.title`/`.message` were `@property` and `asdict` dropped
+them, so this repository built a format the estate believed it owned —
+closed 2026-10-01 when estate-manager's ADR-0217 deleted that wording,
+leaving the format ours alone) and `SNAG-ESTATE-003` (no escalation; the loud rung would be `critical`,
 which is reserved for faults on this box, and the family most in need
 already arrives pre-escalated from the producer).
 
