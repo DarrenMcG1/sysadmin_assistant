@@ -1,21 +1,70 @@
-# Handoff — 2026-10-01 (Session 308)
+# Handoff — 2026-10-01 (Session 309)
 
 ## Next action
 
-Pass `discovery_depth` to all five `load_registry` callers, or delete it, so the unit sweep and the services registry cannot resolve different project sets. *(For: session)*
+Read estate-manager's three open messages in full and decide what `monitor/gpu.py` does with `sample_gpu_busy` returning 0 for a suspended card instead of `None`. *(For: session)*
 
-It is the first startable unchecked item in tasks.md, added today. Only
-`units/agent.py` passes the key; the other four callers take estate-lib's
-default. Both are 2, so nothing differs on the box now. Deleting the key
-is the smaller fix if nobody wants to tune depth. The disk fit's
-fitted-line-above-threshold branch, `SNAG-FILES-001`, is the other
-startable candidate. Estate message `49b9e620` (venture-assistant moves
-reddit's 429 backoff line to INFO) still asks nothing of this repository
-and can be closed. The two estate-manager messages filed today
-(`ba17667d`, `81c4070e`) announce additive estate-lib changes and have
-still not been read in full.
+It is the first startable unchecked item in tasks.md, added this
+session. The three messages (`81c4070e`, `ba17667d`, `e6782a8a`) are
+estate-manager's announcements of 2026-10-01 and none has been read
+past its summary. `81c4070e` is the one with a likely consequence here:
+`gpu.py` line 134 reads `sample_gpu_busy` and treats `None` as
+unmeasured, so a `0` for a suspended card becomes a stored reading.
+`e6782a8a` may touch the log aggregator's parse of the SearXNG shim's
+unit. `49b9e620` (venture-assistant moves reddit's 429 backoff line to
+INFO) still asks nothing of this repository and can be closed. The disk
+fit's fitted-line-above-threshold branch, `SNAG-FILES-001`, is the
+startable snag after that.
+
+## Session 309: every registry load takes the configured depth
+
+Session 308's next action. `sysadmin/main.py`, `sysadmin/reload.py`,
+`sysadmin/units/router.py`, `sysadmin/monitor/routers/projects_managed.py`,
+the field's comment in `sysadmin/core/config.py`, three test modules,
+`docs/design/config.md`, `CLAUDE.md` and the roadmap. Daemon restarted
+at 13:03:27 BST (`kill -TERM`, `NRestarts` 4 → 5).
+
+- **What changed.** The four callers that took estate-lib's default
+  depth now pass `config.discovery_depth`, so all six `load_registry`
+  calls read the same key. `discovery_depth` joins `reload.py`'s
+  `LIVE_AT_STARTUP` with its reason, because the lifespan reads it now
+  and the reload rebuilds the registry from the new config's value.
+- **Decided: pass it, not delete it.** The handoff offered both. The
+  key had been moved to the top level a session earlier to match
+  estate-manager's config, and the estate passes its own
+  `discovery_depth` at every one of its registry loads (`repos.py`,
+  `delegated.py`, `projects/agent.py`, `registry_view.py`,
+  `projects/router.py`). Deleting ours would have left the two sides of
+  the seam with different knobs. It stays unset in `config.yaml`.
+- **The rule is a test, not a comment.** The AST sweep that already
+  requires `partial=True` on every call now also reads the second
+  positional (or `depth=`) and requires an attribute named
+  `discovery_depth`. It asks for the attribute and not a value: a
+  literal `2` at a call site would be the same defect, since it stops
+  agreeing with the key the moment the key is set.
+- **Falsified at the original defect.** With `units/router.py` restored
+  to its pre-fix call the new test fails naming that file and line.
+- **Found: the lifespan classification caught the change.**
+  `test_reload.py::test_every_lifespan_config_read_is_classified` went
+  red on the new read in `main.py` before `LIVE_AT_STARTUP` was updated.
+  That guard did what it was written for; no change to it.
+- **Re-measured, not nudged.** `attribute_reads` for `discovery_depth`:
+  2 → 6, one per call, across five files; the test pins the file set.
+- **Verified.** Suite 4,430 passed, 2 skipped (one new); ruff and mypy
+  clean. Live after the restart: `registry_loaded` 30 repositories, 30
+  declared, 0 refused; `/api/projects/managed` lists 30;
+  `/api/units/actions` answers; `POST /api/sysadmin/reload` returns
+  `ok` with no unknown keys and nothing owing a restart.
+  `check-ops-claims.sh` reports `ok` on every claim after the daemon-start
+  markers moved to the new headline.
+
+*One concern held.* The second was estate-manager's `sample_gpu_busy`
+change (`81c4070e`) reaching `gpu.py`, recorded in tasks.md and named
+as the next action; not worked.
 
 ## Session 308: `projects_root` is a top-level config key
+
+_Its next action, since carried out:_ _Pass `discovery_depth` to all five `load_registry` callers, or delete it, so the unit sweep and the services registry cannot resolve different project sets._
 
 Session 307's next action. `sysadmin/core/config.py`, `config.yaml`, the
 seven reader sites (`main.py`, `reload.py`, `files/router.py`,

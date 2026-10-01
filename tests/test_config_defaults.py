@@ -625,20 +625,28 @@ class TestProjectsRootIsTopLevel:
         assert len(reads) == 7, reads
 
     def test_discovery_depth_is_live_and_deliberately_unset(self):
-        """Read twice in ``units/agent.py`` and set in no shipped ``config.yaml``.
+        """Read at every ``load_registry`` call and set in no shipped ``config.yaml``.
 
         A sweep of the *file* reads its absence as death; Session 236's
         handoff named seven readers and only ``projects_root`` for that
         reason.  It stays out of the file because a value stated in two
         places is free to disagree with itself.  The declaration is
-        asserted as well as the reads: deleting the field leaves
-        ``units/agent.py`` untouched, so a reads-only assertion stays
-        green over the very mutation it exists to catch.
+        asserted as well as the reads: deleting the field leaves the
+        readers untouched, so a reads-only assertion stays green over the
+        very mutation it exists to catch.
+
+        Six readers, one per ``load_registry`` call, since 2026-10-01 —
+        it read two, both in ``units/agent.py``, while the other four
+        callers took the library's default.  The per-call rule is
+        ``tests/test_services_registry.py``'s; this pins the count the
+        two measurements must agree on.
         """
         assert "discovery_depth" in AppConfig.model_fields
         reads = attribute_reads(frozenset({"discovery_depth"}), [REPO_ROOT / "sysadmin"])
-        assert len(reads) == 2
-        assert all("units/agent.py" in hit for hit in reads)
+        assert len(reads) == 6, reads
+        assert {Path(hit.split(":")[0]).name for hit in reads} == {
+            "main.py", "reload.py", "agent.py", "router.py", "projects_managed.py",
+        }, reads
         assert "discovery_depth" not in self._raw()
 
 

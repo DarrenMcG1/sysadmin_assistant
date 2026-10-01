@@ -932,7 +932,16 @@ class TestEveryProductionLoadIsPartial:
                     partial = next(
                         (k.value for k in node.keywords if k.arg == "partial"), None
                     )
-                    found.append((path.relative_to(REPO_ROOT), node.lineno, partial))
+                    # ``depth`` is the second positional parameter; a
+                    # keyword spelling is accepted too, so a caller that
+                    # names it is not reported as having dropped it.
+                    depth = next(
+                        (k.value for k in node.keywords if k.arg == "depth"),
+                        node.args[1] if len(node.args) > 1 else None,
+                    )
+                    found.append(
+                        (path.relative_to(REPO_ROOT), node.lineno, partial, depth)
+                    )
         return found
 
     def test_the_sweep_finds_the_known_calls(self):
@@ -947,7 +956,30 @@ class TestEveryProductionLoadIsPartial:
 
         strict = [
             f"{path}:{line}"
-            for path, line, partial in self._calls()
+            for path, line, partial, _depth in self._calls()
             if not (isinstance(partial, ast.Constant) and partial.value is True)
         ]
         assert strict == []
+
+    def test_every_call_passes_the_configured_depth(self):
+        """Every call hands ``<config>.discovery_depth`` as the depth.
+
+        Until 2026-10-01 one caller of five passed it and four took the
+        library's default. Both read 2, so nothing differed on the box,
+        but setting the key to 1 would have given the unit sweep a
+        different project set from the registry ``services.yaml`` is
+        checked against — the drift ``load_registry`` exists to remove.
+        The test asks for the *attribute*, not for any value: a literal
+        ``2`` at a call site is the defect in a different costume, since
+        it stops agreeing with the key the moment the key is set.
+        """
+        import ast
+
+        defaulted = [
+            f"{path}:{line}"
+            for path, line, _partial, depth in self._calls()
+            if not (
+                isinstance(depth, ast.Attribute) and depth.attr == "discovery_depth"
+            )
+        ]
+        assert defaulted == []

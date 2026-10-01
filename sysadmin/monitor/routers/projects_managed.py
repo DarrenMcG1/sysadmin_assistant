@@ -30,7 +30,7 @@ async def get_managed_projects(session: AsyncSession = Depends(get_db_session)):
     # Partial (``SNAG-SVC-007``): one malformed manifest used to 500 this
     # route for every project. A refused tree is absent from the list, and
     # the estate judge's manifest row is what names it.
-    registry = load_registry(config.projects_root, partial=True)
+    registry = load_registry(config.projects_root, config.discovery_depth, partial=True)
 
     # Fetch latest health check per service
     latest_health_subq = (

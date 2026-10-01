@@ -407,7 +407,11 @@ class TestManagedProjectsHealth:
         # `partial` is required rather than swallowed, so a strict call
         # here is a TypeError and not a stub agreeing with anything
         # (``SNAG-SVC-007``).
-        monkeypatch.setattr(module, "load_registry", lambda _root, *, partial: registry)
+        # ``depth`` is positional and required for the same reason: a
+        # call that drops ``config.discovery_depth`` is a TypeError here.
+        monkeypatch.setattr(
+            module, "load_registry", lambda _root, _depth, *, partial: registry
+        )
         monkeypatch.setattr(
             module,
             "get_services",

@@ -249,7 +249,7 @@ async def get_unit_actions(
         # Partial (``SNAG-SVC-007``). Consulted only for project ids, so a
         # refused tree costs its units a ``project:`` line in the snippet
         # and nothing else — the sweep has already attributed them.
-        load_registry(config.projects_root, partial=True),
+        load_registry(config.projects_root, config.discovery_depth, partial=True),
         # The stored port observation: it upgrades a wired-up snippet
         # from ``kind: systemd`` to a real ``kind: http`` and carries
         # the registry-disagreement advice.  Absent on any sweep stored

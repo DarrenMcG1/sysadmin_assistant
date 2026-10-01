@@ -1081,9 +1081,16 @@ class AppConfig(BaseModel):
     #: to ``load_registry`` beside :attr:`projects_root`.  1 = immediate
     #: children only; 2 lets a *category* directory (one with no markers
     #: of its own, e.g. ``apps/``) hold projects.  Directories that ARE
-    #: projects are never descended into, whatever the depth.  Read only
-    #: by ``units/agent.py``; the other five ``load_registry`` callers
-    #: take the library's default, which is also 2.  Set in no shipped
+    #: projects are never descended into, whatever the depth.  Handed to
+    #: **every** ``load_registry`` call — ``main.py``, ``reload.py``,
+    #: ``units/agent.py`` twice, ``units/router.py`` and
+    #: ``monitor/routers/projects_managed.py`` — and an AST sweep in
+    #: ``tests/test_services_registry.py`` refuses a call that leaves it
+    #: out.  Until 2026-10-01 only ``units/agent.py`` passed it and the
+    #: other four took the library's default, so setting the key to 1
+    #: would have given the unit sweep a different project set from the
+    #: registry ``services.yaml`` is checked against — the drift
+    #: ``load_registry`` exists to remove.  Set in no shipped
     #: ``config.yaml``, so a sweep of the *file* reads it as dead — it
     #: is not.
     discovery_depth: int = 2

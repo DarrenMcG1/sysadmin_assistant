@@ -199,8 +199,8 @@ Four rules, three of them the opposite of the obvious implementation:
    did not. Half-success is only dangerous when it is **silent**; this
    names the leaves, not the prefixes, in the body and in a `WARNING` log
    line (the only report the SIGHUP path has).
-3. **The registry is rebuilt from the *new* config's `projects_root`.**
-   Validating against the old root checks project ids against a directory
+3. **The registry is rebuilt from the *new* config's `projects_root` and
+   `discovery_depth`.** Validating against the old root checks project ids against a directory
    the file being installed no longer names — a check that passes for the
    wrong reason, which is the failure keying services on ids exists to
    remove.
@@ -218,7 +218,8 @@ Four rules, three of them the opposite of the obvious implementation:
 `RESTART_ONLY` is hand-written, so **a test requires every config path
 read at startup to be classified** — restart-only, listed in
 `LIVE_AT_STARTUP` with the reason it is read again later (`api.auth_token`
-per request; `projects_root` by the reload itself), or declared by a
+per request; `projects_root` and, since 2026-10-01, `discovery_depth` by
+the reload itself), or declared by a
 `JobSpec`. A hand-maintained classification nothing checks is the
 SNAG-CFG-001 shape, and this one decides what an operator is told about
 their own edit.

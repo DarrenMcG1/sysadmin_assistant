@@ -581,7 +581,8 @@ than this paragraph.
   never measured until 2026-09-14**: Session 236 trimmed the block to the
   two leaves that do have readers — `projects_root` (seven) and
   `discovery_depth` (two, and in no `config.yaml`, so a sweep of the file
-  alone reads it as dead) — and deleted the other eleven with the five
+  alone reads it as dead; **six** since 2026-10-01, when Session 309 made
+  every `load_registry` call pass it) — and deleted the other eleven with the five
   nested models holding them. **The block itself went on 2026-10-01**
   (Session 308): both survivors are top-level keys now, `projects_root`
   in `config.yaml` and `discovery_depth` on `AppConfig` alone, because

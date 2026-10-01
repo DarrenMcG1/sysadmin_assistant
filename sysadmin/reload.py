@@ -36,7 +36,8 @@ Four rules, three of them the opposite of the obvious implementation:
    response body and in the log, the same rule ``ports_checked``,
    ``truncated_sources`` and ``unread_surfaces`` already encode.
 
-3. **The registry is rebuilt from the *new* config's ``projects_root``.**
+3. **The registry is rebuilt from the *new* config's ``projects_root``
+   and ``discovery_depth``.**
    Validating the new ``services.yaml`` against the old root would check
    project ids against a directory the file being installed no longer
    names — a check that passes for the wrong reason, which is the failure
@@ -126,14 +127,19 @@ RESTART_ONLY: tuple[tuple[str, str], ...] = (
 
 #: Paths the lifespan reads that a reload nonetheless **does** deliver.
 #:
-#: Both are read at startup and read again later, so listing them under
-#: :data:`RESTART_ONLY` would be a false warning. They exist so the guard
-#: test can distinguish "classified as live" from "forgotten".
+#: All three are read at startup and read again later, so listing them
+#: under :data:`RESTART_ONLY` would be a false warning. They exist so the
+#: guard test can distinguish "classified as live" from "forgotten".
 LIVE_AT_STARTUP: tuple[tuple[str, str], ...] = (
     ("api.auth_token", "require_auth reads it on every request"),
     (
         "projects_root",
         "this module rebuilds the registry from it on every reload",
+    ),
+    (
+        "discovery_depth",
+        "handed to load_registry beside projects_root, at startup and on "
+        "every reload (the lifespan has read it since 2026-10-01)",
     ),
 )
 
@@ -386,6 +392,7 @@ def reload_configuration(
             # on the SIGHUP path that line is the only report there is.
             registry = load_registry(
                 new_config.projects_root,
+                new_config.discovery_depth,
                 partial=True,
             )
             new_services = load_services(
