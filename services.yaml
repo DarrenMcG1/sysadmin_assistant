@@ -243,9 +243,9 @@ services:
     url: http://localhost:8300/pipeline/status
     expect: { path: stalled, equals: false }
 
-  # Port 8080 is llama.cpp's default and the most contended port on this
-  # box. Recorded in the registry, but should move to 83xx when the llama
-  # units are next touched.
+  # Port 8301 since 2026-10-01: it sat on 8080, llama.cpp's default and the
+  # most contended port on this box, until venture-assistant moved it
+  # (message 2e3a4bb6).
   # `holds_vram: true` for the same reason as llama-server above, and on
   # the larger population: this unit aborted on the reset signature 10
   # times in the same 34-day window — more than alfred-inference's 6 —
@@ -255,8 +255,8 @@ services:
     name: venture-chat
     role: inference
     kind: http
-    url: http://localhost:8080/health
-    port: 8080
+    url: http://localhost:8301/health
+    port: 8301
     holds_vram: true
     systemd: { unit: venture-chat.service, scope: user }
 
@@ -284,7 +284,7 @@ services:
 
   # Started and stopped by the estate's arbiter as one half of a model
   # swap: on a `venture-nightly-24b` lease grant it stops
-  # venture-chat.service (granite-3.1-8b, :8080) and starts this one
+  # venture-chat.service (granite-3.1-8b, :8301) and starts this one
   # (mistral-small-3.2-24b, :8083), reversing both on release. Read
   # 2026-09-09 off the estate's own log lines rather than inferred from
   # the timing — lease 61 granted 08:09:50 and released 08:32:15, lease
