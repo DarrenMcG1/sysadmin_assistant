@@ -6,6 +6,7 @@ from typing import Literal
 
 import yaml
 from estate.gpu import DEFAULT_BUSY_THRESHOLD, DGPU_PCI_SLOT
+from estate.registry import DEFAULT_DEPTH
 from pydantic import BaseModel, Field, model_validator
 
 from sysadmin.core.config_keys import KeyReport, report_for_file
@@ -1093,7 +1094,17 @@ class AppConfig(BaseModel):
     #: ``load_registry`` exists to remove.  Set in no shipped
     #: ``config.yaml``, so a sweep of the *file* reads it as dead — it
     #: is not.
-    discovery_depth: int = 2
+    #:
+    #: The default is the estate's, as ``gpu_pci_slot``'s is (Session
+    #: 316).  It was a literal 2 until the estate went to 3 on 2026-10-01
+    #: (their ADR-0235, message ``262209cd``): below level 2 a directory
+    #: counts only if it carries ``.project.yaml``, so the extra level
+    #: admits declared repositories and no plain clones.  At 2 this
+    #: registry lacked ``work/clyde-automation/automation-side-income``,
+    #: which the estate's has — two answers to "which repositories exist"
+    #: on one box.  Following the constant rather than writing 3 means the
+    #: next move needs no sitting here to agree.
+    discovery_depth: int = DEFAULT_DEPTH
 
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
 

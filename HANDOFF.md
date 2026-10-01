@@ -1,21 +1,16 @@
-# Handoff — 2026-10-01 (Session 315)
+# Handoff — 2026-10-01 (Session 316)
 
 ## Next action
 
-Decide whether this repository's registry follows the estate to discovery depth 3; at depth 2 it misses `work/clyde-automation/automation-side-income`. *(For: session)*
+Bring STATUS.md's opening block back in line with the box; `check-ops-claims.sh` reads two of its claims stale. *(For: session)*
 
 It is the first startable unchecked item in tasks.md (Session 315's
-block). Estate message `262209cd` moved the estate's `DEFAULT_DEPTH`
-from 2 to 3. Below level 2 it counts a directory only if it carries
-`.project.yaml`, so plain clones stay out. Every call here passes
-`config.discovery_depth`, which defaults to 2 in `AppConfig` and is
-unset in `config.yaml`. The message said the two registries agree "and
-will disagree once a declared repository exists at
-work/<category>/<product>; none exists". One does now:
-`discover_repositories` finds 31 at depth 2 and 32 at depth 3. The
-extra one is that tree, which has a `.project.yaml`. Keep `262209cd`
-open until this is decided: it is the message that hands the decision
-here.
+block). The two stale claims are the daemon's start time (14:21:43
+stated, 15:12:12 measured) and the unresolved-alert count (3 stated, 2
+measured at 18:5x BST). Re-measure both before editing. The owner's
+restart below moves the start time again, so if it has happened, read
+the new one; if it has not, the edit is still right for the box as it
+stands.
 
 ## Scheduled action
 
@@ -43,11 +38,68 @@ rule 5 docstring in the same change as the code.
 
 ## For the owner
 
-`sudo systemctl restart sysadmin.service`. Two of today's
-`services.yaml` commits (venture-chat moving to :8301 and
-venture-manager's API on :8900) are not polled until the daemon
-restarts. It started at 15:12:12 BST, before both. Their messages,
-`898794e9` and `2e3a4bb6`, stay open until then. *(For: owner, ~2 min)*
+`sudo systemctl restart sysadmin.service`. Three changes wait on it:
+two of today's `services.yaml` commits (venture-chat moving to :8301
+and venture-manager's API on :8900), and Session 316's discovery depth
+(below), which is in `sysadmin/core/config.py` and so reaches the
+daemon only at a restart. The daemon started at 15:12:12 BST, before
+all three. Messages `898794e9` and `2e3a4bb6` stay open until then.
+*(For: owner, ~2 min)*
+
+## Session 316: the registry follows the estate to depth 3
+
+Session 315's next action. Full suite 4,444 passed, 2 skipped; ruff
+and mypy clean. A restart is owed (above).
+
+- **Decided: follow.** `AppConfig.discovery_depth` now defaults to
+  `estate.registry.DEFAULT_DEPTH` (3 today) instead of a literal 2.
+  The registry answers "which repositories exist on this box", and
+  that answer belongs to the estate, which owns the identity schema.
+  At 2 this repository lacked
+  `work/clyde-automation/automation-side-income`, which the estate's
+  registry has: two answers to one question on one box. Measured: 31
+  repositories at depth 2, 32 at depth 3, and the one extra is that
+  tree. It has no units and no `services.yaml` entry, so the only
+  visible change is one more row in `GET /api/projects/managed`.
+- **Why the extra level is safe**: below level 2 the library counts a
+  directory only if it has `.project.yaml` (estate ADR-0235). A plain
+  depth of 3 would have added seven undeclared clones; with the rule it
+  adds none. The new test drives exactly that at a synthetic tree: a
+  declared repository at level 3 is found and a bare `.git` clone is
+  not.
+- **Decided: the constant, not a literal 3.** `gpu_pci_slot` and
+  `gpu_busy_threshold` already take their defaults from `estate.gpu`
+  the same way. A literal 3 would need another sitting here the next
+  time the estate moves; the constant agrees by construction. The key
+  still overrides it, and stays unset in `config.yaml`.
+- **Rejected: staying at 2.** It would keep the disagreement the
+  estate's message measured, and the first service declared by a
+  level-3 repository would be refused as an unknown project id.
+- **Readers of the changed surface**: `GET /api/projects/managed`
+  gains one row; its shape is unchanged. Swept `~/projects` for the
+  route outside this repository: estate-manager defines matching
+  models and names it in a test docstring, and nothing requests it. A
+  measured-empty audience, so nothing was filed.
+- **Closed** estate message `262209cd` (the depth change), which asked
+  nothing and handed the decision here.
+
+## What Session 315 handed on (done by Session 316)
+
+
+Decide whether this repository's registry follows the estate to discovery depth 3; at depth 2 it misses `work/clyde-automation/automation-side-income`. *(For: session)*
+
+It is the first startable unchecked item in tasks.md (Session 315's
+block). Estate message `262209cd` moved the estate's `DEFAULT_DEPTH`
+from 2 to 3. Below level 2 it counts a directory only if it carries
+`.project.yaml`, so plain clones stay out. Every call here passes
+`config.discovery_depth`, which defaults to 2 in `AppConfig` and is
+unset in `config.yaml`. The message said the two registries agree "and
+will disagree once a declared repository exists at
+work/<category>/<product>; none exists". One does now:
+`discover_repositories` finds 31 at depth 2 and 32 at depth 3. The
+extra one is that tree, which has a `.project.yaml`. Keep `262209cd`
+open until this is decided: it is the message that hands the decision
+here.
 
 ## Session 315: the three live reds are green
 

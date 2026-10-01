@@ -649,6 +649,29 @@ class TestProjectsRootIsTopLevel:
         }, reads
         assert "discovery_depth" not in self._raw()
 
+    def test_discovery_depth_defaults_to_the_estates(self, tmp_path):
+        """Session 316 — this registry follows the estate to depth 3.
+
+        The default is ``estate.registry.DEFAULT_DEPTH``, so the two
+        registries answer "which repositories exist" alike.  Driven, not
+        only compared: at level 3 the default must admit a declared tree
+        and refuse a plain clone, because the extra level is safe only
+        under the library's manifest rule (estate ADR-0235), and a depth
+        of 3 without it would have added seven undeclared clones here.
+        """
+        from estate.registry import DEFAULT_DEPTH, load_registry
+
+        depth = AppConfig().discovery_depth
+        assert depth == DEFAULT_DEPTH
+        declared = tmp_path / "work" / "category" / "declared"
+        declared.mkdir(parents=True)
+        (declared / ".project.yaml").write_text(
+            "schema: 1\nid: declared\nname: declared\nstatus: active\n"
+        )
+        (tmp_path / "work" / "category" / "clone" / ".git").mkdir(parents=True)
+        ids = set(load_registry(tmp_path, depth, partial=True).ids)
+        assert ids == {"declared"}, ids
+
 
 # --- The general case of the organiser trim (Session 237) ---------------
 

@@ -216,9 +216,10 @@ events:
 # A copy left at the old path is not obeyed: config_keys names it as an
 # unknown key on startup and on every reload.
 #
-# `discovery_depth` (default 2) is the one further top-level field this
-# file deliberately does not set — a value stated in two places is free
-# to disagree with itself.
+# `discovery_depth` is the one further top-level field this file
+# deliberately does not set — a value stated in two places is free to
+# disagree with itself. Its default is estate.registry's DEFAULT_DEPTH
+# (3 since 2026-10-01), so this registry and the estate's agree.
 projects_root: /home/gaddi/projects
 
 agents:

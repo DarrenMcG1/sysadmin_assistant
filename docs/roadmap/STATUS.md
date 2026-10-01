@@ -3,6 +3,16 @@
 **Last Updated**: 2026-10-01
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **This service now sees the same set of projects as the estate**
+> (2026-10-01, Session 316). The estate began looking one folder level
+> deeper for projects today, counting a folder at that depth only if it
+> declares itself a project. This service still looked two levels down,
+> so it was missing one project the estate knew about,
+> `automation-side-income`. Its search depth now comes from the
+> estate's own setting, so the two agree, and will keep agreeing if the
+> estate changes it again. It takes effect at the next restart of the
+> service.
+
 > **The test suite is green again** (2026-10-01, Session 315). Three
 > live checks had failed because of changes made elsewhere today. The
 > README's count of monitored services was one short after

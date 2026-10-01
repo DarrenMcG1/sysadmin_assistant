@@ -8,6 +8,23 @@
 
 ---
 
+## Session 316: the registry follows the estate to depth 3 (2026-10-01)
+
+Session 315's next action. Suite 4,444 passed, 2 skipped; ruff and mypy
+clean. `sysadmin/core/config.py` changed, so the daemon needs the
+owner's restart to read it.
+
+- [x] **`AppConfig.discovery_depth` defaults to the estate's
+      `DEFAULT_DEPTH` (3).** At 2 this registry found 31 repositories
+      and the estate's 32; the extra one is
+      `work/clyde-automation/automation-side-income`. Below level 2 the
+      library counts only directories with `.project.yaml`, so the extra
+      level adds no plain clones.
+- [x] **Test: `test_discovery_depth_defaults_to_the_estates`.** At a
+      synthetic tree, the default finds a declared repository at level 3
+      and not a bare clone. Red at the old literal 2.
+- [x] **Closed estate message `262209cd`.**
+
 ## Session 315: the three live reds are green (2026-10-01)
 
 Session 314's next action. Suite 4,443 passed, 2 skipped; ruff and mypy
@@ -28,8 +45,9 @@ so no restart is owed.
 - [x] **The audit red needed no change.** The tree moved to
       `work/clyde-automation/` at 15:46 BST and the audit's 18:38 run
       publishes the new path, which is a directory, so the test passes.
-- [ ] **Decide whether the registry follows the estate to discovery
-      depth 3.** Estate message `262209cd` moved the estate's default
+- [x] **Decide whether the registry follows the estate to discovery
+      depth 3.** Done by Session 316: it follows, with the default
+      taken from `estate.registry.DEFAULT_DEPTH` (see below). Estate message `262209cd` moved the estate's default
       from 2 to 3, and below level 2 counts only trees with
       `.project.yaml`. Every `load_registry` call here passes
       `config.discovery_depth`, default 2 in `AppConfig`
