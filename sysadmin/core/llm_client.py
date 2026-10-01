@@ -199,9 +199,19 @@ class LLMClient:
             )
             return None
         except LlamaStatusError as e:
+            # One status means more than one thing (a 500 is a full KV
+            # cache and also an unparseable body), so log llama-server's
+            # own text. ``None`` when the body was not its error shape.
+            # ``error_message``, not ``message``: LogRecord reserves that
+            # name and ``extra`` raises KeyError on it.
             logger.warning(
                 "llm_error",
-                extra={"status": e.status, "model": model},
+                extra={
+                    "status": e.status,
+                    "error_message": e.message,
+                    "error_type": e.error_type,
+                    "model": model,
+                },
             )
             return None
         except LlamaInvalidResponse:

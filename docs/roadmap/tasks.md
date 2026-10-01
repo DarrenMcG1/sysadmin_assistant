@@ -8,6 +8,26 @@
 
 ---
 
+## Session 312: a failed LLM call logs llama-server's own reason (2026-10-01)
+
+Session 311's next action. `sysadmin/core/llm_client.py`,
+`tests/test_llm_client.py` and the roadmap. Daemon restarted at
+14:21:43 BST (`kill -TERM`).
+
+- [x] **`llm_error` carries `error_message` and `error_type`** beside
+      `status`, from estate-lib's `LlamaStatusError` (estate-manager
+      ADR-0228, message `ba17667d`). Both are `None` when the body is
+      not llama-server's `{"error": {code, message, type}}` shape.
+- [x] **The key is `error_message`, not `message`.** `LogRecord`
+      reserves `message`, and `extra` raises `KeyError` on it, which
+      would have escaped the handler whose job is to return `None`.
+      Driven: the `message` spelling fails the new test with exactly
+      that `KeyError`.
+- [x] **Two tests**, one per shape: the measured llama-server body
+      logs its text and type; `{"error": "boom"}` logs `None` for both.
+      Both fail against the old handler.
+- [x] **Verified.** Suite 4,443 passed, 2 skipped; ruff and mypy clean.
+
 ## Session 311: the SearXNG shim's journal is declared JSON (2026-10-01)
 
 Session 310's next action. `services.yaml`,
@@ -80,9 +100,9 @@ restarted at 13:17:04 BST (`kill -TERM`, `NRestarts` 5 → 6).
       `format: json` turns on. The message also asks whether an entry with
       no `project:` should store an estate warning at all. Second concern,
       recorded by Session 310, not worked.
-- [ ] **Log `LlamaStatusError.message` and `.error_type` in
-      `sysadmin/core/llm_client.py`** (estate message `ba17667d`, still
-      open). The library now parses llama-server's own error text; this
+- [x] **Log `LlamaStatusError.message` and `.error_type` in
+      `sysadmin/core/llm_client.py`** (estate message `ba17667d`, closed
+      by Session 312). The library now parses llama-server's own error text; this
       repository logs only `e.status`. Additive and optional. Recorded by
       Session 310, not worked.
 - [ ] **Decide whether the collector should stop waking a suspended dGPU.**

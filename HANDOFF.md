@@ -1,6 +1,41 @@
-# Handoff — 2026-10-01 (Session 311)
+# Handoff — 2026-10-01 (Session 312)
 
 ## Next action
+
+Measure whether the 5-minute GPU poll wakes the suspended dGPU, by matching `journalctl -k` resume lines against poll times, before deciding to skip `rocm-smi`. *(For: session)*
+
+It is the first startable unchecked item in tasks.md, under Session
+310: "Decide whether the collector should stop waking a suspended
+dGPU." The decision rests on a measurement nobody has taken. In the
+92 fallback rows on the night of 27 September the card was drawing
+power when `rocm-smi` read it, which suggests the poll resumes it, but
+something else may be waking it. Kernel `PSP is resuming` lines lined
+up against the collector's poll instants would say which. If the poll
+is the cause, skipping the tool's dGPU queries while suspended leaves
+temperature, VRAM and power `None` for those rows.
+
+## Session 312: a failed LLM call logs llama-server's own reason
+
+Session 311's next action. `sysadmin/core/llm_client.py`,
+`tests/test_llm_client.py` and the roadmap. Daemon restarted at
+14:21:43 BST.
+
+- **Done: `llm_error` logs `error_message` and `error_type` beside
+  `status`.** estate-lib's `LlamaStatusError` now parses llama-server's
+  error body (estate-manager ADR-0228). A status alone was ambiguous:
+  a 500 is both a full KV cache and an unparseable request. Both fields
+  are `None` when the body is not llama-server's shape.
+- **Decided: the key is `error_message`.** `logging.LogRecord` reserves
+  `message`, and passing it in `extra` raises `KeyError`. That would
+  have escaped the very `except` whose job is to degrade to `None`.
+  Driven, not assumed: the `message` spelling fails the new test with
+  exactly that error.
+- **Controls.** Both new tests fail against the old handler. The JSON
+  formatter emits every `extra` key, so both reach the journal.
+- **Verified.** Suite 4,443 passed, 2 skipped; ruff and mypy clean.
+- **Messages.** Closed `ba17667d`.
+
+## What Session 311 handed on (done by Session 312)
 
 Log `LlamaStatusError.message` and `.error_type` in `sysadmin/core/llm_client.py`, which logs only `e.status` (estate message `ba17667d`). *(For: session)*
 

@@ -166,6 +166,58 @@ class TestGenerate:
         await client.shutdown()
 
     @pytest.mark.asyncio
+    async def test_http_error_logs_the_servers_own_error(
+        self, llm_config, caplog
+    ):
+        """llama-server's ``{"error": {code, message, type}}`` reaches the log.
+
+        The body is the shape measured on :8081 on 2026-10-01 (estate
+        message ba17667d): a status alone cannot tell a full KV cache
+        from an unparseable request.
+        """
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                500,
+                json={
+                    "error": {
+                        "code": 500,
+                        "message": "Context size has been exceeded.",
+                        "type": "server_error",
+                    }
+                },
+            )
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config), caplog.at_level("WARNING"):
+            assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+        (record,) = [r for r in caplog.records if r.msg == "llm_error"]
+        assert record.status == 500
+        assert record.error_message == "Context size has been exceeded."
+        assert record.error_type == "server_error"
+
+    @pytest.mark.asyncio
+    async def test_http_error_of_another_shape_logs_none(
+        self, llm_config, caplog
+    ):
+        """A body that is not llama-server's shape logs ``None``, never a guess."""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, json={"error": "boom"})
+
+        client = _make_client(handler, llm_config)
+        with _patch_config(llm_config), caplog.at_level("WARNING"):
+            assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+        (record,) = [r for r in caplog.records if r.msg == "llm_error"]
+        assert record.status == 500
+        assert record.error_message is None
+        assert record.error_type is None
+
+    @pytest.mark.asyncio
     async def test_connect_error_returns_none(self, llm_config):
         def handler(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("connection refused")
