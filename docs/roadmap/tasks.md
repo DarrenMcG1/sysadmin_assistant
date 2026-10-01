@@ -15657,9 +15657,19 @@ work:
       on `{severity}:{title}` and an in-place change stays suppressed —
       done 2026-08-11; the shared half had to move to `core` first, see
       below
-- [ ] **Publish alerts to MQTT** at or above a configured severity. Decide
+- [x] **Publish alerts to MQTT** at or above a configured severity. Decide
       the topic namespace first (above); amend estate-map.md with the terms
       of the promotion in the same change
+      — done 2026-10-01, Session 318: `sysadmin/monitor/mqtt_alerts.py`
+      publishes each newly raised alert at or above
+      `notifications.mqtt.min_severity` (`critical`) to
+      `estate/alerts/raised` as `sysadmin-publisher`, through
+      `estate.bus.publish`. One topic with the severity in the payload,
+      because glance's `RENDERERS` is keyed by literal topic (estate
+      ADR-0180 §6). Live: the deployed code's publish connected to the
+      broker as that identity. The estate-map amendment was already made
+      by the estate on 2026-08-11 (the terms of `estate/#`), so nothing
+      was written into estate-manager
       *(Unblocked 2026-08-11 by estate-manager Session 2: the broker-side
       identity `sysadmin-publisher` exists with write access to `estate/#`
       and survives Alfred restarts; the password arrives as
@@ -15672,6 +15682,19 @@ work:
       `BusPayloads.kt` shape. Separate repo, separate session if it needs
       an Android release
       *(Re-read by Session 266, 2026-09-27, and left open: blocked on the item above: nothing is published, so there is no topic to register.)*
+      *(Unblocked 2026-10-01 by Session 318: `estate/alerts/raised`, not
+      retained, QoS 1, a flat JSON object `{source, id, agent, severity,
+      title, message, published_at}`, every value a string or null;
+      `source` is `sysadmin-assistant`. The writing is alfred-glance's,
+      so this item is a filing at it plus that repository's own session)*
+- [ ] **A failed run still announces the alerts its rollback removed.**
+      `BaseAgent.run` flushes its buffered events whatever the outcome, so
+      an `alert.raised` for a row that was never committed reaches the SSE
+      stream and both subscribers. Found by Session 318, which guarded only
+      its own subscriber (`mqtt_alerts.py` reads the row back) as a second
+      concern it did not take. Decide whether `_flush_events` drops
+      `alert.raised` on a failed run, and what the desktop notifier's
+      incident count does with a phantom meanwhile
 - [ ] **`Type=notify` + `WatchdogSec=` on `sysadmin.service`**, with the
       ping issued from the async loop. **Risk to rehearse before enabling**:
       if `READY=1` is never sent, systemd treats startup as failed and kills

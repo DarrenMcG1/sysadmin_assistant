@@ -1,18 +1,21 @@
-# Handoff — 2026-10-01 (Session 317)
+# Handoff — 2026-10-01 (Session 318)
 
 ## Next action
 
-Publish alerts to MQTT at or above a configured severity under an `estate/…` topic; the broker identity `sysadmin-publisher` already exists. *(For: session)*
+File at alfred-glance asking for a renderer for `estate/alerts/raised`, giving the topic and payload; the Kotlin change and any release are theirs. *(For: session)*
 
-It is the first startable unchecked item in tasks.md (the Session 39
-block, "Who watches the watchers"). The two items above it are not
-startable: stopping `rocm-smi` waking the dGPU waits on the overnight
-drive (below), and the `UV_PYTHON` item waits on the box's interpreter
-moving. The topic namespace that item says to decide first is settled
-by the estate's rule that new cross-app topics go under `estate/…`.
-The password reaches the process by `LoadCredential=` (ADR-0003).
-Nothing in `sysadmin/` has an MQTT client yet, so this is a feature
-sitting with tests, not a quick fix.
+It is the next unchecked item in tasks.md's Session 39 block ("Register
+the topic in alfred-glance"), and the only one there that can start now.
+Nothing subscribes to `estate/alerts/…` yet, measured today: alfred-glance's
+`BusEvents.kt` holds only `alfred/events/…` topics, Alfred's desktop shell
+takes `alfred/events/#`, and project-manager's role reads
+`estate/sessions/#` alone. A filing is a message, not a ruling, and the
+renderer, whether a critical buzzes the phone, and any cap across
+producers are glance's to decide (its ideas.md entry `2026-08-24-1`,
+risk 2). The wire shape is in tasks.md under that item. In the same
+filing or beside it, tell estate-manager the publisher is live: their
+`lib/estate/bus.py` docstring and their tasks.md Session 2 note still call
+it unbuilt.
 
 ## Scheduled action
 
@@ -37,6 +40,80 @@ from 01:30. Read it in this order:
 If only `skipped` lines appear, the card never suspended (a monitor
 stayed on), and the drive needs another night. Then fix `gpu.py`'s
 rule 5 docstring in the same change as the code.
+
+## Session 318: raised alerts are published to the estate bus
+
+Session 317's next action. Service code changed and is live: the daemon
+was restarted at 21:26:01 by `kill -TERM` on its main PID (no sudo,
+`NRestarts=1`), and `sysadmin/` has not been touched since. Full suite
+4,467 passed, 2 skipped; ruff and mypy clean; every claim
+`check-ops-claims.sh` reads is `ok`.
+
+What was built: `sysadmin/monitor/mqtt_alerts.py` subscribes to
+`alert.raised` beside the desktop notifier and, for each alert at or
+above `notifications.mqtt.min_severity`, calls estate-lib's
+`estate.bus.publish` (a `mosquitto_pub` subprocess, run off the event
+loop) with the password from `$CREDENTIALS_DIRECTORY/mqtt`.
+
+Decisions, with what was rejected:
+
+- **No MQTT client library.** `estate.bus` was written in August for
+  this publisher, and adding `aiomqtt` would duplicate a mechanism the
+  estate already owns.
+- **One topic, `estate/alerts/raised`, severity in the payload.**
+  Rejected: `estate/alerts/{severity}`. glance subscribes by literal
+  topic, so each segment costs it a renderer entry. Estate ADR-0180 §6
+  records that cost on the audit's topics.
+- **`critical` as the floor, by measurement.** Over the seven days to
+  today: 4 critical rows, all distinct titles; 111 warnings over 48
+  titles. The publisher sends one message per raised row, so `warning`
+  would be about 16 a day.
+- **No DND, no "new incident" gate, no reminders, no retry, never
+  retained.** Those decide what interrupts a reader, which is the
+  renderer's job. A retry would be a delivery queue (the estate's
+  register refuses one for the same reason). A retained alert would
+  still be on the topic the next morning, stale.
+- **The row is read back before publishing.** `BaseAgent.run` flushes
+  buffered events even when the run failed and rolled back, so
+  `alert.raised` can name a row that does not exist. Only this
+  subscriber is guarded. The flush itself is a new task in tasks.md and
+  was not worked here.
+- **Model default off, config.yaml on.** The suite and `run-dev.sh` have
+  no credentials directory.
+
+Measured live: a publish driven through `on_alert_raised` with the
+daemon's own credential, on `estate/alerts/test`, logged
+`mqtt_alert_published`, and mosquitto's journal shows
+`u'sysadmin-publisher'` connecting and closing cleanly. **Not
+measured: delivery.** `mosquitto_pub` exits 0 even when the broker drops
+an unauthorised publish, and no credential I can read may subscribe to
+`estate/alerts/…`. The write permission rests on `dynsec.yaml`'s
+`estate-publisher` grant, which a subscriber proved on 2026-08-11. The
+first real `critical` should log `mqtt_alert_published` in the daemon's
+journal.
+
+Not covered: `core/unit_failure.py` writes its critical row while the
+daemon is dead, so that alert is never published. That is by
+construction, and `sysadmin-failed.service` already speaks for it on
+the desktop.
+
+Inbox: estate message `bfdfc34c` (the board's new `"none"` value for
+`next_action_for`) says it asks nothing of us. It was left open because
+checking its claim about `snag_claims.py` is a separate concern.
+
+## What Session 317 handed on (done by Session 318)
+
+Publish alerts to MQTT at or above a configured severity under an `estate/…` topic; the broker identity `sysadmin-publisher` already exists. *(For: session)*
+
+It is the first startable unchecked item in tasks.md (the Session 39
+block, "Who watches the watchers"). The two items above it are not
+startable: stopping `rocm-smi` waking the dGPU waits on the overnight
+drive (below), and the `UV_PYTHON` item waits on the box's interpreter
+moving. The topic namespace that item says to decide first is settled
+by the estate's rule that new cross-app topics go under `estate/…`.
+The password reaches the process by `LoadCredential=` (ADR-0003).
+Nothing in `sysadmin/` has an MQTT client yet, so this is a feature
+sitting with tests, not a quick fix.
 
 ## The owner's restart (done 20:30:10)
 

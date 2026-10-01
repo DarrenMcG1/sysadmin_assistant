@@ -423,6 +423,9 @@ class BaseAgent(ABC):
                 "agent": self.name,
                 "severity": severity,
                 "title": title,
+                # For the estate bus (monitor/mqtt_alerts.py), whose
+                # reader cannot reach :8500 to fetch the row.
+                "message": message,
             },
         )
         return alert

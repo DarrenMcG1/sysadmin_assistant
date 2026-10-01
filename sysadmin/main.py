@@ -59,6 +59,7 @@ from sysadmin.monitor.handover import handover_report
 from sysadmin.monitor.health_review import run_weekly_review as run_weekly_health_review
 from sysadmin.monitor.log_aggregator import LogAggregatorAgent
 from sysadmin.monitor.log_review import run_weekly_review as run_weekly_log_review
+from sysadmin.monitor.mqtt_alerts import mqtt_alert_publisher
 from sysadmin.monitor.notifier import Notifier
 from sysadmin.monitor.reliability_history import record_reliability_snapshot
 from sysadmin.monitor.routers.logs import router as logs_router
@@ -300,6 +301,10 @@ async def lifespan(app: FastAPI):
     # domain, and so notifications fire only after the raising agent's
     # transaction has committed (events are buffered until then).
     event_bus.subscribe("alert.raised", desktop_notifier.on_alert_raised)
+    # The estate bus — for a reader off this desk.  Same subscription and
+    # same after-commit timing, and no tray gate: publishing is not
+    # delivery (mqtt_alerts.py's docstring).
+    event_bus.subscribe("alert.raised", mqtt_alert_publisher.on_alert_raised)
 
     # Initialise database
     await create_engine_and_session()

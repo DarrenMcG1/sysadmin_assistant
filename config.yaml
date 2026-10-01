@@ -75,6 +75,20 @@ notifications:
   pa_notify:
     enabled: true
     min_severity: critical
+  # Raised alerts published to the estate's MQTT broker
+  # (sysadmin/monitor/mqtt_alerts.py), one message per raised row, never
+  # retained. The password is not here: it arrives through LoadCredential=
+  # on sysadmin.service (ADR-0003). DND does not apply — publishing is not
+  # delivery, and whoever renders the topic decides what interrupts.
+  mqtt:
+    enabled: true
+    min_severity: critical
+    host: 127.0.0.1
+    port: 1883
+    username: sysadmin-publisher
+    credential: mqtt
+    topic: estate/alerts/raised
+    timeout_seconds: 5
   dnd:
     enabled: false
     schedule:

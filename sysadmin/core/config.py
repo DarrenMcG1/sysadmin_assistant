@@ -794,6 +794,40 @@ class PaNotificationsConfig(BaseModel):
     min_severity: str = "critical"
 
 
+class MqttNotificationsConfig(BaseModel):
+    """Raised alerts published to the estate bus (``sysadmin/monitor/mqtt_alerts.py``).
+
+    Session 39's "who watches the watchers" task, built 2026-10-01. The
+    identity ``sysadmin-publisher`` is the estate's, declared in
+    ``estate-manager/mqtt/dynsec.yaml`` with write access to ``estate/#``;
+    its password reaches this process as ``$CREDENTIALS_DIRECTORY/<credential>``
+    through ``LoadCredential=`` on ``sysadmin.service`` (ADR-0003), so
+    nothing here is a secret.
+
+    **Off by default in the model, on in config.yaml.** A process started
+    outside the unit — the suite, ``run-dev.sh`` — has no credentials
+    directory, and a default that published from there would log a
+    failure for every critical a test raises.
+    """
+
+    enabled: bool = False
+    #: ``critical`` because it is measured, not because it is loud: 4
+    #: critical rows in the seven days to 2026-10-01, every one a distinct
+    #: title, against 111 warnings over 48 titles. The bus carries one
+    #: message per raised row, so ``warning`` would be about sixteen a day.
+    min_severity: str = "critical"  # info | warning | critical
+    host: str = "127.0.0.1"
+    port: int = 1883
+    username: str = "sysadmin-publisher"
+    #: The ``LoadCredential=`` id, not a path: the file is
+    #: ``$CREDENTIALS_DIRECTORY/<credential>``.
+    credential: str = "mqtt"
+    topic: str = "estate/alerts/raised"
+    #: ``mosquitto_pub`` runs off the event loop, so this bounds a thread,
+    #: not every request on :8500.
+    timeout_seconds: float = 5.0
+
+
 class TrayNotificationsConfig(BaseModel):
     """The slice of ``notifications.tray:`` the *backend* needs.
 
@@ -863,6 +897,7 @@ class NotificationsConfig(BaseModel):
     pa_notify: PaNotificationsConfig = Field(
         default_factory=PaNotificationsConfig
     )
+    mqtt: MqttNotificationsConfig = Field(default_factory=MqttNotificationsConfig)
     dnd: DndConfig = Field(default_factory=DndConfig)
 
 
