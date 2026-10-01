@@ -323,6 +323,19 @@ services:
       every drain
     systemd: { unit: venture-chat-large.service, scope: user }
 
+  # --- venture-manager ------------------------------------------------
+  # Its API, wired the day the unit was made (venture-manager ADR-0001).
+  # /api/health answers 200 while the API is up and reads the service's
+  # own database, saying "degraded" in the body when that is gone.
+  - project: venture-manager
+    name: venture-manager
+    role: backend
+    kind: http
+    url: http://localhost:8900/api/health
+    port: 8900
+    systemd: { unit: venture-manager-api.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
   # --- This service ---------------------------------------------------
   # A system unit, unlike almost everything else here.
   - project: sysadmin-assistant
