@@ -8,6 +8,22 @@
 
 ---
 
+## Session 317: STATUS.md's opening block agrees with the box (2026-10-01)
+
+Session 316's next action. Suite 4,444 passed, 2 skipped. Roadmap files
+only; no restart owed for it.
+
+- [x] **Four stale claims, not two, each re-measured first.** Daemon
+      start 14:21:43 → 15:12:12 (the owner's `sudo systemctl restart`,
+      found in the system journal); unresolved alerts 3 → 2 (the
+      venture-assistant `Log error` row resolved at 14:36:46); tests
+      collected 4445 → 4446 (Session 316's new test); and the two
+      `Estate port 3110`/`8110 registry breach` flapping declarations
+      retired, both titles having left the 7-day window at 19:58 BST.
+- [x] **Left `no` on purpose: the deploy claim.** Session 316's
+      `config.py` edit postdates the 15:12:12 start; the restart is the
+      owner's, recorded under "For the owner" in HANDOFF.md.
+
 ## Session 316: the registry follows the estate to depth 3 (2026-10-01)
 
 Session 315's next action. Suite 4,444 passed, 2 skipped; ruff and mypy
@@ -57,7 +73,7 @@ so no restart is owed.
       (declared, so the estate counts it and this repository does not).
       Close `262209cd` when decided. *(Stacked in Session 315,
       recorded rather than worked.)*
-- [ ] **Bring STATUS.md's opening block back in line with the box.**
+- [x] **Bring STATUS.md's opening block back in line with the box.**
       `check-ops-claims.sh` reports two stale claims there. Session
       312's paragraph marks `2026-10-01 14:21:43` with
       `check:daemon_start`, but the daemon has run since 15:12:12, the

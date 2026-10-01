@@ -1,16 +1,18 @@
-# Handoff — 2026-10-01 (Session 316)
+# Handoff — 2026-10-01 (Session 317)
 
 ## Next action
 
-Bring STATUS.md's opening block back in line with the box; `check-ops-claims.sh` reads two of its claims stale. *(For: session)*
+Publish alerts to MQTT at or above a configured severity under an `estate/…` topic; the broker identity `sysadmin-publisher` already exists. *(For: session)*
 
-It is the first startable unchecked item in tasks.md (Session 315's
-block). The two stale claims are the daemon's start time (14:21:43
-stated, 15:12:12 measured) and the unresolved-alert count (3 stated, 2
-measured at 18:5x BST). Re-measure both before editing. The owner's
-restart below moves the start time again, so if it has happened, read
-the new one; if it has not, the edit is still right for the box as it
-stands.
+It is the first startable unchecked item in tasks.md (the Session 39
+block, "Who watches the watchers"). The two items above it are not
+startable: stopping `rocm-smi` waking the dGPU waits on the overnight
+drive (below), and the `UV_PYTHON` item waits on the box's interpreter
+moving. The topic namespace that item says to decide first is settled
+by the estate's rule that new cross-app topics go under `estate/…`.
+The password reaches the process by `LoadCredential=` (ADR-0003).
+Nothing in `sysadmin/` has an MQTT client yet, so this is a feature
+sitting with tests, not a quick fix.
 
 ## Scheduled action
 
@@ -45,6 +47,54 @@ and venture-manager's API on :8900), and Session 316's discovery depth
 daemon only at a restart. The daemon started at 15:12:12 BST, before
 all three. Messages `898794e9` and `2e3a4bb6` stay open until then.
 *(For: owner, ~2 min)*
+
+## Session 317: STATUS.md's opening block agrees with the box
+
+Session 316's next action. Only roadmap files and this handoff changed; no service
+code, so no restart is owed for this sitting. Full suite 4,444 passed,
+2 skipped.
+
+`check-ops-claims.sh` (which re-measures STATUS.md's marked claims
+against the live box) read **four** claims wrong at 20:06 BST, not the
+two the handoff named. Each was re-measured before it was edited:
+
+- **Daemon start: 14:21:43 → 15:12:12.** The system journal shows
+  `sudo systemctl restart sysadmin.service` from the owner's terminal
+  at 15:12:12, which is the "nothing recorded why". Session 312's
+  timestamp is unbolded (it keeps the fact and drops the claim) and the
+  `deploy` and `daemon_start` markers moved to a new opening paragraph.
+- **Unresolved alerts: 3 → 2.** The third was venture-assistant's
+  `Log error` row (a Unicode escape PostgreSQL would not store),
+  opened 14:21:07 and resolved 14:36:46. Nothing here waited on it.
+- **Tests collected: 4445 → 4446.** Session 316 added
+  `test_discovery_depth_defaults_to_the_estates` and left the cell one
+  short; the cell's history now says so.
+- **Two `flapping` declarations retired.** `Estate port 3110` and
+  `8110 registry breach` last resolved at 2026-09-24 19:58:49, so they
+  left the check's 7-day window at 19:58 tonight, minutes before this
+  sitting measured, which is why Session 316 did not see them. A
+  declaration naming no title in the window sets nothing aside.
+  **Rejected: leaving them** for the dev servers to come back: should
+  either title reopen, the `alerts` check counts the row and reports a
+  mismatch, which is the louder prompt to declare it again.
+- **Still `no`, deliberately: "daemon serves the code on disk".**
+  Session 316's `sysadmin/core/config.py` (19:46:56) postdates the
+  15:12:12 start. The restart is the owner's (above), as Session 316
+  and both venture messages route it, so this sitting did not
+  `kill -TERM` the daemon.
+
+## What Session 316 handed on (done by Session 317)
+
+
+Bring STATUS.md's opening block back in line with the box; `check-ops-claims.sh` reads two of its claims stale. *(For: session)*
+
+It is the first startable unchecked item in tasks.md (Session 315's
+block). The two stale claims are the daemon's start time (14:21:43
+stated, 15:12:12 measured) and the unresolved-alert count (3 stated, 2
+measured at 18:5x BST). Re-measure both before editing. The owner's
+restart below moves the start time again, so if it has happened, read
+the new one; if it has not, the edit is still right for the box as it
+stands.
 
 ## Session 316: the registry follows the estate to depth 3
 
