@@ -3,6 +3,18 @@
 **Last Updated**: 2026-10-01
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **This service's 5-minute poll wakes the sleeping graphics card**
+> (2026-10-01, Session 313). Measured over the night of 27 September,
+> when the monitors were off: the kernel logged the card waking 283
+> times, and every one of the 93 polls that found it asleep was followed
+> by a wake 2–3 seconds later. That is a third of the night's wakes; most
+> of the rest were the local model server doing real work. The wake
+> comes from `rocm-smi`, run for temperature, memory and power. Session
+> 310's change, below, relabelled the busy figure but did not stop the
+> wake. Decided: stop it. How is the next task, because it first needs
+> a reading of which queries leave a sleeping card asleep. No code
+> changed.
+
 > **A failed language-model call now logs the server's own reason**
 > (2026-10-01, Session 312). When the local model server refuses a
 > request, the log used to record only the HTTP status, and one status

@@ -1,6 +1,53 @@
-# Handoff — 2026-10-01 (Session 312)
+# Handoff — 2026-10-01 (Session 313)
 
 ## Next action
+
+Schedule an overnight `systemd-run --user` oneshot that logs a suspended dGPU's `runtime_status` around `rocm-smi -d <iGPU>` and the sysfs hwmon reads. *(For: session)*
+
+It is the first startable unchecked item in tasks.md, under Session
+313: "Stop `rocm-smi` waking a suspended dGPU." The decision is taken;
+the method is not. Querying the iGPU alone, or reading the dGPU's
+temperature, power and VRAM from sysfs, might each still wake the card,
+and nobody has tried either on a suspended card. A session cannot
+suspend it while a monitor is attached, so the drive has to run at
+night as a transient timer and be read the next morning against
+`journalctl -k`'s `PSP is resuming` lines. Whatever it shows, fix the
+rule 5 docstring in `sysadmin/monitor/gpu.py` in the same change.
+
+## Session 313: the 5-minute poll wakes a suspended dGPU
+
+Session 312's next action. A measurement: the roadmap and
+`docs/design/gpu.md` only, no `sysadmin/` change, no restart owed.
+
+- **Measured: the poll wakes the card, every time.** Boot -2 holds 283
+  kernel resumes of `0000:03:00.0` over 9.7 h with the monitors off.
+  All 93 `resource_snapshots` rows that found the card suspended (their
+  dGPU figure labelled `rocm-smi`) are followed by a resume 2.4–3.1 s
+  after `recorded_at`. `recorded_at` is `NOW()`, the transaction's
+  start, so the offset is the 1 s CPU sample plus `rocm-smi`'s
+  start-up. The 28 rows where the card was already awake have none in
+  that band.
+- **The other wakers.** 95 resumes sit within 2 s of llama-server work,
+  most of them venture-assistant's request every 300 s; that is real
+  GPU work. 92 are unattributed. KDE's powerdevil logs a udev `drm
+  change` at every resume, ours included, so it is a witness, not a
+  cause.
+- **Decided: stop it.** Ours is 9.6 wakes an hour, a third of the
+  night's, for three fields on an idle card. Energy per wake not
+  measured. The decision is this repository's alone.
+- **Corrected: Session 310 did not stop the wake.** It relabelled the
+  busy figure, but `rocm-smi` still runs after `runtime_status` reads
+  `suspended`. `docs/design/gpu.md` rule 6 now says so; the same
+  sentence in `gpu.py`'s docstring waits for the code change, so prose
+  does not owe a restart today.
+- **Rejected: implementing a skip now.** Both candidate methods rest on
+  an unmeasured claim that their reads leave a suspended card asleep,
+  and the card cannot be suspended this sitting (`runtime_status`
+  `active`, 0 ms suspended this boot).
+- **Messages.** Closed `97eb8be4` (the audit's finding ages now reach
+  the oldest stored run; nothing asked of us).
+
+## What Session 312 handed on (done by Session 313)
 
 Measure whether the 5-minute GPU poll wakes the suspended dGPU, by matching `journalctl -k` resume lines against poll times, before deciding to skip `rocm-smi`. *(For: session)*
 

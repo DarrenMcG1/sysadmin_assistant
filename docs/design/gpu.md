@@ -87,6 +87,18 @@ Six rules, five of them the opposite of the obvious implementation:
    `sysfs`. The window is one file read, and the figure is right either
    way.
 
+   **The label changed; the wake did not** (Session 313, 2026-10-01).
+   "A fallback to `rocm-smi`, whose queries wake the card" reads as if
+   the wake belonged to the fallback. It belongs to the invocation:
+   `_from_rocm_smi` spawns `rocm-smi` for temperature, VRAM and power
+   after `runtime_status` reads `suspended`, so every poll of a
+   suspended card still resumes it. Measured over the same night: all
+   93 suspended-card polls were followed by a kernel `PSP is resuming`
+   line 2.4–3.1 s after `recorded_at`, one resume in three of the
+   night's 283. Stopping it is a task in `tasks.md` under Session 313,
+   waiting on a measurement of which reads leave a suspended card
+   asleep.
+
 Two things only the live half can say, so they are
 `tests/test_gpu_live.py` rather than fixtures. That `rocm-smi` still
 publishes the key the slot match is made on — a tool that dropped

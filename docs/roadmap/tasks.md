@@ -8,6 +8,63 @@
 
 ---
 
+## Session 313: the 5-minute poll wakes a suspended dGPU, every time (2026-10-01)
+
+Session 312's next action. A measurement; the roadmap and
+`docs/design/gpu.md` only, no `sysadmin/` change, no restart owed.
+
+- [x] **Measured: every suspended-card poll resumed it.** Boot -2's
+      kernel journal holds **283** `PSP is resuming` lines on
+      `0000:03:00.0`, all between 23:14:35 on 27 September and 08:56:39
+      on 28 September (9.7 h, monitors off). Matched against
+      `resource_snapshots.recorded_at`, **93 of 93** rows whose dGPU
+      figure came from `rocm-smi` (the card was suspended at the poll)
+      are followed by a resume **2.4–3.1 s** later. None of the 28 `sysfs`
+      rows in the same window, where the card was already awake, has a
+      resume in that band. Four have one within 5 s, at −2.8 to +1.0 s:
+      something else had just woken the card, which is why the poll
+      found it awake. `recorded_at` is `NOW()`, the transaction's start, so the
+      offset is `cpu_percent(interval=1)`'s second plus `rocm-smi`'s
+      start-up: the subprocess wakes the card, not the sysfs read.
+- [x] **The poll is one waker of three.** Of the 190 other resumes, 95
+      sit within 2 s of llama-server activity (venture-assistant
+      dispatches a request every 300 s at `:39`, and warns that the GPU
+      guard could not read the counter); that is GPU work and should
+      wake the card. The other 92 are unattributed. KDE's powerdevil
+      logs a `drm change` udev event at every one of them, but it does
+      the same at 93 of 93 of ours, so it is reacting to resumes, not
+      causing them. Ours is **9.6 resumes an hour**, a third of the
+      night's 29.2.
+- [x] **Decided: stop waking it.** One wake in three is ours, all for
+      temperature, VRAM and power on a card with nothing running. Each
+      wake keeps the card up at least `autosuspend_delay_ms` (5,000 on
+      this box). Not measured: the energy per wake. The decision is this
+      repository's: no other repository reads those three fields off a
+      suspended row.
+- [x] **Corrected: Session 310's change did not stop the wake.** It
+      relabelled `gpu_percent`, but `_from_rocm_smi` still spawns
+      `rocm-smi` after `runtime_status` reads `suspended`, so the wake
+      continues on every poll. `docs/design/gpu.md` rule 6 now says so.
+      `gpu.py`'s rule 5 docstring says the same thing and is left for the
+      change below, which edits that file anyway, rather than owing a
+      restart for prose today.
+- [x] **Not witnessed live.** The card read `active` with 0 ms
+      suspended this boot, because a monitor is attached.
+- [x] **Closed** estate message `97eb8be4`, which announced that
+      `GET /api/audit/findings` ages now reach the oldest stored run.
+      It says nothing is asked of this repository, and its reading of
+      `judge_audit_ports`' docstring matches the code here.
+- [ ] **Stop `rocm-smi` waking a suspended dGPU.** First measure, with
+      the card suspended, which reads leave it asleep: `rocm-smi -d
+      <iGPU index>` alone, and `_from_sysfs`'s `hwmon` temperature and
+      power and `mem_info_vram_used`. A session cannot suspend the card
+      while a monitor is attached, so schedule the drive overnight as a
+      transient unit (`systemd-run --user --on-calendar`) that logs
+      `runtime_status` before and after each read, and match its log
+      against `journalctl -k` the next morning. Then choose: query the
+      iGPU alone, or take the dGPU row from sysfs with the three fields
+      `None`. Fix `gpu.py`'s rule 5 docstring in the same change.
+
 ## Session 312: a failed LLM call logs llama-server's own reason (2026-10-01)
 
 Session 311's next action. `sysadmin/core/llm_client.py`,
@@ -105,14 +162,16 @@ restarted at 13:17:04 BST (`kill -TERM`, `NRestarts` 5 → 6).
       by Session 312). The library now parses llama-server's own error text; this
       repository logs only `e.status`. Additive and optional. Recorded by
       Session 310, not worked.
-- [ ] **Decide whether the collector should stop waking a suspended dGPU.**
+- [x] **Decide whether the collector should stop waking a suspended dGPU.**
       Found by Session 310: in the 92 fallback rows above the card was
       drawing power when `rocm-smi` read it, so each 5-minute poll appears
       to resume a runtime-suspended card for temperature, VRAM and power.
       Skipping the tool's dGPU queries while suspended would leave those
       three fields `None`. Not measured: whether the wake is the tool's or
       something else's (`journalctl -k` for `PSP is resuming` against the
-      poll times would say). Recorded, not worked.
+      poll times would say). Recorded, not worked. **Measured and decided
+      by Session 313: the poll wakes it, every time; stop.** See that
+      session's block.
 - [x] **Closed** `81c4070e` (acted on) and venture-assistant's `49b9e620`
       (asks nothing of this repository).
 
