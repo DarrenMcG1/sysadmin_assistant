@@ -247,6 +247,17 @@ a `known_noise` declaration, and it is refused again for two reasons.
    anyway, the gate has failed or the crash is a new one, and either
    deserves `critical`.
 
+*Measured 2026-10-01 (Session 302): the first boot under the gate.* The
+box rebooted at 2026-09-30 21:37:30 BST. The gate refused one attempt
+at 21:37:44, logging `listener address 192.168.1.2 is not assigned`, and
+the retry at 21:37:49 started the broker. There was no bind error and no
+core dump, so point 2's expected count of zero held, and the start
+restored 2 retained messages and 5 subscriptions. The refusal raised the
+`Failed to start` warning point 1 predicted, and nothing else. It will
+do so on every boot, because the first attempt failed to bind on all 10
+readable boots before the gate. `SNAG-LOG-021` records that, and why
+`known_noise` cannot take the line alone.
+
 **What the dump does not signal is the loss**, and it must not be read
 as a proxy for it. The loss followed a completed save, and on
 2026-08-22 and 08-23 that happened with no dump at all. Watching the

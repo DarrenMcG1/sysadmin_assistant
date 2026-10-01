@@ -4,7 +4,34 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-30
+> **Last Updated**: 2026-10-01
+
+---
+
+## Session 302: the first boot under mosquitto's gate reads clean, and its one warning is filed (2026-10-01)
+
+Session 301's next action. The roadmap files and `docs/design/logs.md`;
+no `sysadmin/` change, no restart owed.
+
+- [x] **Read the 2026-09-30 21:37:30 BST boot's mosquitto journal against
+      Session 290's task.** Every expectation held. The gate refused the
+      first attempt at 21:37:44 (`listener address 192.168.1.2 is not
+      assigned; not starting mosquitto`), systemd retried after the 5 s
+      `RestartSec=`, and the broker started at 21:37:49. No `Cannot
+      assign requested address`, no core dump (`coredumpctl`'s newest
+      mosquitto dump is 2026-09-28 11:49), and the start restored 2
+      retained messages and 5 subscriptions against the previous start's
+      0 and 0. That comparison is weak this time: the previous start was
+      the 2026-09-28 loss itself, so any count would have passed it. The
+      refusal line appeared, so the gate ran as written and nothing is
+      filed at estate-manager.
+- [x] **Opened `SNAG-LOG-021` for the refusal's `Failed to start`
+      warning**, the step the task named if the warnings recur at every
+      boot. One boot under the gate cannot show "every boot" by itself,
+      so the entry rests on the cause: the first start attempt failed to
+      bind on 10 of the 10 readable boots from 2026-08-22 to 09-28, so
+      `eno1` has been late on every boot measured, and under the gate a
+      late `eno1` is a refusal.
 
 ---
 
@@ -430,7 +457,7 @@ restart owed.
       known cause is gated, and detecting it needs a comparison across
       two starts, which the aggregator's line-at-a-time model does not
       make. Recorded in `ideas.md`.
-- [ ] **Read the first post-gate boot's mosquitto journal.** *(Waits on
+- [x] **Read the first post-gate boot's mosquitto journal.** *(Waits on
       a reboot.)* Expect no `Cannot assign requested address`, no core
       dump, and a `Restored N retained messages` count no lower than the
       previous start's. Expect also one or more `Failed to start`
@@ -442,6 +469,9 @@ restart owed.
       unit file does. If the refusal warnings recur at every boot, open
       a SNAG entry: they share a signature with a genuine failed start,
       so `known_noise` cannot quieten them alone.
+      *(Done by Session 302, 2026-10-01: clean. One refusal, no bind
+      error, no dump, retained count not lower. The refusal warning is
+      `SNAG-LOG-021`.)*
 - [x] **Answer estate message `f410f091`: our port-registry row for 8500
       names `sysadmin-service`, which resolves to no project.** The owner
       ruled on 2026-09-29 (estate ADR-0196 §8) that a row's Project cell

@@ -4,11 +4,20 @@
 >
 > **Related**: [tasks.md](tasks.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-09-28
+> **Last Updated**: 2026-10-01
 
 ---
 
 ## Open Issues
+
+- [P4] SNAG-LOG-021: **under estate ADR-0216's gate, every boot raises mosquitto's `Failed to start` warning for a harmless refusal, and it is the same line a genuinely failed start logs** (2026-10-01, opened by Session 302 on the condition Session 290's task stated)
+  - **Symptom**: the gate's `ExecStartPre=` (estate-manager's drop-in at `/etc/systemd/system/mosquitto.service.d/override.conf`) refuses the broker until `192.168.1.2` is assigned to `eno1`. The refusal ends the start job, systemd logs `Failed to start Mosquitto MQTT Broker daemon.` at priority 3, and the log aggregator opens `Log error: mosquitto.service — Failed to start …` at `warning`. The retry 5 s later succeeds, and the row closes itself about 16 minutes on (21:38:47 to 21:54:48 BST on 2026-09-30).
+  - **Measured 2026-10-01**: 1 refusal on the 1 boot under the gate. Before it, 1 failed bind on each of the 10 readable boots from 2026-08-22 to 09-28 (the oldest boot's journal holds no mosquitto start), so the first attempt is early on every boot measured. The `warning` row is not new: `sysadmin.alerts` holds it on all 7 boots with mosquitto alerts since 2026-09-03. What changed is that each of those 7 also carried a `critical` core-dump row saying the start had really failed. Now it stands alone, and it means nothing went wrong.
+  - **Why `known_noise` cannot quieten it alone**: a refusal and a failed broker log the same `Failed to start` line, at the same priority, with the same `MESSAGE_ID` (`be02cf6855d2428ba40df7e9d022f03d`). They differ only in the line before it: a refusal logs `Control process exited` at priority 5, which the aggregator does not ingest, and a broker that dies logs `Main process exited` at priority 4. Telling them apart needs two lines of one start job, and the aggregator judges one line at a time, the limit `ideas.md`'s 2026-09-29 entry also records.
+  - **Why it is left**: one `warning` a boot, closing itself. A refusal that never clears is not hidden by any quietening either, because the start limit (30 in 180 s) runs out and the unit reads `failed` to the service check. But that covers refusals only: quietening the line would also quieten a broker that dies without a core dump, which is how the state-losing exits of 2026-08-22 and 08-23 looked.
+  - **Shapes of fix, unpriced**: (a) a gate that waits for the address, bounded, instead of refusing, so a late `eno1` is a slow start and not a failed one. The drop-in is estate-manager's, so this is a message to them and never an edit here. (b) a correlation rule pairing the `Failed to start` line with its job's preceding `Control process exited` line, as `SNAG-LOG-001`'s rule groups systemd's four-line narration of one crash. (a) removes the line at its source and asks nothing new of the aggregator.
+  - **No check names this entry**: the population is one row a boot.
+  - **Status:** Open — P4.
 
 - [P3] SNAG-LOG-020: **the trend query's group cap cuts through a block of groups tied at one row each, so it drops signatures with rows in the trend windows, seven of them new, by the executor's tie order rather than by any rank** (2026-09-30, opened by Session 297 as the measured answer to Session 295's question; **CLOSED 2026-09-30 by Session 298**, the cap keeps each message shape's oldest group first and states every key after it)
   - **Symptom**: `build_trend_report` (`sysadmin/monitor/log_query.py`) groups warning-or-worse rows by raw `(source, severity, message)`, orders by the unwindowed `count()`, and keeps the first `trend_max_groups` (2,000). The live table held **2,461** groups. Only **424** have more than one row. The cut therefore falls inside a block of **2,037** groups tied at `total == 1`, and which 461 of those are dropped is decided by Postgres's sort order, not by anything the query states. Two consecutive capped queries in one snapshot chose the same set, so the cut is stable but unstated.

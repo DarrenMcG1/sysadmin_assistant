@@ -1,7 +1,17 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-09-30
+**Last Updated**: 2026-10-01
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **The first boot under mosquitto's start gate was clean** (2026-10-01,
+> Session 302). estate-manager's gate holds the MQTT broker back until
+> its LAN address is assigned, because a broker started too early used
+> to crash and, on 3 of 10 boots, lose its saved messages. At the
+> 2026-09-30 21:37:30 BST boot it held the broker back once, for 5
+> seconds, and the broker then started with no crash and its saved
+> messages intact. The hold-back still raises one self-closing `Failed
+> to start` warning a boot, which is now filed as a known snag.
+> Documentation only; no restart owed.
 
 > **The log trend report now serves every message logged this
 > fortnight** (2026-09-30, Session 301). Its size cap went from 2,000 to

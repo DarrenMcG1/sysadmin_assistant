@@ -1,16 +1,50 @@
-# Handoff — 2026-09-30 (Session 301)
+# Handoff — 2026-10-01 (Session 302)
 
 ## Next action
 
-Read the mosquitto journal of the 21:37:30 BST boot, the first under estate ADR-0216's gate, against the task under Session 290 in tasks.md. *(For: session)*
+Act on estate message 8190bde0: estate-manager deleted `Nudge`'s wording members, so re-run our nudge-wording check and fix the docstrings naming them. *(For: session)*
 
-The box rebooted at 2026-09-30 21:37:30 BST, which is the event that
-task waited on, so it can start now. ADR-0216 is estate-manager's
-decision to gate mosquitto's start on its listener address being
-assigned. The task says what a clean boot looks like and what would
-mean the gate did not run as written (file that at estate-manager).
-Sessions 299 and 300 left it under a scheduled heading; it is the
-first startable unticked item in tasks.md.
+The message is estate-manager's announcement that it took the delete
+remedy for the nudge wording this repository rebuilt for itself
+(their ADR-0217): `Nudge.title`, `.message`, `.details` and the title
+helpers are gone, and the `/api/projects/attention` payload is
+unchanged. Its detail lists what it found here that names the deleted
+symbols: `check_nudge_wording_unpublished` in `sysadmin/snag_claims.py`,
+`PRODUCER_DROPPED_NUDGE_KEYS` in `tests/test_estate_project_contracts.py`,
+and docstrings in `sysadmin/estate/judgements.py`, two test modules and
+`docs/design/estate.md`. The snag entry it closes is delegated, not
+owed, so it is not named in the line above. Close the message when done.
+
+## Session 302: the first boot under mosquitto's gate reads clean
+
+Session 301's next action. The roadmap files and `docs/design/logs.md`;
+no `sysadmin/` change, no restart owed.
+
+- **Clean, by every test Session 290's task set.** The gate (estate
+  ADR-0216: mosquitto may not start until its listener address is
+  assigned) refused one attempt at 21:37:44 BST on 2026-09-30, and the
+  retry at 21:37:49 started the broker. No bind error, no core dump,
+  and 2 retained messages and 5 subscriptions restored. The refusal
+  line appeared, so the gate ran as written: nothing filed at
+  estate-manager.
+- **Weak comparison, said so.** The previous start restored 0 and 0,
+  because it was the 2026-09-28 loss itself, so the "no lower" test
+  could not fail this time.
+- **Opened `SNAG-LOG-021` (P4).** The refusal raises a self-closing
+  `Failed to start` warning, and will at every boot: the first attempt
+  failed to bind on 10 of 10 readable pre-gate boots. The same warning
+  stood on all 7 alerting boots since 2026-09-03, beside a `critical`
+  core-dump row; now it stands alone and means nothing. Not quietened:
+  a refusal and a dying broker log the identical line, and only the
+  line before (`Control process exited` against `Main process exited`)
+  tells them apart, which the one-line-at-a-time aggregator cannot read.
+- **Rejected: filing at estate-manager now** to suggest a waiting gate
+  instead of a refusing one. It is recorded as fix shape (a) in the
+  entry, unpriced; filing it would be a second concern.
+- **Left open:** estate messages `8190bde0` (the next action),
+  `49b9e620` (venture-assistant moves reddit's 429 backoff line to
+  INFO) and `633d1a86` (dotfiles: the installed `sysadmin-tray.service`
+  unit is in no repository), each for its own session.
 
 ## Session 301: the trend cap is raised to 5,000 after pricing it
 
