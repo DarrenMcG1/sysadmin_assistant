@@ -19,6 +19,7 @@ one file, on the real card.
 import json
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -27,7 +28,10 @@ from sysadmin.core.config import Thresholds
 from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.gpu import (
     SOURCE_ROCM_SMI,
+    SOURCE_RUNTIME_PM,
     SOURCE_SYSFS,
+    SUSPENDED,
+    _from_sysfs,
     _parse_float,
     _parse_int,
     _pci_slot_of,
@@ -69,6 +73,20 @@ SAMPLE_METRICS = json.dumps({
     },
 })
 
+@pytest.fixture(autouse=True)
+def awake_card():
+    """Every card is ``active`` unless a test says otherwise.
+
+    The collector asks the real ``power/runtime_status`` (rule 5), and
+    ``DGPU_SLOT`` is this box's real slot — so an unstubbed test would
+    read whatever the card is doing at the minute the suite runs, and go
+    red whenever the monitors are off.  A harness must not read a state
+    it did not supply.
+    """
+    with patch("sysadmin.monitor.gpu.runtime_status", return_value="active") as stub:
+        yield stub
+
+
 SAMPLE_NAMES = json.dumps({
     "card0": {"Card Series": "AMD Radeon RX 7900 XTX"},
     "card1": {"Card Series": "AMD Ryzen 9 9950X3D"},
@@ -80,6 +98,7 @@ async def _drive(
     counter: int | None = COUNTER_READING,
     slot: str = DGPU_SLOT,
     log: list | None = None,
+    state: str | None = "active",
 ) -> dict[str, dict]:
     """Run the collector with stubbed subprocesses and a stubbed counter.
 
@@ -93,6 +112,11 @@ async def _drive(
 
     async def mock_names_communicate():
         return (SAMPLE_NAMES.encode(), b"")
+
+    def fake_state(pci_slot, *args, **kwargs):
+        if log is not None:
+            log.append(("state", pci_slot))
+        return state
 
     def fake_sample(pci_slot, *args, **kwargs):
         if log is not None:
@@ -112,12 +136,15 @@ async def _drive(
 
     with patch("sysadmin.monitor.gpu.Path") as mock_path:
         mock_path.return_value.exists.return_value = True
-        with patch("sysadmin.monitor.gpu.sample_gpu_busy", side_effect=fake_sample):
-            with patch(
+        with (
+            patch("sysadmin.monitor.gpu.runtime_status", side_effect=fake_state),
+            patch("sysadmin.monitor.gpu.sample_gpu_busy", side_effect=fake_sample),
+            patch(
                 "sysadmin.monitor.gpu.asyncio.create_subprocess_exec",
                 side_effect=fake_exec,
-            ):
-                return await get_gpu_usage(slot)
+            ),
+        ):
+            return await get_gpu_usage(slot)
 
 
 # ---------------------------------------------------------------------------
@@ -231,8 +258,10 @@ class TestUtilisationProvenance:
         against 3.1 after, measured off the same file)."""
         log: list = []
         await _drive(log=log)
-        assert log[0][0] == "sample", f"counter was not read first: {log}"
-        assert [kind for kind, _ in log].count("spawn") == 2
+        kinds = [kind for kind, _ in log]
+        first_spawn = kinds.index("spawn")
+        assert "sample" in kinds[:first_spawn], f"counter was not read first: {log}"
+        assert kinds.count("spawn") == 2
 
     @pytest.mark.asyncio
     async def test_the_counter_is_asked_for_the_slot_the_caller_passed(self):
@@ -258,6 +287,7 @@ class TestUtilisationProvenance:
         log: list = []
         result = await _drive(slot="", log=log)
         assert [kind for kind, _ in log].count("sample") == 0
+        assert [kind for kind, _ in log].count("state") == 0
         assert result["card0"]["gpu_percent_source"] == SOURCE_ROCM_SMI
 
     @pytest.mark.asyncio
@@ -300,6 +330,77 @@ class TestUtilisationProvenance:
         assert result["card1"]["gpu_percent"] == COUNTER_READING
         assert result["card1"]["gpu_percent_source"] == SOURCE_SYSFS
         assert result["card0"]["gpu_percent_source"] == SOURCE_ROCM_SMI
+
+
+class TestASuspendedCard:
+    """Rule 5 (estate-manager ADR-0227, their message ``81c4070e``).
+
+    The library now answers 0 for a suspended card, and this collector
+    would have stored that 0 labelled ``sysfs`` — a counter reading that
+    never happened.  These tests drive a ``suspended`` state and assert
+    the label, which is the thing the library's change could not supply.
+    """
+
+    @pytest.mark.asyncio
+    async def test_it_reads_zero_and_says_the_power_manager_answered(self):
+        card0 = (await _drive(state=SUSPENDED))["card0"]
+        assert card0["gpu_percent"] == 0
+        assert card0["gpu_percent_source"] == SOURCE_RUNTIME_PM
+
+    @pytest.mark.asyncio
+    async def test_the_counter_is_not_asked_and_the_state_precedes_the_spawn(self):
+        """Asking the counter would only re-ask the same attribute inside
+        the library; asking it after the spawn would read a card the
+        tool had just woken — the 17 non-zero rows of 2026-09-27/28."""
+        log: list = []
+        await _drive(state=SUSPENDED, log=log)
+        kinds = [kind for kind, _ in log]
+        assert "sample" not in kinds, log
+        assert kinds[0] == "state", log
+        assert log[0][1] == DGPU_SLOT
+
+    @pytest.mark.asyncio
+    async def test_the_other_card_is_untouched(self):
+        card1 = (await _drive(state=SUSPENDED))["card1"]
+        assert card1["gpu_percent_source"] == SOURCE_ROCM_SMI
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state", ["active", "suspending", "resuming", "error", None])
+    async def test_every_other_state_reads_the_counter(self, state):
+        """Only ``suspended`` is idle by definition; ``suspending`` may
+        still have work in flight, and an unreadable state is not a
+        verdict."""
+        card0 = (await _drive(state=state))["card0"]
+        assert card0["gpu_percent"] == COUNTER_READING
+        assert card0["gpu_percent_source"] == SOURCE_SYSFS
+
+    def test_the_sysfs_path_says_so_too(self, tmp_path, awake_card):
+        """The fallback reads ``gpu_busy_percent`` directly, so on a
+        suspended card it would be refused and store ``None`` as
+        ``sysfs``.  The counter file here holds 42, so a 0 can only have
+        come from the state."""
+        devices = tmp_path / "devices"
+        drm = tmp_path / "drm"
+        for card, slot in (("card0", IGPU_SLOT), ("card1", DGPU_SLOT)):
+            (devices / slot).mkdir(parents=True)
+            (devices / slot / "gpu_busy_percent").write_text("42\n")
+            (drm / card).mkdir(parents=True)
+            (drm / card / "device").symlink_to(devices / slot)
+        awake_card.side_effect = lambda slot, *a, **k: (
+            SUSPENDED if slot == DGPU_SLOT else "active"
+        )
+
+        def redirect(arg):
+            return drm if arg == "/sys/class/drm" else Path(arg)
+
+        with patch("sysadmin.monitor.gpu.Path", side_effect=redirect):
+            rows = _from_sysfs()
+
+        assert rows["card1"]["pci_slot"] == DGPU_SLOT
+        assert rows["card1"]["gpu_percent"] == 0
+        assert rows["card1"]["gpu_percent_source"] == SOURCE_RUNTIME_PM
+        assert rows["card0"]["gpu_percent"] == 42
+        assert rows["card0"]["gpu_percent_source"] == SOURCE_SYSFS
 
 
 class TestSysfsSlotResolution:

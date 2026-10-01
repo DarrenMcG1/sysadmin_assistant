@@ -17,7 +17,11 @@ could ship green and inert:
 2. **That the counter is readable at the configured slot on this box.**
    :func:`estate.gpu.sample_gpu_busy` fails **open** by design, so an
    unreadable counter is a warning in the log and a silent reversion to
-   the tool.  Only the real sysfs tree can say the slot resolves.
+   the tool.  Only the real sysfs tree can say the slot resolves.  Since
+   estate-manager ADR-0227 it answers 0 for a runtime-suspended card
+   **without reading the file**, so a non-``None`` return stopped being
+   the witness: the fixture asks ``runtime_status`` first and skips a
+   suspended card by name, because that run read no counter at all.
 
 3. **That the two paths really do index the cards oppositely**
    (`SNAG-GPU-005`).  The claim that ``card0`` names a different device
@@ -37,7 +41,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from estate.gpu import DGPU_PCI_SLOT, sample_gpu_busy
+from estate.gpu import DGPU_PCI_SLOT, runtime_status, sample_gpu_busy
 
 from sysadmin.monitor.gpu import (
     _ROCM_SMI,
@@ -59,6 +63,12 @@ def rocm_smi() -> str:
 
 @pytest.fixture(scope="module")
 def dgpu_slot() -> str:
+    state = runtime_status(DGPU_PCI_SLOT)
+    if state == "suspended":
+        pytest.skip(
+            f"{DGPU_PCI_SLOT} is runtime-suspended, so sample_gpu_busy answers 0 "
+            "without reading the counter — the counter half has no witness this run"
+        )
     if sample_gpu_busy(DGPU_PCI_SLOT) is None:
         pytest.skip(
             f"no readable gpu_busy_percent under {DGPU_PCI_SLOT} — the counter "

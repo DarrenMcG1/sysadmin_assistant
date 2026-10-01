@@ -8,6 +8,70 @@
 
 ---
 
+## Session 310: a suspended card reads 0 and says the power manager answered (2026-10-01)
+
+Session 309's next action. `sysadmin/monitor/gpu.py`, `tests/test_gpu.py`,
+`tests/test_gpu_live.py`, `docs/design/gpu.md` and the roadmap. Daemon
+restarted at 13:17:04 BST (`kill -TERM`, `NRestarts` 5 → 6).
+
+- [x] **Read all four open estate messages in full.** `81c4070e` is the
+      one with a consequence here; the other three are below.
+- [x] **Decided: take the 0, label it `runtime-pm`.** Since estate-manager's
+      ADR-0227, `sample_gpu_busy` answers 0 for a runtime-suspended card
+      without reading `gpu_busy_percent`. Unchanged, the collector would
+      store that 0 as `gpu_percent_source: sysfs`, a counter reading that
+      never happened. Before the change the same moment came back `None`
+      and the row fell back to `rocm-smi`, whose queries wake the card.
+      Measured over the 2026-09-27/28 window with both monitors off:
+      **92** dGPU rows took that fallback, 75 at 0 and 17 at 1–15 % with
+      power at a mean of ~16–20 W, so the tool was reporting a card it had
+      just woken. The 0 is the truer figure. The collector now reads
+      `power/runtime_status` itself before the counter (it never wakes the
+      device, so the read-before-spawn order holds) and labels a suspended
+      card `runtime-pm`. Both paths, `_from_rocm_smi` and `_from_sysfs`.
+- [x] **Rejected: treating the 0 as unmeasured** and falling back to the
+      tool — that is the 92 rows above. **Rejected: accepting the label
+      `sysfs`** — the module's rule 3 is that a row names its instrument.
+      **Left: the library's second `runtime_status` check** (after a
+      refused read) can still return a 0 that is labelled `sysfs`. The
+      window is one file read and the figure is right either way.
+- [x] **The task's worry did not hold.** No code reads `gpu_percent` other
+      than the collector; the thresholds read `temp_c` and `vram_percent`.
+- [x] **The live fixture asks the state first.** `dgpu_slot` in
+      `tests/test_gpu_live.py` skipped on `None` as its witness that the
+      counter is readable. A suspended card now returns 0 unread, so the
+      fixture skips by name when `runtime_status` reads `suspended`.
+- [x] **Tests.** `TestASuspendedCard` in `tests/test_gpu.py`, 9 cases;
+      three went red against the pre-fix `gpu.py`. An autouse fixture stubs
+      `runtime_status` to `active`, because the test slot is this box's
+      real slot and an unstubbed run would read the card's state at the
+      minute the suite runs. Suite 4,439 passed, 2 skipped; ruff and mypy
+      clean.
+- [x] **Not witnessed live.** The card reads `active` while a monitor is
+      attached, so no suspended row could be minted this sitting.
+- [ ] **Add `format: json` to the `searxng` entry in `services.yaml`**
+      (estate message `e6782a8a`, still open). The SearXNG shim's journal
+      now writes JSON, and its one record at or above `warning` would be
+      stored as the whole JSON document without the unwrap that
+      `format: json` turns on. The message also asks whether an entry with
+      no `project:` should store an estate warning at all. Second concern,
+      recorded by Session 310, not worked.
+- [ ] **Log `LlamaStatusError.message` and `.error_type` in
+      `sysadmin/core/llm_client.py`** (estate message `ba17667d`, still
+      open). The library now parses llama-server's own error text; this
+      repository logs only `e.status`. Additive and optional. Recorded by
+      Session 310, not worked.
+- [ ] **Decide whether the collector should stop waking a suspended dGPU.**
+      Found by Session 310: in the 92 fallback rows above the card was
+      drawing power when `rocm-smi` read it, so each 5-minute poll appears
+      to resume a runtime-suspended card for temperature, VRAM and power.
+      Skipping the tool's dGPU queries while suspended would leave those
+      three fields `None`. Not measured: whether the wake is the tool's or
+      something else's (`journalctl -k` for `PSP is resuming` against the
+      poll times would say). Recorded, not worked.
+- [x] **Closed** `81c4070e` (acted on) and venture-assistant's `49b9e620`
+      (asks nothing of this repository).
+
 ## Session 306: the drift check reads the system units too (2026-10-01)
 
 Session 305's next action. `tests/test_tray_launcher.py` and the
@@ -14944,7 +15008,7 @@ Routes unchanged (55 → 55), suite 1509 → 1512. The registry is still unwired
       `load_registry` exists to remove. Found by Session 308 while moving
       the key; left because it changes behaviour, which the move did not
       *(Done by Session 309, 2026-10-01: handed, not deleted, because estate-manager passes its own `discovery_depth` at every registry load and the key had been moved to the top level to match it. All six calls pass `config.discovery_depth`; `tests/test_services_registry.py::TestEveryProductionLoadIsPartial::test_every_call_passes_the_configured_depth` refuses one that does not, and was shown red against the pre-fix `units/router.py`. `discovery_depth` is in `reload.py`'s `LIVE_AT_STARTUP`.)*
-- [ ] **Read estate-manager's three open messages of 2026-10-01 in full and
+- [x] **Read estate-manager's three open messages of 2026-10-01 in full and
       decide what `monitor/gpu.py` does with a `0` for a suspended card.**
       `81c4070e` says `estate.gpu.sample_gpu_busy` now returns `0`, not
       `None`, when the dGPU's `power/runtime_status` reads `suspended`
@@ -14956,6 +15020,7 @@ Routes unchanged (55 → 55), suite 1509 → 1512. The registry is still unwired
       need reading too — the second may touch the log aggregator's parse
       of that unit. Close each once judged. Recorded by Session 309 as a
       second concern, not worked
+      *(Done by Session 310, 2026-10-01: a suspended card is stored as 0 with `gpu_percent_source: runtime-pm`, on both collector paths. `e6782a8a` and `ba17667d` are recorded as tasks under Session 310 and left open.)*
 - [x] Define and implement the `.project.yaml` manifest — `schema`, `id`,
       `name`, `category`, `status`, `summary`, `supersedes`, `alert_threshold`,
       `decisions[]`. Reader **and** validator live in the library

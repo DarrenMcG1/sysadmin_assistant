@@ -23,7 +23,7 @@ dGPU now comes from `estate.gpu.sample_gpu_busy` resolved by PCI slot,
 and `rocm-smi` keeps only what it alone supplies — product name,
 temperature, VRAM, power.
 
-Five rules, four of them the opposite of the obvious implementation:
+Six rules, five of them the opposite of the obvious implementation:
 
 1. **The counter is sampled *before* the subprocesses, and that is half
    the fix rather than a detail.** The entry recorded the ordering as
@@ -69,6 +69,23 @@ Five rules, four of them the opposite of the obvious implementation:
    `GET /api/sysadmin/resources` and the briefing that do read it. **The
    cost of an unjudged figure is not zero, it is deferred until somebody
    reasons from it**, which is what this entry is a record of.
+6. **A runtime-suspended card reads 0, and the row says
+   `runtime-pm`** (Session 310, 2026-10-01, from estate-manager's
+   ADR-0227 and their message `81c4070e`). From that ADR on,
+   `sample_gpu_busy` answers 0 for a suspended card without reading the
+   counter, because a suspended card has nothing running on it and its
+   driver refuses the read rather than wake it. Stored as it came, the 0
+   would be labelled `sysfs`, a counter reading that never happened. The
+   old answer was worse: `None`, then a fallback to `rocm-smi`, whose
+   queries wake the card. On 2026-09-27/28, with both monitors off for
+   9.5 h, that fallback wrote **92** dGPU rows, 75 at 0 and 17 at
+   1–15 % with the card drawing power. So the collector asks
+   `power/runtime_status` itself, first — reading it never wakes the
+   device, so rule 1's order holds — and labels a suspended card
+   `runtime-pm` on both paths. The library checks the state a second
+   time after a refused read; a 0 from that check is still labelled
+   `sysfs`. The window is one file read, and the figure is right either
+   way.
 
 Two things only the live half can say, so they are
 `tests/test_gpu_live.py` rather than fixtures. That `rocm-smi` still

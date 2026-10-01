@@ -16,7 +16,7 @@ So ``gpu_percent`` for the dGPU comes from :func:`estate.gpu.sample_gpu_busy`
 — one file open, no subprocess — and ``rocm-smi`` is kept for what it
 alone supplies: product name, temperature, VRAM and power.
 
-Four rules, three of them the opposite of the obvious implementation:
+Five rules, four of them the opposite of the obvious implementation:
 
 1. **The counter is sampled *before* the subprocesses, not after.**  The
    defect is the perturbation rather than the tool, so a sysfs read
@@ -50,6 +50,24 @@ Four rules, three of them the opposite of the obvious implementation:
    briefing that do read it.  An empty ``gpu_pci_slot`` disables the
    LLM gate by :mod:`estate.gpu`'s convention; here it means only that
    the dGPU cannot be told from the iGPU.
+5. **A runtime-suspended card reads 0, and the row says the power
+   manager answered rather than the counter** (estate-manager ADR-0227,
+   their message ``81c4070e``, 2026-10-01).  A card in runtime suspend
+   has nothing running on it, and its driver refuses the counter rather
+   than wake it.  Before that ADR the refusal came back as ``None`` and
+   this collector fell back to ``rocm-smi`` — whose own queries woke the
+   card it was measuring.  Over the 9.5 h both monitors were off on
+   2026-09-27/28 that fallback wrote **92** dGPU rows: 75 read 0 and 17
+   read 1–15 % at a mean of 16 W, every one of them the tool reporting a
+   card it had just roused.  The 0 is the truer figure, so it is taken —
+   but it was not read off ``gpu_busy_percent``, and rule 3 is that the
+   row says which instrument answered.  So ``power/runtime_status`` is
+   asked **here**, first (reading it never wakes the device, so rule 1's
+   ordering holds), and a suspended card is labelled
+   ``runtime-pm``.  The library asks the same attribute again after a
+   refused read, in case the card suspended in between; a 0 from that
+   second check is labelled ``sysfs``.  That residue is a window of one
+   file read, and its figure is right either way — only the label errs.
 """
 
 import asyncio
@@ -57,7 +75,7 @@ import json
 import logging
 from pathlib import Path
 
-from estate.gpu import DGPU_PCI_SLOT, sample_gpu_busy
+from estate.gpu import DGPU_PCI_SLOT, runtime_status, sample_gpu_busy
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +86,12 @@ _ROCM_SMI = "/opt/rocm/bin/rocm-smi"
 #: exists to avoid, kept only where the slot cannot be resolved.
 SOURCE_SYSFS = "sysfs"
 SOURCE_ROCM_SMI = "rocm-smi"
+#: A runtime-suspended card (rule 5): the figure is 0 because the PM
+#: core says nothing is running, not because a counter read 0.
+SOURCE_RUNTIME_PM = "runtime-pm"
+
+#: ``power/runtime_status``'s word for a card in runtime suspend.
+SUSPENDED = "suspended"
 
 #: The metrics invocation, named so the live premise test can ask the
 #: tool what *this* invocation replies with rather than restating the
@@ -131,7 +155,14 @@ async def _from_rocm_smi(dgpu_pci_slot: str = DGPU_PCI_SLOT) -> dict[str, dict]:
     perturbation the module docstring's rule 1 records.
     """
     # Rule 1: before the subprocesses, which are themselves GPU work.
-    dgpu_busy = sample_gpu_busy(dgpu_pci_slot) if dgpu_pci_slot else None
+    # Rule 5: the PM core first, because asking it never wakes the card.
+    dgpu_busy: int | None = None
+    dgpu_source = SOURCE_SYSFS
+    if dgpu_pci_slot:
+        if runtime_status(dgpu_pci_slot) == SUSPENDED:
+            dgpu_busy, dgpu_source = 0, SOURCE_RUNTIME_PM
+        else:
+            dgpu_busy = sample_gpu_busy(dgpu_pci_slot)
 
     metrics_proc = await asyncio.create_subprocess_exec(
         _ROCM_SMI, *METRICS_ARGS,
@@ -182,7 +213,7 @@ async def _from_rocm_smi(dgpu_pci_slot: str = DGPU_PCI_SLOT) -> dict[str, dict]:
         gpu_percent: int | None
         if dgpu_busy is not None and pci_slot == dgpu_pci_slot:
             gpu_percent = dgpu_busy
-            gpu_percent_source = SOURCE_SYSFS
+            gpu_percent_source = dgpu_source
         else:
             gpu_percent = _parse_int(data.get("GPU use (%)"))
             gpu_percent_source = SOURCE_ROCM_SMI
@@ -210,7 +241,9 @@ def _from_sysfs() -> dict[str, dict]:
     because it is a stored shape with live consumers; what is added is
     ``pci_slot``, so a reader can tell the two vocabularies apart rather
     than having to know which path wrote the row.  Utilisation here was
-    always the counter, and now says so.
+    always the counter, and now says so — except on a runtime-suspended
+    card, which reads 0 and says ``runtime-pm`` (rule 5), where the
+    direct read would otherwise be refused and stored as ``None``.
     """
     drm = Path("/sys/class/drm")
     if not drm.exists():
@@ -224,8 +257,13 @@ def _from_sysfs() -> dict[str, dict]:
             continue
 
         card_id = card_dir.name
+        pci_slot = _pci_slot_of(device)
 
-        gpu_percent = _read_int(gpu_busy)
+        gpu_percent: int | None
+        if pci_slot and runtime_status(pci_slot) == SUSPENDED:
+            gpu_percent, gpu_percent_source = 0, SOURCE_RUNTIME_PM
+        else:
+            gpu_percent, gpu_percent_source = _read_int(gpu_busy), SOURCE_SYSFS
         temp_c = _read_temp(device)
         vram_total = _read_int(device / "mem_info_vram_total") or 0
         vram_used = _read_int(device / "mem_info_vram_used") or 0
@@ -235,9 +273,9 @@ def _from_sysfs() -> dict[str, dict]:
 
         result[card_id] = {
             "name": card_id,
-            "pci_slot": _pci_slot_of(device),
+            "pci_slot": pci_slot,
             "gpu_percent": gpu_percent,
-            "gpu_percent_source": SOURCE_SYSFS,
+            "gpu_percent_source": gpu_percent_source,
             "temp_c": temp_c,
             "vram_used_mb": vram_used_mb,
             "vram_total_mb": vram_total_mb,

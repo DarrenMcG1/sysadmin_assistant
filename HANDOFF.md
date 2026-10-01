@@ -1,6 +1,54 @@
-# Handoff — 2026-10-01 (Session 309)
+# Handoff — 2026-10-01 (Session 310)
 
 ## Next action
+
+Add `format: json` to the `searxng` entry in `services.yaml`, so the shim's JSON journal records are unwrapped (estate message `e6782a8a`). *(For: session)*
+
+It is the first startable unchecked item in tasks.md, recorded this
+session from estate-manager's message `e6782a8a`, which is still open
+and should be closed once it is done. The SearXNG shim now writes its
+journal as JSON, and its one record at or above `warning` would be
+stored as the whole JSON document without `format: json`, the step
+taken for `estate-manager-api` on 2026-08-31. The message also asks
+whether an entry with no `project:` should store an estate warning at
+all; decide that in the same sitting. `ba17667d` (log llama-server's
+error text) is the task after it.
+
+## Session 310: a suspended card reads 0 and says the power manager answered
+
+Session 309's next action. `sysadmin/monitor/gpu.py`, `tests/test_gpu.py`,
+`tests/test_gpu_live.py`, `docs/design/gpu.md` and the roadmap. Daemon
+restarted at 13:17:04 BST (`kill -TERM`, `NRestarts` 5 → 6).
+
+- **Decided: take the 0, label it `runtime-pm`.** estate-manager's
+  ADR-0227 makes `sample_gpu_busy` return 0 for a runtime-suspended card
+  without reading the counter. The collector now reads
+  `power/runtime_status` itself, before the counter and before the
+  `rocm-smi` spawn, and stores a suspended card as `gpu_percent: 0`,
+  `gpu_percent_source: runtime-pm`, on both paths.
+- **Rejected: falling back to `rocm-smi`, the old behaviour.** It wakes
+  the card. Over the 2026-09-27/28 window it wrote 92 dGPU rows, 75 at 0
+  and 17 at 1–15 % with the card drawing power.
+- **Rejected: storing the 0 as `sysfs`.** A row must name the instrument
+  that answered; that label claims a counter read that never happened.
+- **Left knowingly:** the library re-checks the state after a refused
+  read, and a 0 from that check is labelled `sysfs`. One file read wide;
+  the figure is right either way. Written into rule 5 of the module.
+- **Not witnessed live.** The card is `active` while a monitor is
+  attached. The first suspended row will appear the next time the
+  monitors are off; `SELECT … WHERE gpu_usage->'card0'->>'gpu_percent_source'
+  = 'runtime-pm'` on `sysadmin.resource_snapshots` will find it.
+- **Found and recorded, not worked:** the fallback rows suggest each
+  5-minute poll wakes a suspended card through `rocm-smi`'s temperature,
+  VRAM and power queries. A task under Session 310; the kernel's
+  `PSP is resuming` lines against poll times would confirm it.
+- **Messages.** Closed `81c4070e` and venture-assistant's `49b9e620`
+  (asked nothing). `e6782a8a` and `ba17667d` are recorded as tasks and
+  left open.
+- **Verified.** Suite 4,439 passed, 2 skipped; ruff and mypy clean;
+  three of the nine new tests red against the pre-fix `gpu.py`.
+
+## What Session 309 handed on (done by Session 310)
 
 Read estate-manager's three open messages in full and decide what `monitor/gpu.py` does with `sample_gpu_busy` returning 0 for a suspended card instead of `None`. *(For: session)*
 
