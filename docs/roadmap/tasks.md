@@ -8,6 +8,30 @@
 
 ---
 
+## Session 311: the SearXNG shim's journal is declared JSON (2026-10-01)
+
+Session 310's next action. `services.yaml`,
+`tests/test_services_registry.py` and the roadmap only; no `sysadmin/`
+change. The daemon took the edit by `POST /api/sysadmin/reload`, no
+restart owed.
+
+- [x] **`format: json` on the `searxng` entry**, on estate-manager's
+      ADR-0231 (message `e6782a8a`). The shim's one warning, upstream
+      SearXNG unreachable, now arrives as a JSON document at priority 4,
+      inside the `warning` filter. Untriggered: 0 firings since
+      2026-08-14.
+- [x] **Kept the warning on an entry with no `project:`**, which the
+      message asked about. The warning is about SearXNG, the entry's
+      subject; the shim is plumbing.
+- [x] **The live witness reads a startup source's opening, not its
+      newest records.** The newest-500 read held the shim's 4 JSON
+      lifecycle lines among 494 and would have lost them to plain-text
+      access lines within about fifteen hours. `STARTUP_JSON_SOURCES`
+      reads the first 60 seconds of the current run. Controls: 4 JSON of
+      10 on the current run, 0 of 500 the day before the restart, and a
+      test that `--until` really cuts.
+- [x] **Verified.** Suite 4,441 passed, 2 skipped; ruff clean.
+
 ## Session 310: a suspended card reads 0 and says the power manager answered (2026-10-01)
 
 Session 309's next action. `sysadmin/monitor/gpu.py`, `tests/test_gpu.py`,
@@ -49,8 +73,8 @@ restarted at 13:17:04 BST (`kill -TERM`, `NRestarts` 5 → 6).
       clean.
 - [x] **Not witnessed live.** The card reads `active` while a monitor is
       attached, so no suspended row could be minted this sitting.
-- [ ] **Add `format: json` to the `searxng` entry in `services.yaml`**
-      (estate message `e6782a8a`, still open). The SearXNG shim's journal
+- [x] **Add `format: json` to the `searxng` entry in `services.yaml`**
+      (estate message `e6782a8a`, closed by Session 311). The SearXNG shim's journal
       now writes JSON, and its one record at or above `warning` would be
       stored as the whole JSON document without the unwrap that
       `format: json` turns on. The message also asks whether an entry with

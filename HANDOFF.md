@@ -1,6 +1,57 @@
-# Handoff — 2026-10-01 (Session 310)
+# Handoff — 2026-10-01 (Session 311)
 
 ## Next action
+
+Log `LlamaStatusError.message` and `.error_type` in `sysadmin/core/llm_client.py`, which logs only `e.status` (estate message `ba17667d`). *(For: session)*
+
+It is the first startable unchecked item in tasks.md, under Session
+310. estate-lib's exception now carries llama-server's own error text
+and type, both `str | None`; the change here is additive and needs a
+daemon restart to take effect, because the library is an editable
+install. Close `ba17667d` once it is done.
+
+## Session 311: the SearXNG shim's journal is declared JSON
+
+Session 310's next action. `services.yaml`,
+`tests/test_services_registry.py` and the roadmap. No `sysadmin/`
+change; the live daemon took the edit through `POST
+/api/sysadmin/reload` at 13:45 BST (`services_changed: ["searxng"]`,
+nothing requiring a restart).
+
+- **Done: `format: json` on the `searxng` entry.** estate-manager's
+  ADR-0231 put the shim on their logging configuration, so its one
+  warning (upstream SearXNG unreachable) arrives as a JSON document at
+  priority 4, inside the entry's `warning` filter. Without the
+  declaration the stored title would be the whole document. It ships
+  untriggered: that warning has fired 0 times since 2026-08-14.
+- **Decided: an entry with no `project:` keeps the warning.** The
+  estate asked. The warning's subject is SearXNG being unreachable,
+  which is the entry's own subject; the shim is plumbing, which is why
+  the entry has no `project:` in the first place. Written beside the
+  entry.
+- **Found and fixed in the same change: the live witness would have
+  gone red overnight.** `test_a_declared_source_really_writes_json`
+  reads a daemon's newest 500 journal records. The shim's JSON is the
+  four lifecycle lines written at start; its steady state is about 800
+  plain-text access lines a day. Half an hour after the restart the
+  read held 4 JSON records of 494, and in about fifteen hours it would
+  have held none. `STARTUP_JSON_SOURCES` now reads the opening 60
+  seconds of the unit's current run instead (from
+  `ActiveEnterTimestamp`), which holds the lifecycle lines for as long
+  as the run lasts.
+- **Rejected: leaving `searxng` out of the witness.** The set test pins
+  every declaration to the constant on purpose; a declaration with no
+  live witness is the silent-wrong-declaration case the witness exists
+  for.
+- **Controls.** The startup read finds 4 JSON of 10 on the current run
+  and 0 of 500 over the day before the restart.
+  `test_the_startup_read_is_bounded_by_its_window` shows `--until`
+  cuts the read rather than merely parsing, since a misplaced flag
+  turns the witness into a silent skip.
+- **Verified.** Suite 4,441 passed, 2 skipped; ruff clean.
+- **Messages.** Closed `e6782a8a`.
+
+## What Session 310 handed on (done by Session 311)
 
 Add `format: json` to the `searxng` entry in `services.yaml`, so the shim's JSON journal records are unwrapped (estate message `e6782a8a`). *(For: session)*
 

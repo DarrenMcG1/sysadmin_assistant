@@ -640,12 +640,30 @@ services:
   # upstream engines to the estate-manager repository would charge it for
   # a fault it does not own. `mosquitto` above is the same shape.
   # `scope` omitted, so it defaults to user.
+  #
+  # `format: json` from 2026-10-01, on estate-manager's announcement
+  # `e6782a8a` (their ADR-0231, closing their SNAG-ESTATE-099): the shim
+  # now takes the estate's `configure_logging`, so its one warning —
+  # "searxng shim: upstream <METHOD> /<path> failed: …", the container
+  # unreachable — arrives as a JSON document at PRIORITY=4, inside this
+  # filter, and would otherwise be titled by the whole document
+  # (SNAG-LOG-003, the `sysadmin-service` entry's defect). It ships
+  # **untriggered**: the warning has fired 0 times in 32,217 records
+  # since 2026-08-14. The witness is the live unit's 12:13 BST restart,
+  # whose four uvicorn lifecycle lines are JSON at 6; the steady state
+  # is `uvicorn.access`, plain text and left outside the envelope, which
+  # `unwrap_json_message` passes through unchanged.
+  #
+  # The estate asked whether an entry with no `project:` should store
+  # an estate application's warning at all. Yes: the warning's subject
+  # is SearXNG being unreachable, which is this entry's subject, and the
+  # shim is plumbing — the same reason it carries no `project:`.
   - name: searxng
     kind: http
     url: http://localhost:8600/api/health
     port: 8600
     systemd: { unit: estate-manager-searxng-shim.service }
-    log: { type: journalctl, severity_filter: warning }
+    log: { type: journalctl, severity_filter: warning, format: json }
 
   # SearXNG's own container, the 8601 half of the deploy above. Declared
   # rather than omitted, and deliberately NOT checked.

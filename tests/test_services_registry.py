@@ -1,5 +1,6 @@
 """Tests for services.yaml — schema, kind-based check selection, id resolution."""
 
+import time
 from pathlib import Path
 
 import pytest
@@ -44,7 +45,10 @@ LIVE_SERVICES_YAML = REPO_ROOT / "services.yaml"
 #: ``<N>`` — which excludes ``SyslogLevelPrefix=no``.  The membership
 #: check joined 2026-09-26 (their ADR-0205, message ``6d3dbf47``): a
 #: flag on the scan's own entry point, so the same formatter by
-#: construction, and 551 JSON records of 551 when declared.
+#: construction, and 551 JSON records of 551 when declared.  ``searxng``
+#: — the estate's shim on 8600 — joined 2026-10-01 (their ADR-0231,
+#: message ``e6782a8a``), witnessed on the live unit's current run: the
+#: four uvicorn lifecycle records it opened with at 12:13 BST are JSON.
 DECLARED_JSON_SOURCES = {
     "sysadmin-service",
     "estate-manager-api",
@@ -52,6 +56,7 @@ DECLARED_JSON_SOURCES = {
     "estate-manager-audit-timer",
     "estate-manager-review-timer",
     "estate-manager-scan-check-timer",
+    "searxng",
 }
 
 #: The members of :data:`DECLARED_JSON_SOURCES` whose cadence is a
@@ -66,6 +71,58 @@ SCHEDULED_JSON_SOURCES = {
     "estate-manager-review-timer",
     "estate-manager-scan-check-timer",
 }
+
+#: The members of :data:`DECLARED_JSON_SOURCES` whose JSON is written
+#: **at startup** and then drowned, so the live witness reads the
+#: opening records of the unit's current run rather than its newest.
+#:
+#: The shim's only steady-state record is ``uvicorn.access``, plain text
+#: and outside the estate's ``configure_logging`` by their choice — about
+#: 800 a day, 22,774 of 23,778 in thirty days being this repository's own
+#: health polls.  Its JSON is the four lifecycle lines a start writes,
+#: plus a warning whose population is zero.  So the newest-500 read the
+#: daemons take held 4 JSON records of 494 half an hour after the
+#: 2026-10-01 restart and would hold none about fifteen hours later —
+#: green on the day of the commit and red the next morning with nothing
+#: having changed, which is the witness reading traffic rather than the
+#: declaration.
+STARTUP_JSON_SOURCES = {"searxng"}
+
+#: How long after ``ActiveEnterTimestamp`` the opening read looks.
+#: uvicorn's four lifecycle lines landed within one second of it on
+#: 2026-10-01; the margin is for a slow start, not a measured tail.
+_STARTUP_WINDOW_SECONDS = 60
+
+
+def _active_enter_epoch(unit: str, *, user: bool) -> int | None:
+    """The unit's current run's start, whole seconds, or ``None``.
+
+    ``None`` for an inactive unit, whose ``ActiveEnterTimestamp`` is
+    empty, and for any failure to ask.  Whole seconds is
+    ``--timestamp=unix``'s own granularity, and it errs toward reading
+    *more*: a stop and start inside one second put the previous run's
+    shutdown lines into the window (measured: four plain-text ones on
+    2026-10-01).  That cannot hide a JSON record, so it cannot turn the
+    witness green falsely.
+    """
+    import subprocess
+
+    command = ["systemctl", "show", "--timestamp=unix", "-p",
+               "ActiveEnterTimestamp", "--value", unit]
+    if user:
+        command.insert(1, "--user")
+    try:
+        result = subprocess.run(command, capture_output=True, text=True,
+                                timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    value = result.stdout.strip()
+    if result.returncode != 0 or not value.startswith("@"):
+        return None
+    try:
+        return int(value[1:])
+    except ValueError:
+        return None
 
 
 def entry(**overrides) -> ServiceEntry:
@@ -88,7 +145,8 @@ _SYSTEMD_OWN = "systemd"
 
 
 def _journal_message_shapes(
-    unit: str, *, user: bool, since: str | None = "7 days ago"
+    unit: str, *, user: bool, since: str | None = "7 days ago",
+    until: str | None = None,
 ) -> tuple[int, int, bool] | None:
     """(application records, of which JSON-shaped, newest is JSON), or ``None``.
 
@@ -119,6 +177,8 @@ def _journal_message_shapes(
         # writing it: all five sources skipped green, including the one
         # that had passed for weeks.
         command[3:3] = ["--since", since]
+    if until is not None:
+        command[3:3] = ["--until", until]
     if user:
         command.insert(1, "--user")
     try:
@@ -556,6 +616,14 @@ class TestLiveServicesYaml:
         normally a plain-text access line.  Measured 2026-09-13 — the
         three oneshots answer ``True`` and the api answers ``False`` with
         ``INFO:     127.0.0.1 - "GET /api/health HTTP/1.1" 200 OK``.
+
+        **A startup source is asked about the opening of its current run**
+        (2026-10-01, :data:`STARTUP_JSON_SOURCES`).  Its JSON is written
+        once per start and buried under access lines within hours, so
+        the daemon read would go red with no change to the producer.
+        The opening records are there for as long as the run is, and a
+        revert shows on the next restart — the only moment the producer's
+        logging configuration can change at all.
         """
         services = load_services(LIVE_SERVICES_YAML)
         entries = [e for e in services.services if e.name == declared_name]
@@ -564,11 +632,20 @@ class TestLiveServicesYaml:
         assert source.log is not None and source.log.format == "json"
 
         scheduled = declared_name in SCHEDULED_JSON_SOURCES
-        found = _journal_message_shapes(
-            source.log_unit,
-            user=source.scope == "user",
-            since=None if scheduled else "7 days ago",
-        )
+        user = source.scope == "user"
+        if declared_name in STARTUP_JSON_SOURCES:
+            started = _active_enter_epoch(source.log_unit, user=user)
+            if started is None:
+                pytest.skip(f"{source.log_unit} has no current run to read")
+            found = _journal_message_shapes(
+                source.log_unit, user=user, since=f"@{started}",
+                until=f"@{started + _STARTUP_WINDOW_SECONDS}",
+            )
+        else:
+            found = _journal_message_shapes(
+                source.log_unit, user=user,
+                since=None if scheduled else "7 days ago",
+            )
         if found is None:
             pytest.skip(f"journalctl cannot read {source.log_unit}")
         total, json_shaped, newest_is_json = found
@@ -779,6 +856,33 @@ class TestTheJournalHelperCanAnswerBothWays:
             "is a JSON document, so this repository's live negative has "
             "gone — the newest-record assertion is now unfalsifiable here "
             "and needs a different witness"
+        )
+
+    def test_the_startup_read_is_bounded_by_its_window(self):
+        """The ``--until`` arm, shown to cut rather than merely parse.
+
+        A misplaced flag makes journalctl exit non-zero, which the helper
+        reports as ``None`` and the witness turns into a skip — green and
+        witnessing nothing, the way all five sources once skipped.  So
+        the bounded read must answer, and must answer with fewer records
+        than the same read left open, or ``until`` is doing nothing.
+        """
+        unit = "estate-manager-searxng-shim.service"
+        started = _active_enter_epoch(unit, user=True)
+        if started is None:
+            pytest.skip(f"{unit} has no current run to read")
+        if time.time() < started + 2 * _STARTUP_WINDOW_SECONDS:
+            pytest.skip(f"{unit} started too recently to outgrow its window")
+        bounded = _journal_message_shapes(
+            unit, user=True, since=f"@{started}",
+            until=f"@{started + _STARTUP_WINDOW_SECONDS}",
+        )
+        assert bounded is not None, "journalctl refused the bounded read"
+        opened = _journal_message_shapes(unit, user=True, since=f"@{started}")
+        assert opened is not None
+        assert bounded[0] < opened[0], (
+            f"the bounded read saw {bounded[0]} records and the open one "
+            f"{opened[0]}, so --until is not cutting"
         )
 
     def test_it_excludes_systemd_and_would_otherwise_have_counted(self):
