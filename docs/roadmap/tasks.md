@@ -8,6 +8,27 @@
 
 ---
 
+## Session 305: the installed backend unit matches git (2026-10-01)
+
+Session 304's next action, run by the owner because it needs `sudo`.
+No file in the repository changed except the roadmap and `HANDOFF.md`;
+no restart owed.
+
+- [x] **The owner ran `sudo ./scripts/setup-systemd.sh`.** Afterwards
+      `cmp` finds `/etc/systemd/system/sysadmin.service` byte-identical
+      to `systemd/sysadmin.service`, and the loaded unit's `After=` no
+      longer lists `ollama.service` (`NeedDaemonReload=no`). The daemon
+      was not restarted and did not need to be: `After=` only orders
+      start-up, so the change takes effect from the next boot. The tray
+      unit was already identical, and there was no autostart entry to
+      remove.
+- [ ] **Extend `tests/test_tray_launcher.py`'s drift check to the system
+      unit.** It catches an installed `sysadmin*` user unit that differs
+      from git, but not `/etc/systemd/system/sysadmin.service`. That is
+      how the `ollama.service` line outlived its fix for a month
+      (2026-09-02 to 2026-10-01). Like the existing box half, it should
+      skip where the unit is not installed, as in CI.
+
 ## Session 304: the tray's launcher is the one in git (2026-10-01)
 
 Session 303's next action, estate message `633d1a86` (dotfiles).
@@ -27,14 +48,16 @@ and the roadmap. No `sysadmin/` change, no restart owed.
 - [x] **`tests/test_tray_launcher.py`, 6 tests**: four were red on the
       pre-fix tree, including the installed unit matching no tracked
       file; the box half skips where no `sysadmin*` user unit exists.
-- [ ] **The installed `/etc/systemd/system/sysadmin.service` lags git.**
+- [x] **The installed `/etc/systemd/system/sysadmin.service` lags git.**
       It still has `After=… ollama.service`; git dropped it on 2026-09-02
       when `SNAG-SYSD-003` (the backend ordered itself after a retired
       unit) closed. Found by this session, not worked here: a second
       concern, and it needs `sudo` plus a daemon restart. Deploy it
       (`sudo ./scripts/setup-systemd.sh` now also installs the tray
       unit), and consider extending `tests/test_tray_launcher.py`'s
-      drift check to the two system units.
+      drift check to the two system units. *Deployed by the owner in
+      Session 305; no restart was needed after all. The drift check is
+      now its own task, below Session 305's heading.*
 
 ## Session 303: a nudge's wording is ours alone — `SNAG-ESTATE-002` closed (2026-10-01)
 

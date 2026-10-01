@@ -1,22 +1,41 @@
-# Handoff — 2026-10-01 (Session 304)
+# Handoff — 2026-10-01 (Session 305)
 
 ## Next action
 
-Deploy git's `systemd/sysadmin.service` with `sudo ./scripts/setup-systemd.sh`, because the installed copy still orders after the retired `ollama.service`. *(For: owner, ~10 min)*
+Extend `tests/test_tray_launcher.py`'s drift check to the installed `/etc/systemd/system/sysadmin.service`, skipping where it is absent. *(For: session)*
 
-It is the first unchecked item in tasks.md, and it is the owner's
-because it needs `sudo`. The drift is harmless at runtime: ordering
-after a unit that does not exist is a no-op, which is why
-`SNAG-SYSD-003` (the backend ordered after a retired unit) could close
-in git on 2026-09-02 without anyone noticing the installed file kept
-the old line. The script now also installs the tray's user unit, which
-is byte-identical to the one running, and it reloads systemd without
-restarting the daemon. The new ordering applies from the next boot.
-For a session instead: estate message `49b9e620` (venture-assistant
-moves reddit's 429 backoff line to INFO) asks nothing and can be
-closed after reading it.
+It is the first unchecked item in tasks.md, added by this session. The
+check catches an installed `sysadmin*` user unit that differs from git
+but not the system unit, and that gap is how `After=… ollama.service`
+outlived its fix in git by a month. Before starting it, consider closing
+estate message `49b9e620` (venture-assistant moves reddit's 429 backoff
+line to INFO), which asks nothing of this repository. The two
+estate-manager messages filed today (`ba17667d`, `81c4070e`) announce
+additive estate-lib changes and were not read in full here.
+
+## Session 305: the installed backend unit matches git
+
+Session 304's next action, carried out by the owner because it needs
+`sudo`. Only the roadmap and this file changed; no restart owed.
+
+- **Deployed.** The owner ran `sudo ./scripts/setup-systemd.sh`. `cmp`
+  then found `/etc/systemd/system/sysadmin.service` byte-identical to
+  `systemd/sysadmin.service`, and `systemctl show -p After` no longer
+  lists `ollama.service`, with `NeedDaemonReload=no`.
+- **Measured before the run:** the only functional difference was the
+  `After=` line; everything else git adds is comments. The tray unit
+  was already byte-identical, and there was no autostart entry, so the
+  script's tray half changed nothing.
+- **No restart, and that was correct.** Session 304's task said the
+  deploy needed a daemon restart. It did not: `After=` only orders
+  start-up, so the new ordering applies at the next boot, and the
+  daemon's `ActiveEnterTimestamp` (08:19:33) is unchanged.
+- **Recorded, not worked:** a drift guard for the system unit, now the
+  next action above.
 
 ## Session 304: the tray's launcher is the one in git
+
+_Its next action, since carried out:_ _Deploy git's `systemd/sysadmin.service` with `sudo ./scripts/setup-systemd.sh`, because the installed copy still orders after the retired `ollama.service`._
 
 Session 303's next action, estate message `633d1a86` (dotfiles,
 closed). `systemd/`, `scripts/setup-systemd.sh`, `README.md`,

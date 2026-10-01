@@ -3,6 +3,14 @@
 **Last Updated**: 2026-10-01
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The installed backend unit now matches git** (2026-10-01, Session
+> 305). `/etc/systemd/system/sysadmin.service` had still ordered itself
+> after `ollama.service`, the LLM runtime retired on 2026-07-24, a month
+> after git dropped that line. The owner redeployed it with
+> `scripts/setup-systemd.sh`, and the installed file is now
+> byte-identical to git's. Ordering is read only at start-up, so no
+> restart was owed.
+
 > **The tray's launcher is now the one in git** (2026-10-01, Session
 > 304). dotfiles found the installed `sysadmin-tray.service` user unit
 > in no repository, while this one versioned a KDE autostart entry
