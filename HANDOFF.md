@@ -1,19 +1,54 @@
-# Handoff — 2026-10-01 (Session 305)
+# Handoff — 2026-10-01 (Session 306)
 
 ## Next action
 
-Extend `tests/test_tray_launcher.py`'s drift check to the installed `/etc/systemd/system/sysadmin.service`, skipping where it is absent. *(For: session)*
+Add a shorter secondary window to `sysadmin/files/forecast.py`'s disk fit, so growth resuming after a large cleanup is caught. *(For: session)*
 
-It is the first unchecked item in tasks.md, added by this session. The
-check catches an installed `sysadmin*` user unit that differs from git
-but not the system unit, and that gap is how `After=… ollama.service`
-outlived its fix in git by a month. Before starting it, consider closing
-estate message `49b9e620` (venture-assistant moves reddit's 429 backoff
-line to INFO), which asks nothing of this repository. The two
-estate-manager messages filed today (`ba17667d`, `81c4070e`) announce
-additive estate-lib changes and were not read in full here.
+It is the first unchecked item in tasks.md that can start now
+(Session 266 re-read it and left it open). One 30-day least-squares
+fit goes flat after a big cleanup, so no disk threshold can fire for a
+month. The item above it, moving `UV_PYTHON` in `ci.yml`, waits on the
+box's interpreter changing; it is `3.12.12` on both today. Estate
+message `49b9e620` (venture-assistant moves reddit's 429 backoff line
+to INFO) still asks nothing of this repository and can be closed. The
+two estate-manager messages filed today (`ba17667d`, `81c4070e`)
+announce additive estate-lib changes and were still not read in full.
+
+## Session 306: the drift check reads the system units too
+
+Session 305's next action. `tests/test_tray_launcher.py` and the
+roadmap only; no restart owed.
+
+- **What changed.** The drift check, until now applied only to
+  `~/.config/systemd/user`, also reads `/etc/systemd/system`. Every
+  installed `sysadmin*` file there must be byte-identical to its namesake
+  in `systemd/`. That covers `sysadmin-failed.service` as well as
+  `sysadmin.service`, because the rule is the user-unit rule and not a
+  hard-coded name.
+- **Decided: a skip per directory.** The existing class skips where no
+  user unit is installed. Putting the new test under that skip would
+  have hidden it on a box running the backend without the tray, so it
+  is a class of its own with its own skip.
+- **Decided: drop-in directories and masks are out of scope.** A
+  `sysadmin.service.d/` override, or a mask (a symlink to `/dev/null`),
+  is not a regular file, so the check passes over it. A drop-in would
+  change the unit without the unit's bytes differing. None exists today,
+  so this was recorded rather than built.
+- **Verified.** Red when driven at the pre-`3f5af0d` unit (the one that
+  still ordered after `ollama.service`), green on the box, and the helper
+  returns nothing for an empty or missing directory. Full suite 4,422
+  passed, 2 skipped; ruff clean.
+- **One pre-existing postflight red, fixed in the same file.** Since
+  Session 304 deleted the last tracked `.desktop` file, the scan in
+  `test_no_tracked_desktop_entry_launches_the_tray` has run over no files,
+  and `check-vacuous-guards.sh` flags a test loop that runs zero times.
+  Empty is the healthy state there, so it now carries a `# may-not-turn:`
+  declaration; the autostart negative control proves the filter fires.
+  STATUS.md's test count went from 4422 to 4424.
 
 ## Session 305: the installed backend unit matches git
+
+_Its next action, since carried out:_ _Extend `tests/test_tray_launcher.py`'s drift check to the installed `/etc/systemd/system/sysadmin.service`, skipping where it is absent._
 
 Session 304's next action, carried out by the owner because it needs
 `sudo`. Only the roadmap and this file changed; no restart owed.

@@ -4,13 +4,24 @@
 >
 > **Related**: [tasks.md](tasks.md) | [snag_list.md](snag_list.md)
 >
-> **Last Updated**: 2026-09-29
+> **Last Updated**: 2026-10-01
 
 ---
 
 ## Ideas Inbox
 
 _Capture ideas here as they come up. Promote to tasks.md when ready to implement._
+
+### 🧠 2026-10-01 — hold a `sysadmin*.service.d/` drop-in to git as well
+
+Left out by Session 306 when it extended `tests/test_tray_launcher.py`'s
+drift check to `/etc/systemd/system`. The check compares installed unit
+*files*, so a drop-in directory beside one, in either unit directory, is
+passed over, and a drop-in changes what systemd runs without the unit
+file's bytes differing. None exists on this box today, and the repository
+tracks no drop-in, so the rule would be "no `sysadmin*.service.d/` may
+exist" until one is wanted. Promote it the day someone reaches for
+`systemctl edit sysadmin`.
 
 ### 🧠 2026-09-29 — watch the broker's persisted state for a loss, not its crashes
 

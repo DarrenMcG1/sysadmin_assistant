@@ -8,6 +8,34 @@
 
 ---
 
+## Session 306: the drift check reads the system units too (2026-10-01)
+
+Session 305's next action. `tests/test_tray_launcher.py` and the
+roadmap only; no `sysadmin/` change, no restart owed.
+
+- [x] **Every installed `sysadmin*` system unit must match git.** A new
+      class, `TestTheSystemRunsWhatGitHolds`, applies the user-unit rule
+      to `/etc/systemd/system`. It covers both units installed there,
+      `sysadmin.service` and `sysadmin-failed.service`, not only the one
+      the task named. It skips where none is installed, with its own
+      skip: the old class-level skip looked only at user units, so a box
+      with the backend but no tray would have skipped it too.
+- [x] **Proven red at the original defect.** Driven at a directory
+      holding `systemd/sysadmin.service` as it was before `3f5af0d` (the
+      2026-09-02 commit that dropped `After=… ollama.service`), the test
+      fails naming `sysadmin.service`; on the box it passes. Both
+      installed units are byte-identical to git today.
+- [x] **A negative control that runs in CI**:
+      `test_the_drift_check_sees_a_lagging_and_an_untracked_unit` gives
+      the shared `_drifted` helper a stale copy, a matching copy and a
+      stray unit in `tmp_path`. 8 tests in the module; full suite
+      4,422 passed, 2 skipped.
+- [x] **Declared the empty `.desktop` scan** in
+      `test_no_tracked_desktop_entry_launches_the_tray` with
+      `# may-not-turn:`. Postflight flagged it: the scan has found no
+      files since Session 304 deleted the last `.desktop` file, which is
+      the healthy state.
+
 ## Session 305: the installed backend unit matches git (2026-10-01)
 
 Session 304's next action, run by the owner because it needs `sudo`.
@@ -22,8 +50,8 @@ no restart owed.
       start-up, so the change takes effect from the next boot. The tray
       unit was already identical, and there was no autostart entry to
       remove.
-- [ ] **Extend `tests/test_tray_launcher.py`'s drift check to the system
-      unit.** It catches an installed `sysadmin*` user unit that differs
+- [x] **Extend `tests/test_tray_launcher.py`'s drift check to the system
+      unit.** *(Done by Session 306, 2026-10-01; see its block above.)* It catches an installed `sysadmin*` user unit that differs
       from git, but not `/etc/systemd/system/sysadmin.service`. That is
       how the `ollama.service` line outlived its fix for a month
       (2026-09-02 to 2026-10-01). Like the existing box half, it should

@@ -14,6 +14,12 @@ guard, Plasma turns an XDG autostart entry into its own
 ``app-…@autostart.service``, and two trays announce every alert twice.  So
 the repository half is always checked and the box half skips where nothing
 is installed (CI).
+
+The same drift check covers the system units in ``/etc/systemd/system``.
+Until Session 306 it read only the user unit directory. That is how the
+installed ``sysadmin.service`` kept ``After=… ollama.service`` from
+2026-09-02, when ``3f5af0d`` dropped it from git, until the owner redeployed
+it on 2026-10-01.
 """
 
 from __future__ import annotations
@@ -30,6 +36,7 @@ SETUP_SCRIPT = REPO / "scripts" / "setup-systemd.sh"
 TRAY_UNIT = UNIT_DIR / "sysadmin-tray.service"
 
 USER_UNIT_DIR = Path.home() / ".config/systemd/user"
+SYSTEM_UNIT_DIR = Path("/etc/systemd/system")
 AUTOSTART_DIRS = (Path.home() / ".config/autostart", Path("/etc/xdg/autostart"))
 
 #: Every ``$PROJECT_DIR/systemd/<file>`` the setup script copies from.
@@ -47,13 +54,28 @@ def _launches_tray(desktop: Path) -> bool:
     return any(Path(word).name == "sysadmin-tray" for word in exec_line.split())
 
 
-def _installed_sysadmin_user_units() -> list[Path]:
+def _installed_sysadmin_units(directory: Path) -> list[Path]:
+    """Every ``sysadmin*`` regular file in a unit directory.
+
+    ``is_file()`` leaves out a ``sysadmin.service.d/`` drop-in directory and
+    a mask, which is a symlink to ``/dev/null``.
+    """
     try:
         return sorted(
-            p for p in USER_UNIT_DIR.iterdir() if p.name.startswith("sysadmin") and p.is_file()
+            p for p in directory.iterdir() if p.name.startswith("sysadmin") and p.is_file()
         )
     except OSError:
         return []
+
+
+def _drifted(installed: list[Path]) -> list[str]:
+    """Installed units that match no file in ``systemd/``, or whose bytes differ from it."""
+    return [
+        unit.name
+        for unit in installed
+        if not (UNIT_DIR / unit.name).is_file()
+        or (UNIT_DIR / unit.name).read_bytes() != unit.read_bytes()
+    ]
 
 
 class TestTheRepositoryShipsOneLauncher:
@@ -61,6 +83,9 @@ class TestTheRepositoryShipsOneLauncher:
         assert TRAY_UNIT.is_file()
 
     def test_no_tracked_desktop_entry_launches_the_tray(self):
+        # may-not-turn: Session 304 deleted the last tracked .desktop file, so the glob
+        # finds nothing on a healthy tree; test_the_detector_sees_an_autostart_entry
+        # proves the filter fires
         offenders = [
             p.name
             for p in REPO.rglob("*.desktop")
@@ -83,19 +108,27 @@ class TestTheRepositoryShipsOneLauncher:
         missing = [name for name in sources if not (UNIT_DIR / name).is_file()]
         assert missing == []
 
+    def test_the_drift_check_sees_a_lagging_and_an_untracked_unit(self, tmp_path):
+        """Negative control, runnable in CI: one stale copy, one copy matching git, one stray."""
+        tracked = (UNIT_DIR / "sysadmin.service").read_bytes()
+        (tmp_path / "sysadmin.service").write_bytes(tracked + b"After=ollama.service\n")
+        (tmp_path / "sysadmin-tray.service").write_bytes(
+            (UNIT_DIR / "sysadmin-tray.service").read_bytes()
+        )
+        (tmp_path / "sysadmin-hand-written.service").write_text("[Unit]\n")
+        assert _drifted(_installed_sysadmin_units(tmp_path)) == [
+            "sysadmin-hand-written.service",
+            "sysadmin.service",
+        ]
+
 
 @pytest.mark.skipif(
-    not _installed_sysadmin_user_units(),
+    not _installed_sysadmin_units(USER_UNIT_DIR),
     reason="no sysadmin user unit is installed here (CI)",
 )
 class TestTheBoxRunsWhatGitHolds:
     def test_every_installed_user_unit_is_the_tracked_one(self):
-        drifted = [
-            unit.name
-            for unit in _installed_sysadmin_user_units()
-            if not (UNIT_DIR / unit.name).is_file()
-            or (UNIT_DIR / unit.name).read_bytes() != unit.read_bytes()
-        ]
+        drifted = _drifted(_installed_sysadmin_units(USER_UNIT_DIR))
         assert drifted == [], (
             f"installed user units in no file of systemd/, or differing from it: {drifted}"
         )
@@ -109,3 +142,16 @@ class TestTheBoxRunsWhatGitHolds:
             if _launches_tray(p)
         ]
         assert entries == [], f"the tray would start twice at login: {entries}"
+
+
+@pytest.mark.skipif(
+    not _installed_sysadmin_units(SYSTEM_UNIT_DIR),
+    reason="no sysadmin system unit is installed here (CI)",
+)
+class TestTheSystemRunsWhatGitHolds:
+    def test_every_installed_system_unit_is_the_tracked_one(self):
+        drifted = _drifted(_installed_sysadmin_units(SYSTEM_UNIT_DIR))
+        assert drifted == [], (
+            f"installed system units in no file of systemd/, or differing from it: {drifted}"
+            " — redeploy with `sudo ./scripts/setup-systemd.sh`"
+        )
