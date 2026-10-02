@@ -23,7 +23,7 @@ an endpoint (``POST /api/sysadmin/services/{name}/{action}``).
 import logging
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.core.config import get_config
@@ -35,13 +35,17 @@ from sysadmin.core.contracts import (
     ServiceReliabilityInfo,
     ServicesByProjectResponse,
 )
-from sysadmin.core.database import get_db_session
+from sysadmin.core.database import run_off_loop
 from sysadmin.monitor.reliability import ReliabilityScore
 from sysadmin.monitor.reliability_history import (
     compute_reliability,
     fetch_timer_series,
 )
-from sysadmin.monitor.service_recommendations import recommend, total_recoverable_points
+from sysadmin.monitor.service_recommendations import (
+    AdviceReport,
+    recommend,
+    total_recoverable_points,
+)
 from sysadmin.monitor.services import get_services, services_by_project
 
 logger = logging.getLogger(__name__)
@@ -109,13 +113,16 @@ async def get_reliability(
         None, description="reliable | degraded | unreliable | failing"
     ),
     confidence: str | None = Query(None, description="high | low"),
-    session: AsyncSession = Depends(get_db_session),
 ) -> ReliabilityResponse:
     """Reliability for every configured service, worst first.
 
     ``summary`` is always computed over **all** services, never over the
     filtered subset — a filtered page whose totals moved with the filter
     would make "3 unreliable" mean something different on every request.
+
+    Scored on a worker thread (:func:`run_off_loop`), as ``/actions`` is:
+    the 7-day read was 3.0 s of the event loop under the unit's
+    ``CPUQuota=``.
     """
     if grade is not None and grade not in GRADES:
         raise HTTPException(
@@ -129,7 +136,11 @@ async def get_reliability(
 
     config = get_config()
     now = datetime.now(UTC)
-    scores = await compute_reliability(session, config, now=now)
+
+    async def score(session: AsyncSession) -> list[ReliabilityScore]:
+        return await compute_reliability(session, config, now=now)
+
+    scores = await run_off_loop(score)
     summary = summarise(scores)
 
     shown = scores
@@ -152,7 +163,6 @@ async def get_service_actions(
     limit: int | None = Query(
         None, ge=1, le=200, description="Rows to return; config default otherwise"
     ),
-    session: AsyncSession = Depends(get_db_session),
 ) -> ServiceActionsResponse:
     """Ranked service advice — Session 25, Tier 2.
 
@@ -174,21 +184,29 @@ async def get_service_actions(
     "that is all there is" — the failure ``/api/projects/actions`` hit
     in Session 28 and ``UnitActionsResponse.dropped_by_kind`` was added
     for.
+
+    **Computed on a worker thread** (:func:`run_off_loop`, Session 333).
+    The 30-day timer read is ~86,000 rows whose JSONB ``details`` are
+    decoded in Python, and on the event loop that held ``/api/health``
+    and the watchdog ping for up to 4.2 s per call.
     """
     config = get_config()
     settings = config.agents.sysadmin.service_actions
     now = datetime.now(UTC)
 
-    scores = await compute_reliability(session, config, now=now)
-    timers = await fetch_timer_series(session, config, now=now)
 
-    report = recommend(
-        scores,
-        settings,
-        timers=timers,
-        check_interval_seconds=config.agents.sysadmin.health_check_interval_seconds,
-        now=now,
-    )
+    async def advise(session: AsyncSession) -> AdviceReport:
+        scores = await compute_reliability(session, config, now=now)
+        timers = await fetch_timer_series(session, config, now=now)
+        return recommend(
+            scores,
+            settings,
+            timers=timers,
+            check_interval_seconds=config.agents.sysadmin.health_check_interval_seconds,
+            now=now,
+        )
+
+    report = await run_off_loop(advise)
 
     cut = limit if limit is not None else settings.limit
     shown = report.recommendations[:cut]

@@ -413,3 +413,21 @@ literal or retypes it, because CPython interns short strings. It asserts
 a *value* where it means *provenance*, which is the shape recorded after
 Session 59's guards, and only the source can answer provenance — it is an
 AST check now.
+
+**Both routes compute on a worker thread, and the reason is CPU, not
+waiting** (Session 333, 2026-10-02). `/actions` had grown from 1.3 s to
+9.3 s and held the API's event loop for up to 4.2 s per call, under the
+unit's `CPUQuota=25%`, which also delays the watchdog's ping. An `await`
+on the request session releases the loop only while Postgres works:
+asyncpg parses the rows and the JSONB codec decodes each blob in the
+loop's own thread. So `run_off_loop` (`core/database.py`) runs the whole
+computation under `asyncio.run` on a `to_thread` worker with its own
+`get_scheduler_session`. The request session belongs to the request's
+loop and cannot follow it there. **Neither route takes `get_db_session`,
+and a test pins that**: putting one back reads on the loop again.
+
+`fetch_timer_series` selects `details ->> 'last_run'` and three more
+keys, never the `details` column. The whole blob was 1.3 of 1.8 s
+unthrottled. A worker thread alone left a 1.06 s worst wait, because
+the GIL is shared and compiled row loops do not reach the 5 ms switch
+check. The residue, 0.67 s, is `SNAG-SVC-008`.

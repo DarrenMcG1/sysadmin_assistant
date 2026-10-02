@@ -180,10 +180,24 @@ def test_app(mock_config, mock_session):
 
 
 @pytest.fixture
-async def test_client(test_app, mock_config):
-    """Async httpx client against the real app with mocked dependencies."""
+async def test_client(test_app, mock_config, mock_session):
+    """Async httpx client against the real app with mocked dependencies.
+
+    ``run_off_loop`` opens its session through the module's own
+    ``get_scheduler_session`` on a worker thread, where no dependency
+    override reaches, so that name is patched to the same ``mock_session``
+    the override serves.  The thread hop itself stays real.
+    """
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def worker_session():
+        yield mock_session
+
     # Patch config for routers that call get_config() directly
-    with patch("sysadmin.core.config.get_config", return_value=mock_config):
+    with patch("sysadmin.core.config.get_config", return_value=mock_config), patch(
+        "sysadmin.core.database.get_scheduler_session", worker_session
+    ):
         with patch("sysadmin.core.config._config", mock_config):
             transport = ASGITransport(app=test_app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:

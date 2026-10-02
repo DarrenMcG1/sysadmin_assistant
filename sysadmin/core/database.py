@@ -5,10 +5,12 @@ Provides:
 - Session factory and context manager
 - FastAPI dependency for request-scoped sessions
 - Scheduler-safe session factory (NullPool, separate event loop)
+- ``run_off_loop``: CPU-heavy request work on a worker thread
 """
 
+import asyncio
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from sqlalchemy import event, text
@@ -147,6 +149,32 @@ async def get_scheduler_session() -> AsyncGenerator[AsyncSession]:
             raise
         finally:
             await engine.dispose()
+
+
+async def run_off_loop[T](work: Callable[[AsyncSession], Awaitable[T]]) -> T:
+    """Run ``work`` on a worker thread, with its own event loop and session.
+
+    For a request whose cost is CPU rather than waiting.  An ``await`` on
+    the request session yields the loop only while Postgres works: asyncpg
+    then parses every row, and the JSONB codec ``json.loads`` every blob,
+    in the loop's own thread.  ``GET /api/services/actions`` spent 5 to 9
+    seconds there, holding ``/api/health`` and the watchdog ping for up to
+    4.2 s of it (Session 333).  The request session cannot follow the work
+    onto a thread, because it belongs to the loop that made it, so the
+    worker opens :func:`get_scheduler_session`, the same arrangement the
+    APScheduler agents use.
+
+    The GIL is still shared; CPython hands it over every 5 ms, so the loop
+    waits milliseconds instead of the whole call.  A client that
+    disconnects cancels the ``await`` here but not the thread, which runs
+    to completion and is discarded.
+    """
+
+    async def in_worker() -> T:
+        async with get_scheduler_session() as session:
+            return await work(session)
+
+    return await asyncio.to_thread(asyncio.run, in_worker())
 
 
 async def verify_connection() -> bool:

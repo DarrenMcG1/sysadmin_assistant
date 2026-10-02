@@ -140,6 +140,15 @@ async def fetch_timer_series(
     one firing of a weekly timer and therefore cannot measure its
     cadence at all.  See :class:`~sysadmin.core.config.ServiceActionsConfig`.
 
+    **Four keys, extracted by Postgres.**  The blob averages ~585 bytes and
+    the lookback holds ~86,000 rows, so selecting ``details`` whole had
+    asyncpg ship every blob and ``json.loads`` each one in this process:
+    1.3 of the route's 1.8 s unthrottled, four times that under the unit's
+    ``CPUQuota=``, and in C stretches that kept the GIL from the API loop
+    for up to 143 ms even once the route ran on a worker thread
+    (Session 333).  ``->>`` hands back the four values as text, which is
+    what three of them already were.
+
     A timer with no rows in the lookback yields an empty series rather
     than being dropped, so the caller can tell "never observed" from
     "not a timer" — the distinction ``compute_reliability`` makes for
@@ -160,12 +169,16 @@ async def fetch_timer_series(
     units = {s.name: (s.systemd_unit or s.name) for s in timers}
     by_name: dict[str, list[TimerPoint]] = {s.name: [] for s in timers}
 
+    details = ServiceHealth.details
     rows = (
         await session.execute(
             select(
                 ServiceHealth.service_name,
                 ServiceHealth.checked_at,
-                ServiceHealth.details,
+                details["last_run"].astext,
+                details["last_result"].astext,
+                details["triggered_unit"].astext,
+                details["is_active"].astext,
             )
             .where(ServiceHealth.checked_at >= window_start)
             .where(ServiceHealth.service_name.in_(list(by_name)))
@@ -173,22 +186,22 @@ async def fetch_timer_series(
         )
     ).all()
 
-    for service_name, checked_at, details in rows:
+    for service_name, checked_at, last_run, last_result, triggered, active in rows:
         if service_name not in by_name:
             continue
-        blob = details or {}
         by_name[service_name].append(
             TimerPoint(
                 checked_at=checked_at,
-                last_run=blob.get("last_run"),
-                last_result=blob.get("last_result"),
-                triggered_unit=blob.get("triggered_unit"),
+                last_run=last_run,
+                last_result=last_result,
+                triggered_unit=triggered,
                 # Absent means the check could not say, and an armed
                 # timer is the default reading — the *inactive* case is
                 # already a failing check the outage family owns, so
                 # guessing "inactive" here would duplicate it rather
-                # than catch anything.
-                is_active=bool(blob.get("is_active", True)),
+                # than catch anything.  ``->>`` reads a JSON ``false`` as
+                # the text "false", and absent or JSON null as NULL.
+                is_active=active != "false",
             )
         )
 

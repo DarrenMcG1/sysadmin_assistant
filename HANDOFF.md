@@ -1,17 +1,17 @@
-# Handoff — 2026-10-02 (Session 332)
+# Handoff — 2026-10-02 (Session 333)
 
 ## Next action
 
-Find where `GET /api/services/actions` spends its 9 s on the API's event loop and move it off (tasks.md, Session 332 block). *(For: session)*
+Close tasks.md's item to register the alert topic in alfred-glance, which glance declined on 2026-10-02 (estate message d588bc23). *(For: session)*
 
-It is the first unchecked item in tasks.md that a session can start
-now. Once the owner redeploys, the watchdog kills the monitor if its
-event loop stalls past 30 s, and this route already holds it for
-seconds: a concurrent health check waited 5.3 s, and the call has grown
-from 1.3 s in August to 9.3 s. Measure first (`py-spy dump` during a
-call), because the async route interleaves database awaits with work
-that may be CPU-bound, and the unit's 25% `CPUQuota=` stretches CPU
-time fourfold.
+It is the first unchecked item in tasks.md a session can start now
+(the redeploy is the owner's, and the dGPU read waits until tomorrow).
+Glance's owner ruled on 2026-10-02 not to render `estate/alerts/raised`
+until glance gains background delivery, so the item is moot rather than
+blocked: record that and close the message. Two other estate messages
+are open: venture-manager's new timer entry, which the owed restart
+already covers, and estate-manager's `publish_errors` count, whose
+judging is ours to decide.
 
 ## Owed by the owner
 
@@ -24,7 +24,8 @@ and `direct`, and `systemctl status sysadmin` should be `active
 rollback is written above `Type=` in `systemd/sysadmin.service`. Until
 the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
 which compares bytes, stays red. The restart is also the one `96fa8b8`
-already owes so the daemon watches venture-manager's backup timer.
+already owes so the daemon watches venture-manager's backup timer, and
+it loads Session 333's off-loop advice routes.
 
 ## Scheduled action
 
@@ -33,6 +34,46 @@ After 09:30 on 2026-10-03, read
 what holds the dGPU awake once the monitors are off (tasks.md, Session
 324 block, last item). The transient timer fires at 21:30 tonight and
 runs for 12 h. A reboot before then cancels it.
+
+## Session 333: the advice routes compute off the event loop
+
+Session 332's next action. `GET /api/services/actions` held the API's
+event loop for seconds. Profiled in-process against the live database,
+because `py-spy` cannot attach to the unit without root: 1.3 of 1.8 s
+unthrottled was `fetch_timer_series` decoding ~86,000 JSONB `details`
+blobs inside asyncpg's callback, on the loop's thread.
+
+Two changes, measured on a scratch copy of the router under
+`CPUQuota=25%` with a 50 ms ping: `run_off_loop` in `core/database.py`
+runs the work on a worker thread with its own loop and session (worst
+ping 4.2 → 1.06 s), and `fetch_timer_series` has Postgres extract the
+four keys it reads (→ 0.67 s; calls 5.6–7.0 → 3.5–3.8 s). Old and new
+series are identical on live data. `/reliability` uses the same helper.
+
+Rejected: a sync engine for these routes, because the repository has no
+sync session anywhere and `get_scheduler_session` already exists for
+work on another loop. Not done: thinning the timer rows to the points
+where `last_run` changes, because that changes `recommend`'s input.
+
+Left as `SNAG-SVC-008`: the remaining 0.67 s is GIL held by compiled
+whole-result loops; partitioned fetches are the lever. Suite 4,501
+passed and 1 failed, the installed-unit comparison waiting on the
+redeploy.
+
+## What Session 332 handed on (done by Session 333)
+
+Find where `GET /api/services/actions` spends its 9 s on the API's event loop and move it off (tasks.md, Session 332 block). *(For: session)*
+
+It is the first unchecked item in tasks.md that a session can start
+now. Once the owner redeploys, the watchdog kills the monitor if its
+event loop stalls past 30 s, and this route already holds it for
+seconds: a concurrent health check waited 5.3 s, and the call has grown
+from 1.3 s in August to 9.3 s. Measure first (`py-spy dump` during a
+call), because the async route interleaves database awaits with work
+that may be CPU-bound, and the unit's 25% `CPUQuota=` stretches CPU
+time fourfold.
+
+Done; see the Session 333 block.
 
 ## Session 332: `Type=notify` and `WatchdogSec=60`
 

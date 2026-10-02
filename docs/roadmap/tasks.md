@@ -8,6 +8,57 @@
 
 ---
 
+## Session 333: the advice routes compute off the event loop (2026-10-02)
+
+Session 332's next action. `sysadmin/core/database.py`,
+`sysadmin/monitor/routers/services.py`,
+`sysadmin/monitor/reliability_history.py`, `tests/conftest.py`, new
+`tests/test_off_loop.py`, and the roadmap. Restart owed to load it; it
+rides on the owner's redeploy already owed. Suite 4,501 passed and 1
+failed: the installed-unit byte comparison, still waiting on that
+redeploy.
+
+- [x] **Where the time went, measured rather than sampled live.**
+      `py-spy` cannot attach to the running unit without root, so the
+      same calls were profiled in-process against the live database:
+      1.8 s unthrottled, of which `fetch_timer_series` was 1.3 s. It
+      read ~86,000 rows across 12 timers over 30 days and `json.loads`
+      each ~585-byte `details` blob in the loop's thread, inside
+      asyncpg's protocol callback, so the `await` gave no relief.
+      `compute_reliability` was 0.37 s and `recommend` 0.07 s.
+- [x] **A probe that reproduces the stall.** A scratch app serving only
+      this router, under `systemd-run --user -p CPUQuota=25%`, polling an
+      `async def` `/ping` every 50 ms while `/actions` ran: calls 5.6 to
+      7.0 s, worst ping wait **4.2 s**.
+- [x] **Off the loop: `run_off_loop`** in `core/database.py` runs the
+      work under `asyncio.run` on a `to_thread` worker with its own
+      `get_scheduler_session`, the arrangement the scheduler's agents
+      already use; the request session belongs to the request's loop and
+      cannot follow. Both `/actions` and `/reliability` use it and take
+      no request session. Worst ping **1.06 s**: the GIL is shared and
+      the worker held it for up to 143 ms at a stretch, unthrottled.
+- [x] **Four keys, not the blob.** `fetch_timer_series` now selects
+      `details ->> 'last_run'` and the other three, so Postgres does the
+      extraction. Old and new return identical series on the live data
+      (85,989 points). Phase 1.40 → 0.55 s; under the quota calls 3.5
+      to 3.8 s and the worst ping **0.67 s**, against a 30 s ping
+      interval. `/reliability`: calls 1.0 to 1.5 s, worst ping 0.46 s.
+      A JSON `null` for `is_active` now reads armed rather than
+      inactive, like an absent key; 0 such rows in 30 days.
+- [x] **Eight tests in `tests/test_off_loop.py`**: the work runs on
+      another thread and loop, the caller's loop keeps ticking through
+      0.3 s of pure CPU, exceptions reach the caller, neither route
+      depends on `get_db_session`, and the query extracts four keys and
+      maps them. `test_client` patches the worker's session to the same
+      `mock_session`, so the existing endpoint tests now cross the real
+      thread hop. Three mutations (work on the caller's loop, the old
+      `fetch_timer_series`, `/actions` back on the request session) each
+      turned only their own tests red.
+- [x] **Left, as `SNAG-SVC-008`:** the residual GIL holds are
+      whole-result loops in compiled code (asyncpg's `data_received`,
+      SQLAlchemy's `_raw_all_rows`), sampled with `py-spy --gil` on a
+      child process.
+
 ## Session 332: `Type=notify` and `WatchdogSec=60` on the unit (2026-10-02)
 
 Session 331's next action. `systemd/sysadmin.service` and
@@ -48,7 +99,7 @@ still waiting on that redeploy.
       the restart armed it (`WatchdogUSec=5s`). So the old process,
       which predates the sender, is not killed in the gap between
       `setup-systemd.sh` and `systemctl restart`. Unit removed afterwards.
-- [ ] **Take `GET /api/services/actions` off the API's event loop.** It
+- [x] **Take `GET /api/services/actions` off the API's event loop.** It
       holds the loop for seconds (a concurrent health check waited 5.3 s)
       and has grown from 1.3 s on 2026-08-25 to 9.3 s now; under the
       watchdog, a block past 30 s is a kill. Find where the time goes
