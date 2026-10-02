@@ -8,6 +8,53 @@
 
 ---
 
+## Session 323: a suspended dGPU is not woken to be measured (2026-10-02)
+
+Session 322's next action. `sysadmin/monitor/gpu.py`, `tests/test_gpu.py`,
+`docs/design/gpu.md` and the roadmap. Suite 4,470 passed, 2 skipped; ruff
+and mypy clean. Daemon restarted at 11:06:32 BST (`kill -TERM`).
+
+- [x] **The overnight drive measured nothing.** All 240 trials (30
+      rounds × 8 kinds) logged `skipped: not suspended`, including both
+      controls. The card's `runtime_suspended_time` is 0 for this boot
+      (since 2026-09-30 21:37). In `resource_snapshots`, 0 of 1,133 dGPU
+      rows since the 2026-09-28 11:49 boot into kernel 7.2.7 came from
+      `rocm-smi`, against 93 of 285 the night before on 6.18 LTS. The 3
+      `PSP is resuming` lines in boot −1 follow `VRAM is lost due to GPU
+      reset!`; none is a runtime resume.
+- [x] **Chose the sysfs row with the three fields `None`**, and built
+      it. `get_gpu_usage` reads `power/runtime_status` first and takes
+      `_from_sysfs` for a suspended dGPU. `_from_sysfs` reads no `hwmon`
+      or `mem_info` attribute of a suspended card. `_from_rocm_smi` no
+      longer asks the state. This option rests only on the attribute
+      rule 5 already trusted, so it needed none of the measurement that
+      did not happen.
+- [x] **Rejected: `rocm-smi -d <iGPU>`.** It rests on the tool not
+      opening every card at start-up, which is unmeasured. It cannot be
+      measured while the card never suspends.
+- [x] **Rejected: wait another night**, which was Session 314's default
+      for an all-`skipped` log. That default assumed a monitor had stayed
+      on for one night. The card has not suspended in four days and two
+      boots, and the chosen option does not need the result.
+- [x] **Cost, accepted:** on a suspended poll the rows are keyed and
+      named by DRM (`card1` = dGPU), not by `rocm-smi`. `pci_slot` tells
+      them apart. Only the threshold checks in `agent.py` read these
+      fields, and they already treat `None` as unmeasured
+      (`test_null_temp_no_alert`). Alfred's briefing does not read them.
+- [x] **Falsified:** both new tests fail against `HEAD`'s `gpu.py`.
+- [x] **Not witnessed live**: the card does not suspend on this box at
+      present.
+- [ ] **Find out why the dGPU has not runtime-suspended since the
+      kernel 7.2.7 boot.** Under 6.18 LTS it suspended 283 times in one
+      night. Since 2026-09-28 11:49, `runtime_suspended_time` is 0 and
+      no row reads `runtime-pm`. Overnight 02:00–05:00 today it averaged
+      4–9 % busy at 21–51 W. Both monitors are on the dGPU (`card1`,
+      `03:00.0`). Two llama-servers with `-ngl 99` hold it open. Before
+      reading this as a kernel change, check whether the monitors were
+      left on on these nights. It decides whether rule 6 ever acts, and
+      what the card draws at idle. *(Second concern, found by this
+      session; not worked here)*
+
 ## Session 322: README's service count, 36 → 37 (2026-10-02)
 
 Session 321's next action. Suite 4,471 passed, 2 skipped in a full run.
@@ -296,7 +343,7 @@ Session 312's next action. A measurement; the roadmap and
       `GET /api/audit/findings` ages now reach the oldest stored run.
       It says nothing is asked of this repository, and its reading of
       `judge_audit_ports`' docstring matches the code here.
-- [ ] **Stop `rocm-smi` waking a suspended dGPU.** First measure, with
+- [x] **Stop `rocm-smi` waking a suspended dGPU.** First measure, with
       the card suspended, which reads leave it asleep: `rocm-smi -d
       <iGPU index>` alone, and `_from_sysfs`'s `hwmon` temperature and
       power and `mem_info_vram_used`. A session cannot suspend the card
@@ -308,7 +355,9 @@ Session 312's next action. A measurement; the roadmap and
       `None`. Fix `gpu.py`'s rule 5 docstring in the same change.
       *(Drive scheduled by Session 314 for 01:30–05:30 on 2026-10-02.
       Read `~/.local/state/sysadmin/dgpu-wake-drive-2026-10-02.jsonl`
-      that morning.)*
+      that morning.)* *(Done by Session 323 without the measurement:
+      the drive found the card awake all night, and the sysfs option
+      needed none. See that block.)*
 
 ## Session 312: a failed LLM call logs llama-server's own reason (2026-10-01)
 

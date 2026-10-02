@@ -1,43 +1,50 @@
-# Handoff — 2026-10-02 (Session 322)
+# Handoff — 2026-10-02 (Session 323)
 
 ## Next action
 
+Find out why the dGPU has not runtime-suspended since the kernel 7.2.7 boot (tasks.md, Session 323 block). *(For: session)*
+
+It is the first unchecked item in tasks.md. It decides whether today's
+change ever does anything: the collector now leaves a suspended card
+alone, but the card has not suspended once in four days. Start from the
+evidence in that task. The cheapest first step is to ask the owner
+whether the monitors were left on overnight. If they were off, compare
+the two kernels.
+
+## Session 323: a suspended dGPU is not woken to be measured
+
+Session 322's next action. Service code changed and is live: the daemon
+was restarted at 11:06:32 by `kill -TERM` on its main PID. An earlier
+restart at 11:05:41 was followed by a docstring edit. The ops-claim
+check flagged the daemon as serving stale code, so it was restarted
+again.
+
+**The drive measured nothing.** All 240 trials were `skipped: not
+suspended`. This is not one bad night: `runtime_suspended_time` is 0
+for the whole boot, and none of the 1,133 dGPU rows since the 28
+September boot into kernel 7.2.7 came from `rocm-smi`. On 6.18 LTS the
+night before, 93 of 285 did.
+
+**Decided: on a suspended poll, take the dGPU row from sysfs and leave
+temperature, VRAM and power as `None`.** Built and tested in `gpu.py`
+(rule 6). The other option was to query only the iGPU with `rocm-smi -d
+<iGPU>`. That was rejected because nobody has measured whether the tool
+still opens every card at start-up, and it cannot be measured while the
+card never suspends. Waiting another night, Session 314's default, was
+rejected for the same reason: the chosen option doesn't need the
+result.
+
+Not done: nothing was witnessed live, because the card does not suspend
+now. Session 322's two tasks (a flaky live test, and STATUS.md naming 2
+of 3 open alerts) still stand. The ops-claim check still reports the
+second one.
+
+## What Session 322 handed on (done by Session 323)
+
 Read `~/.local/state/sysadmin/dgpu-wake-drive-2026-10-02.jsonl` and choose how the collector stops waking a suspended dGPU (tasks.md, rocm-smi item). *(For: session)*
 
-It is now the first startable unchecked item in tasks.md. The log was
-written at 05:30 today and the reading order is in the section below.
-Session 322 corrected README's service count, so the suite is green in
-a full run. One live test still flakes under `pytest -x`; the new task
-in the Session 322 block says why. It does not block this.
-
-## Waiting to be read: the dGPU wake drive
-
-The drive ran overnight and its log exists (21,556 bytes, written
-2026-10-02 05:30). This is the `rocm-smi` item in tasks.md. Nothing
-below has been read yet.
-
-
-From 05:30 on 2026-10-02, read
-`~/.local/state/sysadmin/dgpu-wake-drive-2026-10-02.jsonl` and choose how
-the collector stops waking a suspended dGPU. The transient
-`sysadmin-dgpu-wake-drive.timer` runs `scripts/dgpu-wake-drive.py`
-from 01:30. Read it in this order:
-
-1. **The positive control must read `woke`.** `rocm_smi_all` is
-   today's call. If it does not read `woke`, the instrument cannot see
-   a wake and nothing else in the log counts.
-2. **Then `idle`'s wake rate**: how often something else woke the card
-   inside a 2 s window. A candidate is clean only if its rate is no
-   worse than this.
-3. **Then the six candidates.** Check each against `journalctl -k
-   -o short-monotonic --grep 'PSP is resuming'` by the `mono` field.
-   Check `rocm_smi_igpu`'s `result.cards` reads `0000:47:00.0` alone.
-   Note the `errno` a refused `hwmon` read returns: `_read_int` catches
-   only `PermissionError`, so any other errno would raise.
-
-If only `skipped` lines appear, the card never suspended (a monitor
-stayed on), and the drive needs another night. Then fix `gpu.py`'s
-rule 5 docstring in the same change as the code.
+The log held only `skipped` lines. The choice was made anyway, because
+the sysfs option doesn't depend on what the drive was meant to measure.
 
 ## Session 322: README's service count, 36 → 37
 

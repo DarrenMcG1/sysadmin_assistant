@@ -95,9 +95,28 @@ Six rules, five of them the opposite of the obvious implementation:
    suspended card still resumes it. Measured over the same night: all
    93 suspended-card polls were followed by a kernel `PSP is resuming`
    line 2.4–3.1 s after `recorded_at`, one resume in three of the
-   night's 283. Stopping it is a task in `tasks.md` under Session 313,
-   waiting on a measurement of which reads leave a suspended card
-   asleep.
+   night's 283. Rule 7 stops it.
+7. **A suspended dGPU is never handed to `rocm-smi`, and nothing of it
+   is read but its power state** (Session 323, 2026-10-02; the module's
+   rule 6). `get_gpu_usage` asks `power/runtime_status` before choosing
+   a path and takes `_from_sysfs` for a suspended card, which reads no
+   `hwmon` or `mem_info` attribute of it: temperature, VRAM and power are
+   `None`, and the threshold checks already read `None` as unmeasured.
+   `_from_rocm_smi` no longer asks the state at all.
+
+   **Chosen without the measurement it was waiting for.** The overnight
+   drive of 2026-10-02 (`scripts/dgpu-wake-drive.py`, 01:30–05:30) logged
+   240 trials and every one `skipped: not suspended`: the card's
+   `runtime_suspended_time` is 0 for the whole boot, and of 1,133 dGPU
+   rows since the 28 September reboot into kernel 7.2.7 not one came
+   from `rocm-smi`, against 93 of 285 the night before on 6.18 LTS. So
+   neither candidate read was measured. That decided it. *Query the
+   iGPU alone* (`rocm-smi -d <iGPU>`) rested on the tool not opening
+   every card at start-up, which nobody has seen. *Take the row from
+   sysfs with the three fields `None`* rests only on the attribute rule
+   6 already relies on. Its cost: on such a poll the rows are keyed and
+   named in DRM's vocabulary (rule 2), `card1` rather than the product
+   name, and `pci_slot` tells them apart.
 
 Two things only the live half can say, so they are
 `tests/test_gpu_live.py` rather than fixtures. That `rocm-smi` still
