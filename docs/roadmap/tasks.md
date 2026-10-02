@@ -8,6 +8,50 @@
 
 ---
 
+## Session 327: the `Type=notify` rollback, written and rehearsed (2026-10-02)
+
+Session 326's next action. The rollback is a comment in
+`systemd/sysadmin.service`, and a test now covers the start timeout. No
+directive changed and no restart is owed for this change, but the
+installed copy has to be redeployed to match.
+
+- [x] **Rehearsed on a throwaway user unit**, not the live one: `sudo`
+      needs a password here and the live unit is the monitor. The
+      stand-in copied the live restart shape (90 s start timeout,
+      `RestartSec=10`, 5 starts in 600 s, `OnFailure=`). It was a
+      stdlib Python process that never sends `READY=1`, then one that
+      stops its `WATCHDOG=1` pings. Both units were removed afterwards,
+      and the live unit kept its PID throughout.
+- [x] **Never-ready reaches `failed` in 8 min 23 s.** Each start sits in
+      `activating` for 90 s, is killed, and restarts 10 s later. The
+      limit tripped on the sixth start, 97 s inside the window.
+- [x] **The rollback, step by step, against the failed unit.** After
+      the edit and `daemon-reload`, `start` was refused ("attempted too
+      often") until `reset-failed`, and then took 0.005 s. On a failed
+      unit `WatchdogUSec` kept reading `30s` after the reload and read
+      `0` only after the start, so the check comes last.
+- [x] **The rollback mid-loop, under a 10 s watchdog.** `daemon-reload`
+      alone did **not** disarm the running process's watchdog: it was
+      killed with `SIGABRT` 6 s after the reload. The next start ran
+      with no `NOTIFY_SOCKET`, its `READY=1` send was a silent no-op,
+      and it was left alone while wedged. So the rollback ends with a
+      restart, and the ping code needs no revert as long as an unset
+      socket is a no-op.
+- [x] **`test_the_burst_window_outlasts_the_restart_delay` counts the
+      start timeout under `Type=notify`.** 5 × (timeout + 10 s) must stay
+      under 600 s. Falsified on a copy of the unit: red at
+      `TimeoutStartSec=110`, green at 109 and at the default.
+- [ ] **Owner: redeploy the unit file** — `sudo
+      ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`.
+      The edit is comments only, but `test_every_installed_system_unit_is_the_tracked_one`
+      compares bytes and is red until then. The restart is the one
+      `96fa8b8` already owes for venture-manager's backup timer.
+- [ ] **README's declared-service count reads 37; `services.yaml`
+      declares 38** since venture-manager's cross-repo write `96fa8b8`
+      (estate message `a0eec7fa`, announcing its backup timer).
+      `test_the_stated_service_count_is_the_measured_one` is red. Found by
+      Session 327 and left as a second concern.
+
 ## Session 326: STATUS.md's alert count, 3 → 2 (2026-10-02)
 
 Session 325's next action. STATUS.md and the roadmap only; no restart
@@ -15978,6 +16022,11 @@ work:
       the service — so the rollback must be written down before the unit is
       edited
       *(Re-read by Session 266, 2026-09-27, and left open: `systemctl show sysadmin.service` reads `Type=simple`, `WatchdogUSec=0`.)*
+      *(Session 327, 2026-10-02: the rollback is written above `Type=`
+      in `systemd/sysadmin.service` and rehearsed. What remains is the
+      sender in the lifespan, which must be a no-op when `NOTIFY_SOCKET`
+      is unset, then the unit edit and the owner's deploy. Decide
+      `SNAG-SYSD-010` first: every watchdog kill also fires `OnFailure=`.)*
 - [x] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
       reaches `failed`, then an `OnFailure=` unit that says so — done
       2026-08-11, `StartLimitBurst=5` / `StartLimitIntervalSec=600` plus

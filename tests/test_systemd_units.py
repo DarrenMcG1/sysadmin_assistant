@@ -79,11 +79,21 @@ class TestFailureIsReportable:
         With RestartSec=10 and a burst of 5, roughly 50 seconds of loop is
         needed; a StartLimitIntervalSec below that measures nothing and the
         unit would restart for ever while looking limited.
+
+        Under ``Type=notify`` a start that never sends ``READY=1`` also
+        spends the whole start timeout in ``activating`` before it is
+        killed, so the cycle the window counts is timeout + delay. Session
+        327 rehearsed it at 90 + 10 s against this window: the limit
+        tripped 8 min 23 s after the first start, with 97 s to spare. A
+        timeout of 110 s or more would make it loop for ever.
         """
         directives = _directives("sysadmin.service")
         window = int(directives["StartLimitIntervalSec"])
         burst = int(directives["StartLimitBurst"])
         delay = int(directives["RestartSec"])
+        if directives.get("Type") == "notify":
+            # 90 s is systemd's DefaultTimeoutStartSec, and this unit sets none.
+            delay += int(directives.get("TimeoutStartSec", "90"))
         assert window > burst * delay, (
             f"{burst} restarts {delay}s apart need more than {burst * delay}s, "
             f"but the window is {window}s — the limit can never trip"

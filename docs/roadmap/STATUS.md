@@ -3,6 +3,18 @@
 **Last Updated**: 2026-10-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The way back from the monitor's planned watchdog is written down
+> and rehearsed** (2026-10-02, Session 327). A planned change makes
+> systemd kill the monitor if it stops reporting that it is alive. If
+> the change goes wrong, the steps to undo it now sit in the unit file,
+> and each was tried on a throwaway copy: a broken start reaches
+> `failed` after about 8 minutes, a plain reload does not stop the
+> kills, and `reset-failed` is needed before it will start again. The
+> rehearsal also found that the failure alarm fires on every failed
+> start, not only at the restart limit as the file claims (recorded,
+> not fixed). Comments and a test only. The installed unit file needs
+> redeploying to match.
+
 > **STATUS.md's alert count reads 2 again** (2026-10-02, Session 326).
 > The block counted 3 unresolved alerts and named `venture-chat
 > unreachable` as the third; that row resolved at 09:32. `Estate queue
@@ -7920,6 +7932,17 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 327 — the `Type=notify` rollback, written and rehearsed (2026-10-02)
+
+- `systemd/sysadmin.service` carries the rollback for `Type=notify` +
+  `WatchdogSec=` above `Type=`, rehearsed on a throwaway user unit with
+  the live restart shape. Never-ready reached `failed` in 8 min 23 s, a
+  start was refused until `reset-failed`, and `daemon-reload` left the
+  running process's watchdog armed, so the rollback ends in a restart.
+  `test_the_burst_window_outlasts_the_restart_delay` now counts the start
+  timeout under `Type=notify`. `SNAG-SYSD-010` opened: `OnFailure=` fires
+  on every failed start.
 
 ### Session 325 — the live negative is pinned to a plain-text instant (2026-10-02)
 

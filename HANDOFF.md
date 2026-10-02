@@ -1,6 +1,75 @@
-# Handoff — 2026-10-02 (Session 326)
+# Handoff — 2026-10-02 (Session 327)
 
 ## Next action
+
+Correct README's declared-service count from 37 to 38, the count venture-manager's backup timer moved (tasks.md, Session 327 block). *(For: session)*
+
+It is the first unchecked item in tasks.md that a session can do now.
+`test_the_stated_service_count_is_the_measured_one` has been red since
+venture-manager's cross-repo write `96fa8b8` (estate message
+`a0eec7fa`), which added a 38th service to `services.yaml`. Session 327
+found it and left it as a second concern.
+
+## Owed by the owner
+
+`sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
+*(For: owner, ~2 min)*. The first command installs Session 327's
+comment-only edit to `systemd/sysadmin.service`. Until then
+`test_every_installed_system_unit_is_the_tracked_one`, which compares
+bytes, stays red. The restart is the one `96fa8b8` already owes so the
+daemon watches venture-manager's backup timer.
+
+## Scheduled action
+
+After 09:30 on 2026-10-03, read
+`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
+what holds the dGPU awake once the monitors are off (tasks.md, Session
+324 block, last item). The transient timer fires at 21:30 tonight and
+runs for 12 h. A reboot before then cancels it.
+
+## Session 327: the `Type=notify` rollback, written and rehearsed
+
+Session 326's next action. The rollback is a comment above `Type=` in
+`systemd/sysadmin.service`, and the start-limit test now counts the
+start timeout. No directive changed. Suite: 4,468 passed and 2 failed,
+both covered above (the redeploy and the README count). Ruff and mypy
+are clean.
+
+**Rehearsed on a throwaway user unit, not the live one.** `sudo` needs
+a password here, and the live unit is the monitor. The stand-in copied
+the live restart shape: 90 s start timeout, `RestartSec=10`, 5 starts
+in 600 s, `OnFailure=`. Both units are gone, and the live unit kept PID
+3878718 throughout.
+
+What it measured, each one a step in the written rollback:
+- Never-ready reaches `failed` (`start-limit-hit`) 8 min 23 s after the
+  first start: five 90 s timeouts, 97 s inside the window. A timeout of
+  110 s or more would loop for ever. The test now says so and was
+  falsified at 110 against 109.
+- After `start-limit-hit`, `start` is refused even once the fixed file
+  is loaded, until `reset-failed`.
+- `daemon-reload` does not disarm a running process's watchdog. It was
+  killed 6 s after the reload, so the rollback ends in a restart.
+- On a failed unit, `WatchdogUSec` keeps its old value after the reload
+  and reads `0` only after the next start, so verification comes last.
+- Under `Type=simple` no `NOTIFY_SOCKET` is set. The sender therefore
+  needs no revert, provided it is a no-op when the socket is unset. That
+  is now a stated requirement on the Session 39 item.
+
+**Found, recorded, not fixed: `SNAG-SYSD-010`.** `OnFailure=` fires on
+every failed start, not only at the limit as the unit's comment says.
+This has been the case since systemd 254 (the box runs 262), and the
+live journal showed it on 2026-08-22. Under `Type=notify` every watchdog
+kill would raise a critical alert. The Session 39 item now says to
+decide that entry before the unit is edited.
+
+**Decided: the rollback lives in the unit file**, beside the directive
+it undoes, as Session 39's start-limit rollback does. Rejected: keeping
+it in a roadmap note, which is not where whoever edits the unit will be
+reading. The cost is one owner redeploy for a comment, and it rides on a
+restart already owed.
+
+## What Session 326 handed on (done by Session 327)
 
 Write the rollback for `Type=notify` + `WatchdogSec=` on `sysadmin.service`, then rehearse it (tasks.md, Session 39 block). *(For: session)*
 
@@ -12,13 +81,8 @@ The task's own warning stands: if `READY=1` is never sent, systemd
 treats startup as failed and kills the daemon, so the rollback is
 written down before the unit is edited.
 
-## Scheduled action
 
-After 09:30 on 2026-10-03, read
-`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
-what holds the dGPU awake once the monitors are off (tasks.md, Session
-324 block, last item). The transient timer fires at 21:30 tonight and
-runs for 12 h. A reboot before then cancels it.
+Done; see the Session 327 block.
 
 ## Session 326: STATUS.md's alert count, 3 → 2
 

@@ -48,6 +48,38 @@ StartLimitBurst=5
 OnFailure=sysadmin-failed.service
 
 [Service]
+# Session 327. ROLLBACK for `Type=notify` + `WatchdogSec=`, written and
+# rehearsed before either directive lands here (tasks.md, Session 39
+# block). Rehearsed 2026-10-02 on a throwaway user unit with this file's
+# restart shape (90 s start timeout, RestartSec=10, 5 starts in 600 s,
+# OnFailure=), driving a stand-in that never sends READY=1 and then one
+# that stops its WATCHDOG=1 pings:
+#
+#   1. In this file: `Type=notify` back to `Type=simple`; delete `WatchdogSec=`.
+#   2. sudo cp systemd/sysadmin.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#   3. sudo systemctl reset-failed sysadmin
+#   4. sudo systemctl restart sysadmin
+#   5. systemctl show sysadmin -p Type,WatchdogUSec   -> simple, 0
+#
+# The ping code needs no revert: under `Type=simple` systemd sets no
+# NOTIFY_SOCKET, so the send must be a silent no-op when that is unset
+# (the stand-in's was). Why each step is there, as measured:
+# - Never-ready, each start sits in `activating` for the full start
+#   timeout, is killed, and restarts 10 s later. The limit tripped 8 min
+#   23 s after the first start, so 5 x (timeout + RestartSec) must stay
+#   under StartLimitIntervalSec or the loop never reaches `failed`. A
+#   blocking `systemctl start`/`restart` waits out the 90 s each time, so
+#   use `--no-block` while the bad configuration is still installed.
+# - Step 3: after `start-limit-hit` a start is refused even once the
+#   reload has loaded the fixed file.
+# - Step 4: `daemon-reload` does not disarm the watchdog of the process
+#   already running, which was killed 6 s after the reload. Only a fresh
+#   start runs without it.
+# - Step 5 comes after step 4, because on a failed unit `WatchdogUSec`
+#   keeps reading the old value after the reload until the next start.
+# - Every start timeout and every watchdog kill fires OnFailure=, not
+#   only the limit: six critical rows for one never-ready loop.
+#   SNAG-SYSD-010.
 Type=simple
 User=gaddi
 Group=gaddi
