@@ -1,14 +1,17 @@
-# Handoff — 2026-10-02 (Session 324)
+# Handoff — 2026-10-02 (Session 325)
 
 ## Next action
 
-Fix the flaky premise in `test_it_says_no_where_the_newest_record_is_plain_text` (tasks.md, Session 322 block). *(For: session)*
+Re-measure STATUS.md's opening block against the box: it counts 3 unresolved alerts and the box now has 2 (tasks.md, Session 322 block). *(For: session)*
 
 It is the first startable unchecked item in tasks.md. The dGPU item
-above it waits for tonight's witness and is under Scheduled action
-below. The test reads the newest 500 journal records, and access-log
-traffic can fill all of them with plain text. Widen or time-bound the
-read, or skip when the premise is empty.
+waits for tonight's witness and is under Scheduled action below. The
+task was written when the block said 2 and the box had 3. It has since
+turned round: `Estate queue starved` (opened 10:08) resolved at
+11:07:34, and postflight's ops-claim check now reads the block's 3
+against a measured 2. Session 325 found that the same lease-wait episode
+caused the flaky test. The two open now are `Critical disk usage on /`
+and `Project ImbaBots next action idle`.
 
 ## Scheduled action
 
@@ -17,6 +20,41 @@ After 09:30 on 2026-10-03, read
 what holds the dGPU awake once the monitors are off (tasks.md, Session
 324 block, last item). The transient timer fires at 21:30 tonight and
 runs for 12 h. A reboot before then cancels it.
+
+## Session 325: the live negative is pinned to a plain-text instant
+
+Session 324's next action. Only a test and the roadmap changed; no
+restart owed. Suite 4,470 passed, 2 skipped; ruff and mypy clean.
+
+**The recorded cause was wrong, and so was the failing assertion.**
+Session 322 recorded the `json_shaped > 0` premise failing because
+access lines filled the newest 500 records. In a week of the journal,
+no 500-record window held zero JSON. At the failure instants the window
+held 100–190. Session 322 filtered pytest's output with
+`grep -E "^FAILED|passed|failed" | tail -3`. When the third assertion
+fails, that filter keeps an indented source line of the second; when
+the second fails, it keeps the `E` line. The kept line was the source
+line. So the newest record was JSON.
+
+**Why:** while a GPU lease waits, the estate's arbiter logs a JSON
+`lease … waits` line every few seconds. The newest record was JSON for
+34 % of 10:33–10:42 (the window of the 3 failures in 4 runs), against
+0–0.3 % on each of the seven days before.
+
+**Decided: pin the read at the newest plain-text record**, found by a
+separate raw read (`_newest_plain_record_usec`), using a microsecond
+`--until`. Rejected: skipping when the newest record is JSON, which goes
+green in exactly the traffic that tests the helper. Also rejected: a
+synthetic journalctl fixture, which stops testing real journald output.
+Falsified both ways: the helper answers `True` pinned at an arbiter line
+from the failure window and `False` three seconds later, and a mutated
+helper turns the test red.
+
+## What Session 324 handed on (done by Session 325)
+
+Fix the flaky premise in `test_it_says_no_where_the_newest_record_is_plain_text` (tasks.md, Session 322 block). *(For: session)*
+
+Done. The flake was not in the premise; see the Session 325 block.
 
 ## Session 324: what keeps the dGPU awake at night
 

@@ -3,6 +3,15 @@
 **Last Updated**: 2026-10-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **A live journal test no longer fails while a GPU lease waits**
+> (2026-10-02, Session 325). One test checks that the log-format
+> detector can answer "no" for the estate API's journal. It read the
+> newest record, expecting plain text. While a GPU lease waits, the
+> estate logs a JSON line every few seconds, so the newest record was
+> JSON a third of the time and the test failed. The cause had been
+> recorded wrongly as an empty window. The test now reads up to a moment
+> it has already confirmed ends on plain text. Test only; no restart.
+
 > **The graphics card stays awake at night because of the desktop, not
 > the kernel** (2026-10-02, Session 324). Yesterday's reading blamed
 > the 28 September kernel update. The record says otherwise: the card
@@ -7899,6 +7908,16 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 325 — the live negative is pinned to a plain-text instant (2026-10-02)
+
+- `test_it_says_no_where_the_newest_record_is_plain_text` reads the
+  estate API's journal with `--until` at the newest plain-text record,
+  found by a separate raw read. It used to read up to the present, and
+  the arbiter's JSON `lease … waits` lines made the newest record JSON
+  for 34 % of the failure window. Session 322 recorded the failure as an
+  empty premise. That came from a `grep | tail -3` that keeps the
+  previous assertion's source line, not the failing assertion's `E` line.
 
 ### Session 323 — a suspended dGPU is not woken to be measured (2026-10-02)
 

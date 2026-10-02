@@ -8,6 +8,42 @@
 
 ---
 
+## Session 325: the live negative is pinned to a plain-text instant (2026-10-02)
+
+Session 324's next action. Test and roadmap only; no restart owed.
+Suite 4,470 passed, 2 skipped.
+
+- [x] **The recorded cause was falsified first.** Session 322 blamed
+      access-log lines filling the newest 500 records with plain text.
+      Swept over all 44,010 positions in the week's journal, no
+      500-record window held zero JSON. At the three failure instants
+      (10:35–10:41 BST) the window held 100–190 JSON records.
+- [x] **The assertion that failed was the third, not the premise.**
+      Session 322's filter, `grep -E "^FAILED|passed|failed" | tail -3`,
+      keeps an indented source line of the second assertion when the
+      third fails, and the `E   AssertionError:` line when the second
+      does. A scratch test of both cases confirmed it. Its kept line was
+      the source line, so the newest record *was* JSON.
+- [x] **Why the newest record was JSON.** While a GPU lease waits,
+      `estate_service.arbiter` logs a JSON `lease … waits` line every few
+      seconds. For the seven days before, the newest record was JSON for
+      0–0.3 % of each day; from 10:33 to 10:42 on 2 October it was 34 %.
+      That was the episode behind the `Estate queue starved` alert.
+- [x] **Fix: pin the read.** A raw read (`_newest_plain_record_usec`)
+      finds the newest plain-text application record. The helper then
+      reads with `--until` at that microsecond, so the newest record is
+      plain by construction and only the helper's answer is under test.
+      Microseconds, because a JSON line is written within milliseconds
+      of the request it answers. Rejected: skipping when the newest
+      record is JSON, which would go green during exactly the traffic
+      that shows whether the helper can tell the two apart. Also
+      rejected: a synthetic `journalctl` fixture, which would stop
+      testing real journald output.
+- [x] **Falsified both ways.** Pinned at the 10:34:05.957 arbiter line
+      the helper answers `(500, 200, True)`, and at the 10:34:09.006
+      access line `(500, 200, False)`. Forcing `newest_is_json = True` in
+      the helper turns the test red with its new message.
+
 ## Session 324: what keeps the dGPU awake at night (2026-10-02)
 
 Session 323's next action. `scripts/dgpu-pin-witness.py` and the
@@ -127,8 +163,10 @@ Documentation only; no restart owed.
 
 - [x] **README's service count, 36 → 37.** go-to-market's persona model
       (`347a64a`) is the 37th. `test_readme_claims` is green again.
-- [ ] **`test_it_says_no_where_the_newest_record_is_plain_text` flakes on
-      its premise.** It failed 3 times out of 3 under `pytest -x` and
+- [x] **`test_it_says_no_where_the_newest_record_is_plain_text` flakes on
+      its premise.** *(Done 2026-10-02 by Session 325, and the cause
+      below was wrong: the newest record was JSON, not the window empty.
+      See that block.)* It failed 3 times out of 3 under `pytest -x` and
       passed in the full run between them. The assertion that fails is
       `json_shaped > 0` ("the api unit writes no JSON at all"), not the
       test's real claim. `_journal_message_shapes` reads the newest 500

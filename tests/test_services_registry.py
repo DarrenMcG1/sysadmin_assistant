@@ -206,6 +206,42 @@ def _journal_message_shapes(
         newest_is_json = bool(shaped)
     return total, json_shaped, newest_is_json
 
+
+def _newest_plain_record_usec(unit: str, *, user: bool) -> int | None:
+    """``__REALTIME_TIMESTAMP`` of the newest plain-text application record.
+
+    A raw read of its own, so the instant the live negative is pinned at
+    is not chosen by the helper under test.  Microseconds because a
+    whole-second ``--until`` would let a JSON line written in the same
+    second as the request it answers become the newest record again.
+    """
+    import json as _json
+    import subprocess
+
+    command = ["journalctl", "-u", unit, "-n", "500", "-a", "-o", "json",
+               "--no-pager"]
+    if user:
+        command.insert(1, "--user")
+    try:
+        result = subprocess.run(command, capture_output=True, text=True,
+                                timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    newest = None
+    for line in result.stdout.splitlines():
+        try:
+            record = _json.loads(line)
+        except ValueError:
+            continue
+        message = record.get("MESSAGE")
+        if (record.get("SYSLOG_IDENTIFIER") != _SYSTEMD_OWN
+                and isinstance(message, str)
+                and not message.lstrip().startswith("{")):
+            newest = int(record["__REALTIME_TIMESTAMP"])
+    return newest
+
 def make_registry(tmp_path: Path, *ids: str):
     for project_id in ids:
         path = tmp_path / project_id
@@ -836,26 +872,45 @@ class TestTheJournalHelperCanAnswerBothWays:
         The estate leaves ``uvicorn.access`` outside ``configure_logging``
         deliberately — *"this service has no such middleware, so
         disabling would delete the access log rather than de-duplicate
-        it"* — so its newest application record is normally a plain-text
-        access line even though the declaration is perfectly true.  That
+        it"* — so its journal interleaves plain-text access lines with
+        JSON ones even though the declaration is perfectly true.  That
         is exactly why the newest-record assertion is asked only of the
         scheduled sources.
+
+        **The read is pinned at an instant whose newest application
+        record is plain text, chosen by a raw read of its own** (Session
+        325).  It used to read up to *now*, and *now* is the arbiter's
+        as much as the access log's: while a lease waits,
+        ``estate_service.arbiter`` writes a JSON ``lease … waits`` line
+        every few seconds.  Measured 2026-10-02: the newest record was
+        JSON for 0–0.3 % of each of the seven days before, and for 34 %
+        of 10:33–10:42 that morning, the window in which this failed
+        three runs of four.  It was recorded as the ``json_shaped``
+        premise failing; it was the third assertion — the newest record
+        *was* JSON — read through a ``grep | tail -3`` that keeps that
+        assertion's source line and not its ``E`` line.  Pinned, the
+        instant is a fact about the journal rather than about the
+        traffic, so a red here means the helper cannot say *no*.
         """
-        found = _journal_message_shapes("estate-manager-api.service",
-                                        user=True, since=None)
+        unit = "estate-manager-api.service"
+        pin = _newest_plain_record_usec(unit, user=True)
+        if pin is None:
+            pytest.skip(f"no plain-text application record to pin in {unit}")
+        seconds, micros = divmod(pin, 1_000_000)
+        found = _journal_message_shapes(unit, user=True, since=None,
+                                        until=f"@{seconds}.{micros:06d}")
         if found is None:
-            pytest.skip("journalctl cannot read estate-manager-api.service")
+            pytest.skip(f"journalctl cannot read {unit}")
         total, json_shaped, newest_is_json = found
         assert total > 0, "premise failed: no application records read"
         assert json_shaped > 0, (
-            "premise failed: the api unit writes no JSON at all, so this "
+            "premise failed: the pinned read holds no JSON at all, so this "
             "witnesses nothing about the newest record specifically"
         )
         assert newest_is_json is False, (
-            "the newest application record in estate-manager-api.service "
-            "is a JSON document, so this repository's live negative has "
-            "gone — the newest-record assertion is now unfalsifiable here "
-            "and needs a different witness"
+            f"the helper called the newest record JSON at {pin}, whose "
+            "newest application record is plain text by a raw read — the "
+            "detector cannot say no, so the scheduled sources' yes is inert"
         )
 
     def test_the_startup_read_is_bounded_by_its_window(self):
