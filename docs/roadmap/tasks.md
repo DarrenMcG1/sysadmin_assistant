@@ -4,9 +4,33 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-01
+> **Last Updated**: 2026-10-02
 
 ---
+
+## Session 322: README's service count, 36 → 37 (2026-10-02)
+
+Session 321's next action. Suite 4,471 passed, 2 skipped in a full run.
+Documentation only; no restart owed.
+
+- [x] **README's service count, 36 → 37.** go-to-market's persona model
+      (`347a64a`) is the 37th. `test_readme_claims` is green again.
+- [ ] **`test_it_says_no_where_the_newest_record_is_plain_text` flakes on
+      its premise.** It failed 3 times out of 3 under `pytest -x` and
+      passed in the full run between them. The assertion that fails is
+      `json_shaped > 0` ("the api unit writes no JSON at all"), not the
+      test's real claim. `_journal_message_shapes` reads the newest 500
+      records of `estate-manager-api.service`, and when access-log traffic
+      fills all 500 with plain text the premise has nothing to count. This
+      is the newest-N trap again: widen or time-bound the read, or skip on
+      an empty premise rather than fail. *(Second concern, found by this
+      session; not worked here)*
+- [ ] **STATUS.md's opening block names 2 open alerts; the box has 3.**
+      Postflight's ops-claim check found it. The third is `Estate queue
+      starved` (`estate_judge`), opened 2026-10-02 10:08:00 BST, after
+      Session 321 last measured the block. Re-measure the block against
+      the box and decide whether the alert itself needs action.
+      *(Second concern, found by this session; not worked here)*
 
 ## Session 321: a failed run leaves no transition behind (2026-10-02)
 
@@ -29,11 +53,11 @@ was restarted at 09:06:57 to load it.
       commit and checks that the next run announces the transition. One
       checks that a committed transition is announced once and not again.
       The first went red with the old line restored.
-- [ ] **README.md's service count is one short.** `test_readme_claims`
+- [x] **README.md's service count is one short.** `test_readme_claims`
       fails: README says 36 declared services and `services.yaml` holds 37.
       Commit `347a64a` (another session's, go-to-market's persona model)
       added the entry and not the figure. *(Second concern, found by this
-      session; not this session's change)*
+      session; not this session's change)* *(Done 2026-10-02 by Session 322; see that block above)*
 
 ## Session 320: a failed run announces only that it failed (2026-10-01)
 

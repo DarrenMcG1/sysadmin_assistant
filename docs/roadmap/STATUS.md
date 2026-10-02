@@ -3,6 +3,11 @@
 **Last Updated**: 2026-10-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **README's service count reads 37 again** (2026-10-02, Session 322).
+> go-to-market's persona model was added to `services.yaml` and the
+> README figure was not, so `test_readme_claims` was red. Documentation
+> only.
+
 > **A service that changes state during a failed run is still
 > announced on the next one** (2026-10-02, Session 321). The monitor
 > remembers each service's last announced status so that it speaks only

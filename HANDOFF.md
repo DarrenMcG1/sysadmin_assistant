@@ -1,15 +1,14 @@
-# Handoff — 2026-10-02 (Session 321)
+# Handoff — 2026-10-02 (Session 322)
 
 ## Next action
 
-Correct README.md's declared-service count from 36 to 37 so `test_readme_claims` passes again (tasks.md, Session 321 block). *(For: session)*
+Read `~/.local/state/sysadmin/dgpu-wake-drive-2026-10-02.jsonl` and choose how the collector stops waking a suspended dGPU (tasks.md, rocm-smi item). *(For: session)*
 
-It is the first startable unchecked item in tasks.md, and the suite is
-red until it is done. Commit `347a64a`, another session's, added
-go-to-market's persona model to `services.yaml` and left README's figure
-behind. Check first that the session behind that commit has not
-already fixed it. After that, the dGPU drive below is ready to read: its
-log was written at 05:30 today.
+It is now the first startable unchecked item in tasks.md. The log was
+written at 05:30 today and the reading order is in the section below.
+Session 322 corrected README's service count, so the suite is green in
+a full run. One live test still flakes under `pytest -x`; the new task
+in the Session 322 block says why. It does not block this.
 
 ## Waiting to be read: the dGPU wake drive
 
@@ -39,6 +38,21 @@ from 01:30. Read it in this order:
 If only `skipped` lines appear, the card never suspended (a monitor
 stayed on), and the drive needs another night. Then fix `gpu.py`'s
 rule 5 docstring in the same change as the code.
+
+## Session 322: README's service count, 36 → 37
+
+Session 321's next action. README.md said 36 declared services and
+`services.yaml` holds 37, since `347a64a` added go-to-market's persona
+model. Checked first that no one else had fixed it; README still said 36
+at HEAD. Documentation only; no restart owed. Full suite 4,471 passed.
+
+Found and not worked: under `pytest -x`,
+`test_services_registry.py::TestTheJournalHelperCanAnswerBothWays::test_it_says_no_where_the_newest_record_is_plain_text`
+failed 3 of 3 times on its premise (`json_shaped > 0`), while the full
+run passed. Recorded as a task in tasks.md, Session 322 block.
+Also found: STATUS.md's opening block names 2 open alerts and the box
+has 3. `Estate queue starved` opened at 10:08 today. Also a task in that
+block, not worked here.
 
 ## Session 321: a failed run leaves no transition behind
 
