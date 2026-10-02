@@ -7933,6 +7933,12 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 328 — README's service count, 37 → 38 (2026-10-02)
+
+- README.md states 38 declared services, which is what `services.yaml`
+  holds since venture-manager added its backup timer (`96fa8b8`). The
+  README claims test is green again.
+
 ### Session 327 — the `Type=notify` rollback, written and rehearsed (2026-10-02)
 
 - `systemd/sysadmin.service` carries the rollback for `Type=notify` +

@@ -1,14 +1,16 @@
-# Handoff — 2026-10-02 (Session 327)
+# Handoff — 2026-10-02 (Session 328)
 
 ## Next action
 
-Correct README's declared-service count from 37 to 38, the count venture-manager's backup timer moved (tasks.md, Session 327 block). *(For: session)*
+Decide whether README should state `services.yaml`'s count at all, since other repositories' writes move it (tasks.md, Session 328 block). *(For: session)*
 
-It is the first unchecked item in tasks.md that a session can do now.
-`test_the_stated_service_count_is_the_measured_one` has been red since
-venture-manager's cross-repo write `96fa8b8` (estate message
-`a0eec7fa`), which added a 38th service to `services.yaml`. Session 327
-found it and left it as a second concern.
+It is the first startable unchecked item in tasks.md. The figure has
+drifted twice in a week, 36 → 37 and 37 → 38, each time because another
+repository added a `services.yaml` entry under the monitorable-project
+contract without knowing this README quotes the total. Each drift turns
+`test_the_stated_service_count_is_the_measured_one` red and costs a
+session here. Replacing the number with the fact the sentence needs
+would stop that; keeping it means accepting the drift.
 
 ## Owed by the owner
 
@@ -26,6 +28,30 @@ After 09:30 on 2026-10-03, read
 what holds the dGPU awake once the monitors are off (tasks.md, Session
 324 block, last item). The transient timer fires at 21:30 tonight and
 runs for 12 h. A reboot before then cancels it.
+
+## Session 328: README's service count, 37 → 38
+
+Session 327's next action. `live_declared_services()` holds 38 and
+README said 37 at HEAD; line 124 is the only place either figure
+appears. Corrected to 38. README only; no restart owed. Suite 4,469
+passed and 1 failed, the installed-unit byte comparison, which waits
+on the owner's redeploy above.
+
+Estate message `a0eec7fa` (venture-manager announcing its backup timer)
+stays open: what it asks of this repository is the daemon restart,
+which is the owner's and is listed above.
+
+## What Session 327 handed on (done by Session 328)
+
+Correct README's declared-service count from 37 to 38, the count venture-manager's backup timer moved (tasks.md, Session 327 block). *(For: session)*
+
+It is the first unchecked item in tasks.md that a session can do now.
+`test_the_stated_service_count_is_the_measured_one` has been red since
+venture-manager's cross-repo write `96fa8b8` (estate message
+`a0eec7fa`), which added a 38th service to `services.yaml`. Session 327
+found it and left it as a second concern.
+
+Done; see the Session 328 block.
 
 ## Session 327: the `Type=notify` rollback, written and rehearsed
 

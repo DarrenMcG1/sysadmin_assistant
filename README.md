@@ -121,7 +121,7 @@ trash rather than delete.
 ### Configuration
 
 Everything lives in `config.yaml` (validated by Pydantic models in
-`sysadmin/core/config.py`), with per-service topology in `services.yaml` — 37
+`sysadmin/core/config.py`), with per-service topology in `services.yaml` — 38
 declared services, keyed by project id, no paths in it — and project identity in
 a `.project.yaml` manifest inside each repository.
 

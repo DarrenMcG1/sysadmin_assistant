@@ -8,6 +8,27 @@
 
 ---
 
+## Session 328: README's service count, 37 → 38 (2026-10-02)
+
+Session 327's next action. README only; no restart owed. Suite 4,469
+passed and 1 failed: the installed-unit byte comparison, which waits on
+the owner's redeploy (Session 327 block).
+
+- [x] **Re-measured before editing.** `live_declared_services()` holds
+      38 and README said 37; `test_the_stated_service_count_is_the_measured_one`
+      was red. Line 124 is the README's only use of either figure.
+- [x] **README corrected 37 → 38.** `tests/test_readme_claims.py` is
+      green, 30 of 30.
+- [ ] **Decide whether README should state `services.yaml`'s count at
+      all.** It has drifted twice in a week, each time because another
+      repository wrote `services.yaml` under the monitorable-project
+      contract: 36 → 37 by `347a64a` (Session 322), 37 → 38 by `96fa8b8`.
+      Whoever adds the entry does not know this repository's README
+      quotes the total, so each new service costs a red suite and a
+      session here. Options: replace the figure with the fact the
+      sentence needs, or keep it and accept the drift. Found by
+      Session 328 and left as a second concern.
+
 ## Session 327: the `Type=notify` rollback, written and rehearsed (2026-10-02)
 
 Session 326's next action. The rollback is a comment in
@@ -46,11 +67,12 @@ installed copy has to be redeployed to match.
       The edit is comments only, but `test_every_installed_system_unit_is_the_tracked_one`
       compares bytes and is red until then. The restart is the one
       `96fa8b8` already owes for venture-manager's backup timer.
-- [ ] **README's declared-service count reads 37; `services.yaml`
+- [x] **README's declared-service count reads 37; `services.yaml`
       declares 38** since venture-manager's cross-repo write `96fa8b8`
       (estate message `a0eec7fa`, announcing its backup timer).
       `test_the_stated_service_count_is_the_measured_one` is red. Found by
-      Session 327 and left as a second concern.
+      Session 327 and left as a second concern
+      *(Done 2026-10-02 by Session 328: README reads 38.)*
 
 ## Session 326: STATUS.md's alert count, 3 → 2 (2026-10-02)
 
