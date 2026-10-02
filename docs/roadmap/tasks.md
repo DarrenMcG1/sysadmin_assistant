@@ -8,6 +8,48 @@
 
 ---
 
+## Session 330: `OnFailure=` fires only at the start limit (2026-10-02)
+
+Session 329's next action, which closes `SNAG-SYSD-010`. Unit file, one
+test and the roadmap. No restart is owed beyond the redeploy already
+owed, but that redeploy now changes behaviour, not just comments.
+
+- [x] **Rehearsed on systemd 262 with throwaway user units**, removed
+      afterwards; the live unit kept its PID. Under `RestartMode=normal`,
+      a 3-start crash loop fired its handler 4 times: once per failure,
+      with the unit in `activating`/`auto-restart`, then at
+      `start-limit-hit`. Under `RestartMode=direct` it fired once, at the
+      limit. A single watchdog kill under `direct` fired nothing; the
+      journal still logged "Watchdog timeout" and "Failed with result
+      'watchdog'", and the unit restarted.
+- [x] **Measured what firing only at the limit gives up.** The journal
+      goes back to 2026-08-15 and holds 13 firings: 3 at the limit and 10
+      per failure. All 10 belonged to the loops on 08-22 and 08-23, which
+      went on to hit the limit, so a lone failure that recovered has
+      never fired the handler. At the limit `ExecMainStatus` still
+      carries the last exit status, and only `Result` flattens to
+      `start-limit-hit`.
+- [x] **Decided: fire only at the limit.** The handler's row, toast and
+      script all say "systemd gave up", and the toast never expires.
+      Firing per failure made that false on every firing but the last.
+      Rejected: keeping per-failure firing and correcting the comment,
+      because the text and the critical severity would then be wrong for
+      most firings. Also rejected: grading per firing in the handler
+      (`activating` against `failed`, a clean discriminator in the
+      rehearsal). That is new handler code for a population measured at
+      zero.
+- [x] **`RestartMode=direct` in `systemd/sysadmin.service`**, with the
+      two comments that described per-failure firing corrected.
+      `test_onfailure_fires_only_at_the_start_limit` pins it beside
+      `OnFailure=`. It went red with the directive deleted from the file
+      and green when the line was restored. Suite 4,470 passed and 1
+      failed: the installed-unit byte comparison, still waiting on the
+      owner's redeploy.
+
+The owner's redeploy (Session 327 block, unchanged command) now also
+installs `RestartMode=direct`. Afterwards `systemctl show sysadmin -p
+RestartMode` should read `direct`.
+
 ## Session 329: README states no count for `services.yaml` (2026-10-02)
 
 Session 328's next action. README and the README claims test only; no
@@ -88,6 +130,10 @@ installed copy has to be redeployed to match.
       The edit is comments only, but `test_every_installed_system_unit_is_the_tracked_one`
       compares bytes and is red until then. The restart is the one
       `96fa8b8` already owes for venture-manager's backup timer.
+      *(Session 330, 2026-10-02: no longer comments only. The file now
+      carries `RestartMode=direct`, so `OnFailure=` fires only at the
+      start limit. After the restart, `systemctl show sysadmin -p
+      RestartMode` should read `direct`.)*
 - [x] **README's declared-service count reads 37; `services.yaml`
       declares 38** since venture-manager's cross-repo write `96fa8b8`
       (estate message `a0eec7fa`, announcing its backup timer).
@@ -16070,6 +16116,9 @@ work:
       sender in the lifespan, which must be a no-op when `NOTIFY_SOCKET`
       is unset, then the unit edit and the owner's deploy. Decide
       `SNAG-SYSD-010` first: every watchdog kill also fires `OnFailure=`.)*
+      *(Session 330, 2026-10-02: `SNAG-SYSD-010` decided. `OnFailure=`
+      fires only at the start limit (`RestartMode=direct`), so a single
+      watchdog kill that recovers raises no alert. The sender is next.)*
 - [x] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
       reaches `failed`, then an `OnFailure=` unit that says so — done
       2026-08-11, `StartLimitBurst=5` / `StartLimitIntervalSec=600` plus

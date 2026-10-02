@@ -99,6 +99,24 @@ class TestFailureIsReportable:
             f"but the window is {window}s — the limit can never trip"
         )
 
+    def test_onfailure_fires_only_at_the_start_limit(self):
+        """The handler says "systemd gave up", so it must hear only that.
+
+        From systemd 254 the default ``RestartMode=normal`` passes through
+        ``failed`` on each auto-restart, and ``OnFailure=`` fires on every
+        failed start. Session 330 rehearsed it on 262: 4 firings for a
+        3-start loop under ``normal``, 1 under ``direct``. Each firing is a
+        critical row and a toast that never expires, reading "DOWN until it
+        is started" while the unit is still restarting itself.
+        SNAG-SYSD-010.
+        """
+        directives = _directives("sysadmin.service")
+        assert "OnFailure" in directives
+        assert directives.get("RestartMode") == "direct", (
+            "OnFailure= without RestartMode=direct fires on every failed "
+            "start, not only when the start limit trips"
+        )
+
     def test_onfailure_names_a_unit_that_exists_here(self):
         """A hook pointing at a missing unit fails silently at the worst moment."""
         target = _directives("sysadmin.service")["OnFailure"]

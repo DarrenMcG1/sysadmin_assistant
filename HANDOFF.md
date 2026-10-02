@@ -1,6 +1,67 @@
-# Handoff — 2026-10-02 (Session 329)
+# Handoff — 2026-10-02 (Session 330)
 
 ## Next action
+
+Write the `Type=notify` sender in the lifespan: `READY=1`, then `WATCHDOG=1` pings from the async loop, a no-op with no socket (tasks.md, `Type=notify` item). *(For: session)*
+
+It is the first unchecked item in tasks.md that a session can start
+now. Ahead of it are the owner's redeploy, the dGPU witness read (not
+until 2026-10-03), the CI interpreter item (not triggered) and the
+alfred-glance topic (another repository). The rollback is written
+(Session 327) and the alert question is settled (Session 330 below), so
+the sender is what remains before the unit edit. One convention to
+settle first: CLAUDE.md says this service reads no environment
+variables, and systemd hands the notify socket over only as
+`NOTIFY_SOCKET`. `core/abandoned_runs.py` refused `INVOCATION_ID` on
+that rule, so the sender needs a stated exception or another route.
+
+## Owed by the owner
+
+`sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
+*(For: owner, ~2 min)*. The first command installs Session 327's
+comment edit and Session 330's `RestartMode=direct` in
+`systemd/sysadmin.service`; afterwards `systemctl show sysadmin -p
+RestartMode` should read `direct`. Until then
+`test_every_installed_system_unit_is_the_tracked_one`, which compares
+bytes, stays red. The restart is the one `96fa8b8` already owes so the
+daemon watches venture-manager's backup timer.
+
+## Scheduled action
+
+After 09:30 on 2026-10-03, read
+`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
+what holds the dGPU awake once the monitors are off (tasks.md, Session
+324 block, last item). The transient timer fires at 21:30 tonight and
+runs for 12 h. A reboot before then cancels it.
+
+## Session 330: `OnFailure=` fires only at the start limit
+
+Session 329's next action; closes `SNAG-SYSD-010`. Decided: the failure
+handler fires only when the start limit trips, using
+`RestartMode=direct` in `systemd/sysadmin.service`. The handler's row,
+toast and script all say "systemd gave up, monitoring is DOWN", and the
+toast never expires, so a firing on each failed start was false on every
+firing but the last. Rehearsed on systemd 262 with throwaway user units
+(removed afterwards): a 3-start crash loop fired 4 times under `normal`
+and once under `direct`, and one watchdog kill under `direct` fired
+nothing and restarted.
+
+The cost is in the unit file. A lone crash or watchdog kill that
+recovers now leaves only the journal line. The journal (back to
+2026-08-15) holds 10 per-failure firings, and all 10 were in the 08-22
+and 08-23 loops that hit the limit anyway, so that population is zero
+so far. Rejected: correcting the comment and keeping per-failure firing
+(the text and severity would be wrong for most firings); grading inside
+the handler on `activating` against `failed` (new code for an empty
+population). `test_onfailure_fires_only_at_the_start_limit` pins the
+directive, falsified by deleting it. Suite 4,470 passed and 1 failed,
+the installed-unit byte comparison above.
+
+Estate message `a0eec7fa` (venture-manager's backup timer) stays open:
+what it asks of this repository is the daemon restart, which is the
+owner's.
+
+## What Session 329 handed on (done by Session 330)
 
 Decide whether `OnFailure=` should fire on each failed start or only at the start limit, before writing the `Type=notify` sender (tasks.md, `Type=notify` item). *(For: session)*
 
@@ -14,22 +75,7 @@ open snag on it lays out both choices: fire only at the limit
 (`RestartMode=direct`), or keep firing on every failure and correct the
 unit comment.
 
-## Owed by the owner
-
-`sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
-*(For: owner, ~2 min)*. The first command installs Session 327's
-comment-only edit to `systemd/sysadmin.service`. Until then
-`test_every_installed_system_unit_is_the_tracked_one`, which compares
-bytes, stays red. The restart is the one `96fa8b8` already owes so the
-daemon watches venture-manager's backup timer.
-
-## Scheduled action
-
-After 09:30 on 2026-10-03, read
-`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
-what holds the dGPU awake once the monitors are off (tasks.md, Session
-324 block, last item). The transient timer fires at 21:30 tonight and
-runs for 12 h. A reboot before then cancels it.
+Done; see the Session 330 block.
 
 ## Session 329: README states no count for `services.yaml`
 

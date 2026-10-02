@@ -42,7 +42,9 @@ Wants=postgresql.service
 StartLimitIntervalSec=600
 StartLimitBurst=5
 
-# Reached only via the limit above. A failure that nobody is told about is
+# Reached only via the limit above, and only because `RestartMode=direct`
+# is set in [Service]: without it, systemd 254 and later fire this on every
+# failed start too (SNAG-SYSD-010). A failure that nobody is told about is
 # the fault this session exists to remove, so the hook is not optional
 # dressing — it is the half that speaks.
 OnFailure=sysadmin-failed.service
@@ -77,9 +79,9 @@ OnFailure=sysadmin-failed.service
 #   start runs without it.
 # - Step 5 comes after step 4, because on a failed unit `WatchdogUSec`
 #   keeps reading the old value after the reload until the next start.
-# - Every start timeout and every watchdog kill fires OnFailure=, not
-#   only the limit: six critical rows for one never-ready loop.
-#   SNAG-SYSD-010.
+# - Under the default RestartMode=normal, every start timeout and every
+#   watchdog kill fired OnFailure=, not only the limit: six firings for one
+#   never-ready loop. RestartMode=direct below makes it one (Session 330).
 Type=simple
 User=gaddi
 Group=gaddi
@@ -100,6 +102,25 @@ LoadCredential=mqtt:/etc/credstore/sysadmin-mqtt
 ExecStart=/home/gaddi/projects/sysadmin_assistant/.venv/bin/uvicorn sysadmin.main:app --host 127.0.0.1 --port 8500 --workers 1
 Restart=always
 RestartSec=10
+# Session 330, closing SNAG-SYSD-010. From systemd 254 the default
+# RestartMode=normal passes through `failed` on each auto-restart, so
+# OnFailure= fired on every failed start as well as at the limit. Every
+# firing tells a human "systemd gave up, monitoring is DOWN" with a
+# critical toast that never expires, and that was false for all but the
+# last one. `direct` skips the failed state between restarts, so the
+# handler fires once, when the limit trips. Rehearsed on systemd 262: a
+# 3-start crash loop fired 4 times under `normal` and once under
+# `direct`, and a single watchdog kill under `direct` fired nothing and
+# restarted.
+#
+# What this gives up: one crash or watchdog kill that recovers on its own
+# now raises nothing, and only the journal's "Failed with result" line
+# records it. That population was measured at zero: the journal goes back
+# to 2026-08-15 and holds 13 firings, 3 at the limit and 10 per failure,
+# and all 10 belonged to the two loops (08-22, 08-23) that went on to hit
+# the limit. The row's `result` now always reads
+# `start-limit-hit`; ExecMainStatus still carries the last exit status.
+RestartMode=direct
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=sysadmin-service
