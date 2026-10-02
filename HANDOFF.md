@@ -1,6 +1,64 @@
-# Handoff — 2026-10-02 (Session 331)
+# Handoff — 2026-10-02 (Session 332)
 
 ## Next action
+
+Find where `GET /api/services/actions` spends its 9 s on the API's event loop and move it off (tasks.md, Session 332 block). *(For: session)*
+
+It is the first unchecked item in tasks.md that a session can start
+now. Once the owner redeploys, the watchdog kills the monitor if its
+event loop stalls past 30 s, and this route already holds it for
+seconds: a concurrent health check waited 5.3 s, and the call has grown
+from 1.3 s in August to 9.3 s. Measure first (`py-spy dump` during a
+call), because the async route interleaves database awaits with work
+that may be CPU-bound, and the unit's 25% `CPUQuota=` stretches CPU
+time fourfold.
+
+## Owed by the owner
+
+`sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
+*(For: owner, ~2 min)*. This now arms the watchdog as well as
+installing Sessions 327 and 330's edits. Afterwards `systemctl show
+sysadmin -p Type,WatchdogUSec,RestartMode` should read `notify`, `1min`
+and `direct`, and `systemctl status sysadmin` should be `active
+(running)` within a few seconds. If it sits in `activating`, the
+rollback is written above `Type=` in `systemd/sysadmin.service`. Until
+the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
+which compares bytes, stays red. The restart is also the one `96fa8b8`
+already owes so the daemon watches venture-manager's backup timer.
+
+## Scheduled action
+
+After 09:30 on 2026-10-03, read
+`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
+what holds the dGPU awake once the monitors are off (tasks.md, Session
+324 block, last item). The transient timer fires at 21:30 tonight and
+runs for 12 h. A reboot before then cancels it.
+
+## Session 332: `Type=notify` and `WatchdogSec=60`
+
+Session 331's next action. `systemd/sysadmin.service` now reads
+`Type=notify`, `TimeoutStartSec=90`, `WatchdogSec=60`, with the
+reasoning in the comment above them; five tests in
+`tests/test_systemd_units.py` pin the directives and the arithmetic.
+
+Decided: the period, from a measurement rather than a guess. Polling
+`/api/health` every 50 ms for 11 minutes while driving the advice
+routes, every loop stall over 1 s was `/api/services/actions` (call up
+to 9.3 s) or `/reliability` (3.0 s). Pings go every 30 s, over 3× the
+worst whole call. Rejected: a shorter period, because a wedged loop
+stays wedged, so earlier detection buys little while a false kill
+restarts the monitor. `TimeoutStartSec=90` is stated so the burst
+arithmetic reads the unit, not `system.conf`.
+
+Rehearsed: a `daemon-reload` does not arm the watchdog on a process
+already running; only a fresh start does. So the deploy's two commands
+can run in either order and a gap between them is harmless.
+
+Found and not worked (one concern): the slow route, now the next
+action. Suite 4,493 passed and 1 failed, the installed-unit comparison
+waiting on the redeploy.
+
+## What Session 331 handed on (done by Session 332)
 
 Add `Type=notify` and `WatchdogSec=` to `systemd/sysadmin.service`, choosing the period and pinning both with a test (tasks.md, Session 331 block). *(For: session)*
 
@@ -12,25 +70,7 @@ block (a ping every half period), and the start timeout, which must keep
 5 × (timeout + 10 s) under the 600 s burst window. A deploy that lands
 the unit edit also loads the sender, so the order is safe either way.
 
-## Owed by the owner
-
-`sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
-*(For: owner, ~2 min)*. The first command installs Session 327's
-comment edit and Session 330's `RestartMode=direct` in
-`systemd/sysadmin.service`; afterwards `systemctl show sysadmin -p
-RestartMode` should read `direct`. Until then
-`test_every_installed_system_unit_is_the_tracked_one`, which compares
-bytes, stays red. The restart is the one `96fa8b8` already owes so the
-daemon watches venture-manager's backup timer. It also loads Session
-331's sender, which does nothing until the unit says `Type=notify`.
-
-## Scheduled action
-
-After 09:30 on 2026-10-03, read
-`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
-what holds the dGPU awake once the monitors are off (tasks.md, Session
-324 block, last item). The transient timer fires at 21:30 tonight and
-runs for 12 h. A reboot before then cancels it.
+Done; see the Session 332 block.
 
 ## Session 331: the `Type=notify` sender
 

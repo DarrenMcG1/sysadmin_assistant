@@ -92,11 +92,30 @@ class TestFailureIsReportable:
         burst = int(directives["StartLimitBurst"])
         delay = int(directives["RestartSec"])
         if directives.get("Type") == "notify":
-            # 90 s is systemd's DefaultTimeoutStartSec, and this unit sets none.
+            # 90 s is systemd's DefaultTimeoutStartSec, for a unit setting none.
             delay += int(directives.get("TimeoutStartSec", "90"))
         assert window > burst * delay, (
             f"{burst} restarts {delay}s apart need more than {burst * delay}s, "
             f"but the window is {window}s — the limit can never trip"
+        )
+
+    def test_a_loop_that_wedges_on_every_start_still_reaches_failed(self):
+        """The watchdog adds a restart loop of its own, and it must be finite.
+
+        A process that sends ``READY=1`` and then wedges is killed one
+        ``WatchdogSec=`` after it last pinged, and restarted ``RestartSec=``
+        later. Five of those must fit inside the window, as five start
+        timeouts must above, or ``OnFailure=`` never hears of it. The 10 s
+        allowed for startup is above the worst start in the journal (5.8 s
+        of 182, Session 332).
+        """
+        directives = _directives("sysadmin.service")
+        window = int(directives["StartLimitIntervalSec"])
+        burst = int(directives["StartLimitBurst"])
+        cycle = 10 + int(directives["WatchdogSec"]) + int(directives["RestartSec"])
+        assert window > burst * cycle, (
+            f"{burst} watchdog kills {cycle}s apart need more than "
+            f"{burst * cycle}s, but the window is {window}s"
         )
 
     def test_onfailure_fires_only_at_the_start_limit(self):
@@ -187,6 +206,63 @@ class TestFailureIsReportable:
         """
         code = _script_code("notify-unit-failed.sh")
         assert code.index("systemd-cat") < code.index("notify-send")
+
+
+class TestTheWatchdogIsArmed:
+    """``Type=notify`` and ``WatchdogSec=``, and the period between them.
+
+    Session 332, the unit half of ``sysadmin/core/sd_notify.py``. The two
+    directives go together: ``WatchdogSec=`` under ``Type=simple`` still
+    arms a watchdog, but systemd then hands out no ``NOTIFY_SOCKET``, so
+    the sender cannot ping it and the unit is killed one period after
+    every start.
+    """
+
+    #: The longest the API's event loop has been measured to block, in
+    #: seconds: ``GET /api/services/actions`` took up to 9.3 s on
+    #: 2026-10-02 and held a concurrent ``GET /api/health`` for up to 5.3 s
+    #: of it. The whole call is the bound, because the probe cannot see a
+    #: block between its 50 ms polls. Re-measure before lowering
+    #: ``WatchdogSec=``.
+    WORST_MEASURED_BLOCK_S = 9.3
+
+    def test_the_unit_is_notify_with_a_watchdog(self):
+        directives = _directives("sysadmin.service")
+        assert directives.get("Type") == "notify"
+        assert int(directives.get("WatchdogSec", "0")) > 0, (
+            "Type=notify with no WatchdogSec= is readiness only; a wedged "
+            "event loop then stays `active` for ever"
+        )
+
+    def test_the_start_timeout_is_stated_not_inherited(self):
+        """The burst arithmetic must not rest on ``system.conf``."""
+        assert "TimeoutStartSec" in _directives("sysadmin.service")
+
+    def test_half_the_period_clears_the_worst_measured_block(self):
+        """The sender pings every half period, so a block over P/2 kills.
+
+        A block that begins just before a ping is due adds to the P/2
+        already elapsed since the last one, so P/2 is what the loop can
+        survive, not P. The margin is 2x on top of that: the route behind
+        the measurement grew from 1.3 s to 9.3 s between 2026-08-25 and
+        2026-10-02.
+        """
+        period = int(_directives("sysadmin.service")["WatchdogSec"])
+        assert period / 2 >= 2 * self.WORST_MEASURED_BLOCK_S, (
+            f"WatchdogSec={period} pings every {period / 2}s, within 2x of "
+            f"a {self.WORST_MEASURED_BLOCK_S}s block already measured"
+        )
+
+    def test_the_sender_is_the_main_process(self):
+        """``NotifyAccess=`` stays at ``main``, the ``Type=notify`` default.
+
+        ``sd_notify.watchdog_interval`` arms only when ``WATCHDOG_PID`` is
+        its own PID, and uvicorn with ``--workers 1`` serves from the main
+        process. ``all`` would let any child's datagram count as a ping.
+        """
+        directives = _directives("sysadmin.service")
+        assert directives.get("NotifyAccess", "main") == "main"
+        assert "--workers 1" in directives["ExecStart"]
 
 
 class TestTheAnnouncerAsksBeforeItSpeaks:

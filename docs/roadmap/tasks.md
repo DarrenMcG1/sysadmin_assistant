@@ -8,6 +8,59 @@
 
 ---
 
+## Session 332: `Type=notify` and `WatchdogSec=60` on the unit (2026-10-02)
+
+Session 331's next action. `systemd/sysadmin.service` and
+`tests/test_systemd_units.py` only, plus the roadmap. Nothing changes on
+the live box until the owner's redeploy, which now arms the watchdog.
+Suite 4,493 passed and 1 failed: the installed-unit byte comparison,
+still waiting on that redeploy.
+
+- [x] **The period, from a measurement of the loop.** Polled
+      `GET /api/health`, an `async def` returning a literal, every 50 ms
+      for 11 minutes (10,886 polls) while driving the read-only advice
+      routes once a minute. p50 1 ms, p99 34 ms; every wait over 1 s
+      overlapped `GET /api/services/actions` (worst 5.3 s, the call
+      itself 7.6 to 9.3 s across 9 runs) or `/reliability` (up to 3.0 s).
+      The agents cannot block this loop: they run on APScheduler threads
+      with loops of their own. `WatchdogSec=60` pings every 30 s, over 3×
+      the worst whole call. Rejected: a smaller period. A wedge does not
+      recover on its own, so catching it 30 s sooner buys little, and a
+      kill for a slow request restarts the monitor because of someone's curl.
+- [x] **`TimeoutStartSec=90` stated rather than inherited.** It is
+      systemd's default; stating it makes the burst test read this file
+      rather than `system.conf`. 182 starts in the journal since
+      2026-08-15 reached "startup complete" in 1.8 to 5.8 s.
+- [x] **Four tests and one new burst test.** `Type=notify` with
+      `WatchdogSec=` > 0; `TimeoutStartSec` present; half the period at
+      least 2× the worst measured block (9.3 s, a named constant to
+      re-measure before lowering the period); `NotifyAccess=` left at
+      `main` with `--workers 1`; and a process that wedges on every start
+      still reaches `failed`: 5 × (10 + 60 + 10) = 400 s < 600 s.
+      Falsified by six mutations (`Type=simple`, `WatchdogSec=30`,
+      `WatchdogSec=120`, `TimeoutStartSec=110`, `TimeoutStartSec` deleted,
+      `NotifyAccess=all`), each turning exactly its own test red;
+      `systemd-analyze verify` is clean.
+- [x] **The deploy order is safe, rehearsed on systemd 262.** A
+      throwaway user unit running as `Type=simple` was edited to
+      `Type=notify` + `WatchdogSec=5` and `daemon-reload`ed: the running
+      process kept `WatchdogUSec=0` and was still alive 18 s later. Only
+      the restart armed it (`WatchdogUSec=5s`). So the old process,
+      which predates the sender, is not killed in the gap between
+      `setup-systemd.sh` and `systemctl restart`. Unit removed afterwards.
+- [ ] **Take `GET /api/services/actions` off the API's event loop.** It
+      holds the loop for seconds (a concurrent health check waited 5.3 s)
+      and has grown from 1.3 s on 2026-08-25 to 9.3 s now; under the
+      watchdog, a block past 30 s is a kill. Find where the time goes
+      first (`py-spy dump` during a call). The async route's
+      `compute_reliability` + `fetch_timer_series` + `recommend` may be
+      CPU-bound between its awaits, and the 25% `CPUQuota=` stretches
+      CPU time fourfold. `/reliability` (3.0 s) shares
+      `compute_reliability`. The access log since 2026-08-15 holds 18
+      calls before this probe, in bursts on 08-25 and 09-01 to 09-03, so
+      nothing polls it. Found by
+      Session 332, not worked there: one concern.
+
 ## Session 331: the `Type=notify` sender (2026-10-02)
 
 Session 330's next action. New module `sysadmin/core/sd_notify.py`, two
@@ -48,7 +101,7 @@ owner's redeploy.
       `READY=1` and stayed up through four periods. The one that
       blocked its loop with `time.sleep` was killed 3.0 s later,
       `Result=watchdog`, `SIGABRT`, as Session 327's rehearsal saw.
-- [ ] **The unit edit: `Type=notify` and `WatchdogSec=` in
+- [x] **The unit edit: `Type=notify` and `WatchdogSec=` in
       `systemd/sysadmin.service`.** Choose the period from how long the
       event loop can legitimately block, keep 5 × (start timeout + 10 s)
       under 600 s (`test_the_burst_window_outlasts_the_restart_delay`),
@@ -16168,6 +16221,9 @@ work:
       *(Session 331, 2026-10-02: the sender is written,
       `sysadmin/core/sd_notify.py`, and rehearsed under a transient
       notify unit. The unit edit is next.)*
+      *(Session 332, 2026-10-02: the unit reads `Type=notify`,
+      `WatchdogSec=60`, `TimeoutStartSec=90`. Left unticked until the
+      owner's redeploy puts it on the service.)*
 - [x] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
       reaches `failed`, then an `OnFailure=` unit that says so — done
       2026-08-11, `StartLimitBurst=5` / `StartLimitIntervalSec=600` plus

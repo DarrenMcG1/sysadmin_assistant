@@ -3,6 +3,16 @@
 **Last Updated**: 2026-10-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The monitor's unit file now asks systemd to restart it if it
+> freezes** (2026-10-02, Session 332). It declares that the monitor
+> reports when it is ready and sends a heartbeat. If no heartbeat arrives
+> for 60 seconds, systemd kills and restarts it. The period was chosen by
+> measuring how long the monitor's request loop really stalls: one
+> rarely used advice page holds it for up to 9 seconds. A heartbeat goes
+> out every 30 seconds, so that page cannot trigger a restart. The page
+> has slowed from 1 to 9 seconds since August, so fixing it is now a
+> task. Takes effect when the owner redeploys the unit file.
+
 > **The monitor can now tell systemd it is ready and still alive**
 > (2026-10-02, Session 331). This is the code half of the planned
 > watchdog: once startup finishes the monitor says "ready", then sends a
