@@ -3,6 +3,16 @@
 **Last Updated**: 2026-10-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The monitor can now tell systemd it is ready and still alive**
+> (2026-10-02, Session 331). This is the code half of the planned
+> watchdog: once startup finishes the monitor says "ready", then sends a
+> heartbeat every few seconds from the same loop that answers requests,
+> so if that loop freezes the heartbeats stop and systemd restarts it.
+> Under the current unit file nothing listens, and the code stays
+> silent. Tried on throwaway units: a healthy one stayed up and one
+> with a frozen loop was killed 3 seconds later. The unit-file half is
+> next.
+
 > **The monitor's failure alarm now fires once, when systemd gives up**
 > (2026-10-02, Session 330). Until now it also fired on every failed
 > start along the way, about six times for one crash loop. Each firing

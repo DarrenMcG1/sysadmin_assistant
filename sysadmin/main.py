@@ -45,6 +45,7 @@ from sysadmin.core.retention import run_retention
 # Services
 from sysadmin.core.scheduler import Scheduler
 from sysadmin.core.schema_guard import verify_schema_revision
+from sysadmin.core.sd_notify import notify, start_watchdog
 from sysadmin.core.unit_failure import OWN_UNIT, resolve_unit_failures
 from sysadmin.estate.agent import EstateJudgeAgent
 from sysadmin.files.agent import FileOrganiserAgent
@@ -395,9 +396,21 @@ async def lifespan(app: FastAPI):
     sighup = _install_sighup_handler(asyncio.get_running_loop())
     logger.info("startup complete", extra={"sighup_reload": sighup})
 
+    # Ready, then the watchdog, both no-ops unless the unit is
+    # `Type=notify` with `WatchdogSec=` (core/sd_notify.py). Last, so a
+    # boot that fails anywhere above never reports ready. uvicorn binds
+    # port 8500 just after this returns; a bind failure then fails the
+    # unit from `active` rather than from `activating`, and restarts it
+    # the same way.
+    notify("READY=1")
+    watchdog = start_watchdog()
+
     yield
 
     # --- Shutdown ---
+    notify("STOPPING=1")
+    if watchdog is not None:
+        watchdog.cancel()
     if sighup:
         asyncio.get_running_loop().remove_signal_handler(signal.SIGHUP)
     scheduler.shutdown(wait=False)

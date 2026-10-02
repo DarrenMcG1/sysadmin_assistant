@@ -8,6 +8,52 @@
 
 ---
 
+## Session 331: the `Type=notify` sender (2026-10-02)
+
+Session 330's next action. New module `sysadmin/core/sd_notify.py`, two
+calls in the lifespan, tests, one CLAUDE.md sentence and the roadmap.
+The unit still reads `Type=simple`, so the sender does nothing on the
+live box yet. Restart owed to load the code, harmless before the unit
+edit; it rides on the owner's restart already owed. Suite 4,488 passed
+and 1 failed: the installed-unit byte comparison, still waiting on the
+owner's redeploy.
+
+- [x] **The environment question, settled by precedent.** systemd hands
+      over the socket only as `NOTIFY_SOCKET` and the period only as
+      `WATCHDOG_USEC`, and nothing can be minted in their place, which
+      is what let `core/abandoned_runs.py` refuse `INVOCATION_ID`.
+      `monitor/mqtt_alerts.py` already reads `CREDENTIALS_DIRECTORY` as
+      a handover rather than a setting (ADR-0003). CLAUDE.md now says
+      that: no environment variable carries a *setting*.
+- [x] **The sender, stdlib only.** `notify(state)` sends one datagram,
+      returns `False` and stays silent with no socket, logs and never
+      raises on a failed send. `@name` is spelled with a leading NUL for
+      the abstract namespace; any other non-path address is refused.
+      The ping interval is half of `WATCHDOG_USEC`, never a config key,
+      because a second statement of `WatchdogSec=` could disagree with
+      it; `WATCHDOG_PID` naming another process arms nothing.
+- [x] **In the lifespan:** `READY=1` then `start_watchdog()` as the
+      last two statements before `yield`, `STOPPING=1` and the task's
+      cancel first on shutdown. uvicorn binds 8500 just after the
+      lifespan returns, so a bind failure fails the unit from `active`
+      rather than `activating`. It still restarts, so this was left.
+- [x] **18 tests** in `tests/test_sd_notify.py`, against real
+      `AF_UNIX` datagram sockets (path and abstract). The lifespan's
+      order is read off its syntax tree, because the real lifespan
+      needs the database. Falsified: sending `@name` unconverted and
+      halving by 10^6 instead of 2×10^6 turned 3 red, green on restore.
+- [x] **Rehearsed under systemd 262** with two transient user units
+      (`Type=notify`, `WatchdogSec=4`) running a stand-in that imports
+      the module, removed afterwards. The healthy one went `active` on
+      `READY=1` and stayed up through four periods. The one that
+      blocked its loop with `time.sleep` was killed 3.0 s later,
+      `Result=watchdog`, `SIGABRT`, as Session 327's rehearsal saw.
+- [ ] **The unit edit: `Type=notify` and `WatchdogSec=` in
+      `systemd/sysadmin.service`.** Choose the period from how long the
+      event loop can legitimately block, keep 5 × (start timeout + 10 s)
+      under 600 s (`test_the_burst_window_outlasts_the_restart_delay`),
+      and pin both directives with a test. Then the owner's deploy.
+
 ## Session 330: `OnFailure=` fires only at the start limit (2026-10-02)
 
 Session 329's next action, which closes `SNAG-SYSD-010`. Unit file, one
@@ -16119,6 +16165,9 @@ work:
       *(Session 330, 2026-10-02: `SNAG-SYSD-010` decided. `OnFailure=`
       fires only at the start limit (`RestartMode=direct`), so a single
       watchdog kill that recovers raises no alert. The sender is next.)*
+      *(Session 331, 2026-10-02: the sender is written,
+      `sysadmin/core/sd_notify.py`, and rehearsed under a transient
+      notify unit. The unit edit is next.)*
 - [x] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
       reaches `failed`, then an `OnFailure=` unit that says so — done
       2026-08-11, `StartLimitBurst=5` / `StartLimitIntervalSec=600` plus

@@ -1,6 +1,67 @@
-# Handoff — 2026-10-02 (Session 330)
+# Handoff — 2026-10-02 (Session 331)
 
 ## Next action
+
+Add `Type=notify` and `WatchdogSec=` to `systemd/sysadmin.service`, choosing the period and pinning both with a test (tasks.md, Session 331 block). *(For: session)*
+
+It is the first unchecked item in tasks.md that a session can start
+now. The sender is in (`sysadmin/core/sd_notify.py`), so the unit file
+is what remains before the owner's deploy. Two numbers to choose:
+`WatchdogSec=`, from how long the API's event loop can legitimately
+block (a ping every half period), and the start timeout, which must keep
+5 × (timeout + 10 s) under the 600 s burst window. A deploy that lands
+the unit edit also loads the sender, so the order is safe either way.
+
+## Owed by the owner
+
+`sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
+*(For: owner, ~2 min)*. The first command installs Session 327's
+comment edit and Session 330's `RestartMode=direct` in
+`systemd/sysadmin.service`; afterwards `systemctl show sysadmin -p
+RestartMode` should read `direct`. Until then
+`test_every_installed_system_unit_is_the_tracked_one`, which compares
+bytes, stays red. The restart is the one `96fa8b8` already owes so the
+daemon watches venture-manager's backup timer. It also loads Session
+331's sender, which does nothing until the unit says `Type=notify`.
+
+## Scheduled action
+
+After 09:30 on 2026-10-03, read
+`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
+what holds the dGPU awake once the monitors are off (tasks.md, Session
+324 block, last item). The transient timer fires at 21:30 tonight and
+runs for 12 h. A reboot before then cancels it.
+
+## Session 331: the `Type=notify` sender
+
+Session 330's next action. New module `sysadmin/core/sd_notify.py`:
+`READY=1` and then `WATCHDOG=1` pings from a task on the API's event
+loop, at the end of the lifespan's startup; `STOPPING=1` and the task's
+cancel at the start of shutdown. With no `NOTIFY_SOCKET` every send is
+a silent no-op, which is what the written rollback relies on. The unit
+still reads `Type=simple`, so nothing changes on the live box yet.
+
+Decided: the environment question. systemd hands over the socket and
+the watchdog period only as environment variables, and nothing can be
+minted in their place (which is why `INVOCATION_ID` could be refused).
+`CREDENTIALS_DIRECTORY` was already read on the same footing, so
+CLAUDE.md now says no environment variable carries a *setting*. The
+ping interval is half of `WATCHDOG_USEC`, never a config key, so it
+cannot disagree with `WatchdogSec=`. Rejected: `systemd-python` or
+`sdnotify` as a dependency for one datagram.
+
+Left: `READY=1` goes out a moment before uvicorn binds 8500, so a bind
+failure fails the unit from `active` rather than `activating`. It still
+restarts and reaches the start limit the same way.
+
+Rehearsed on systemd 262 with two transient user units at
+`WatchdogSec=4`, removed afterwards: the healthy stand-in stayed up
+through four periods, and one that blocked its loop was killed 3.0 s
+later with `Result=watchdog`. 18 tests, falsified by two mutations.
+Suite 4,488 passed and 1 failed, the installed-unit byte comparison
+still waiting on the owner's redeploy.
+
+## What Session 330 handed on (done by Session 331)
 
 Write the `Type=notify` sender in the lifespan: `READY=1`, then `WATCHDOG=1` pings from the async loop, a no-op with no socket (tasks.md, `Type=notify` item). *(For: session)*
 
@@ -15,24 +76,7 @@ variables, and systemd hands the notify socket over only as
 `NOTIFY_SOCKET`. `core/abandoned_runs.py` refused `INVOCATION_ID` on
 that rule, so the sender needs a stated exception or another route.
 
-## Owed by the owner
-
-`sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
-*(For: owner, ~2 min)*. The first command installs Session 327's
-comment edit and Session 330's `RestartMode=direct` in
-`systemd/sysadmin.service`; afterwards `systemctl show sysadmin -p
-RestartMode` should read `direct`. Until then
-`test_every_installed_system_unit_is_the_tracked_one`, which compares
-bytes, stays red. The restart is the one `96fa8b8` already owes so the
-daemon watches venture-manager's backup timer.
-
-## Scheduled action
-
-After 09:30 on 2026-10-03, read
-`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
-what holds the dGPU awake once the monitors are off (tasks.md, Session
-324 block, last item). The transient timer fires at 21:30 tonight and
-runs for 12 h. A reboot before then cancels it.
+Done; see the Session 331 block.
 
 ## Session 330: `OnFailure=` fires only at the start limit
 
