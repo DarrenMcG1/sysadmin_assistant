@@ -336,6 +336,24 @@ services:
     systemd: { unit: venture-manager-api.service, scope: user }
     log: { type: journalctl, severity_filter: warning }
 
+  # --- go-to-market ---------------------------------------------------
+  # Its synthetic-persona model, a 24B on :8085, declared the day the unit
+  # was installed (2026-10-02). Started and stopped only by the estate's
+  # arbiter under the go-to-market-personas lease profile (estate-manager
+  # ADR-0237), which stops venture-chat for the run; the same shape as
+  # venture-chat-large above, and not monitored for the same reason.
+  - project: go-to-market
+    name: go-to-market-personas
+    role: inference
+    kind: static
+    monitor: false
+    reason: >-
+      started and stopped by the estate's arbiter around a
+      go-to-market-personas lease, a human-paced run of a few hours at
+      most; inactive between runs by design, so a check would alert
+      between every run
+    systemd: { unit: go-to-market-personas.service, scope: user }
+
   # --- This service ---------------------------------------------------
   # A system unit, unlike almost everything else here.
   - project: sysadmin-assistant
