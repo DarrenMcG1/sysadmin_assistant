@@ -336,6 +336,17 @@ services:
     systemd: { unit: venture-manager-api.service, scope: user }
     log: { type: journalctl, severity_filter: warning }
 
+  # Its copy of its own database off this disk, every 15 minutes, made the
+  # day the units were (venture-manager ADR-0003, Decision 2). A oneshot,
+  # so the timer is watched; a run fails only when the dump will not
+  # restore, and one that merely could not copy succeeds and says so.
+  - project: venture-manager
+    name: venture-manager-backup-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: venture-manager-backup.timer, scope: user }
+    controllable: false
+
   # --- go-to-market ---------------------------------------------------
   # Its synthetic-persona model, a 24B on :8085, declared the day the unit
   # was installed (2026-10-02). Started and stopped only by the estate's
