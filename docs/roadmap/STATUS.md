@@ -3,6 +3,17 @@
 **Last Updated**: 2026-10-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The graphics card stays awake at night because of the desktop, not
+> the kernel** (2026-10-02, Session 324). Yesterday's reading blamed
+> the 28 September kernel update. The record says otherwise: the card
+> suspended on only one night since 10 September, the night every
+> desktop app was closed before the monitors went off, and it stayed
+> awake for 13 nights on the older kernel too. Measured live, several
+> desktop apps (Spotify, Steam, Firefox, Xwayland) send work to the card
+> every second. An overnight recorder runs tonight to find which of
+> them keep doing so with the monitors off. Script and documentation
+> only; no restart.
+
 > **The 5-minute poll no longer wakes a suspended graphics card**
 > (2026-10-02, Session 323). When the RX 7900 XTX is in runtime
 > suspend, the collector now skips `rocm-smi` and reads nothing of the

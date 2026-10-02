@@ -1,15 +1,62 @@
-# Handoff — 2026-10-02 (Session 323)
+# Handoff — 2026-10-02 (Session 324)
 
 ## Next action
 
+Fix the flaky premise in `test_it_says_no_where_the_newest_record_is_plain_text` (tasks.md, Session 322 block). *(For: session)*
+
+It is the first startable unchecked item in tasks.md. The dGPU item
+above it waits for tonight's witness and is under Scheduled action
+below. The test reads the newest 500 journal records, and access-log
+traffic can fill all of them with plain text. Widen or time-bound the
+read, or skip when the premise is empty.
+
+## Scheduled action
+
+After 09:30 on 2026-10-03, read
+`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
+what holds the dGPU awake once the monitors are off (tasks.md, Session
+324 block, last item). The transient timer fires at 21:30 tonight and
+runs for 12 h. A reboot before then cancels it.
+
+## Session 324: what keeps the dGPU awake at night
+
+Session 323's next action. Only a script and the roadmap changed; no
+restart owed.
+
+**The premise was wrong: this is not the kernel.** Since 10 September
+the card runtime-suspended on one night only, 27→28 September under
+6.18 LTS. Boot −3 ran the same kernel for 13 days without suspending
+once. The monitors disconnect every night in every boot, so they were
+off; that is necessary but not sufficient. The LLM request load on the
+one suspending night matched the nights either side, and idle `-ngl 99`
+servers were resident while it suspended.
+
+**What changed that night was the desktop.** Chromium, the
+project-manager Electron app, Kate and Konsole all closed between 22:48
+and 23:03; the monitors went at 23:14 and the card suspended at
+23:14:35. Measured live from each process's DRM `fdinfo`, five desktop
+clients submit dGPU work every second with the monitors on (spotify at
+6.7 %, steamwebhelper, Xwayland, plasmashell, an Electron app). Any one
+that keeps doing it with no outputs holds the card, because amdgpu
+suspends only after 5 s with no work.
+
+**Not settled: which of them keeps submitting with the monitors off.**
+No history records per-client GPU time, so `scripts/dgpu-pin-witness.py`
+will record it tonight. It reads nothing from the card while it is
+suspended, so it cannot wake it. Rejected: asking the owner to turn the
+monitors off now. The witness answers the same question without them,
+across a whole night's mix of clients.
+
+If a desktop client is the cause, the fix is the owner's (close it at
+night, or run it on the iGPU), not this repository's. Session 323's
+collector change still stands either way.
+
+## What Session 323 handed on (done in part by Session 324)
+
 Find out why the dGPU has not runtime-suspended since the kernel 7.2.7 boot (tasks.md, Session 323 block). *(For: session)*
 
-It is the first unchecked item in tasks.md. It decides whether today's
-change ever does anything: the collector now leaves a suspended card
-alone, but the card has not suspended once in four days. Start from the
-evidence in that task. The cheapest first step is to ask the owner
-whether the monitors were left on overnight. If they were off, compare
-the two kernels.
+Answered in part. The kernel and the monitors were ruled out, and the
+remaining question is waiting on tonight's witness.
 
 ## Session 323: a suspended dGPU is not woken to be measured
 

@@ -8,6 +8,69 @@
 
 ---
 
+## Session 324: what keeps the dGPU awake at night (2026-10-02)
+
+Session 323's next action. `scripts/dgpu-pin-witness.py` and the
+roadmap only; no `sysadmin/` change, no restart owed.
+
+- [x] **The kernel is not what separates the nights.** Since
+      2026-09-10 the card runtime-suspended on one night only: 27→28
+      September, 283 resumes from 23:14:35 to 08:56:39, under 6.18 LTS.
+      Boot −3 ran the same 6.18 LTS kernel for 13 days and suspended 0
+      times. So did the first four nights of boot −2.
+- [x] **Neither are the monitors.** powerdevil logs both DP monitors
+      disconnecting every night in every boot, 7.2.7 included (e.g.
+      2026-10-01 21:59:05–06, back at 08:52:21). That answers Session
+      323's question: the monitors were off. It is necessary, not
+      sufficient.
+- [x] **Nor the LLM load.** 02:00–05:00 on 27 September (no suspend):
+      63 venture-chat and 43 venture-embed requests. The same hours on
+      28 September (suspended 28 times an hour): 72 and 60. 29 September
+      on 7.2.7 (no suspend): 69 and 43. alfred-inference served 0 on
+      every night. Idle `-ngl 99` servers did not hold the card: on the
+      suspending night alfred-inference and venture-chat were both
+      resident.
+- [x] **What did change was the desktop.** Between 22:48 and 23:03 on
+      27 September Kate, a 2-day Konsole, the project-manager Electron
+      app and a 1-day-9-hour Chromium all closed. The monitors went at
+      23:14:01–04, and the card first suspended at 23:14:35.
+- [x] **Live, with the monitors on, five clients submit dGPU work in
+      every second** (from `drm-engine-*` in `/proc/<pid>/fdinfo`, 30 s
+      sampled at 1 s): spotify (6.7 % of the engine over 20 s, against
+      last night's 4–9 % average), steamwebhelper, Xwayland,
+      plasmashell and an Electron app. Minutes later spotify had gone
+      quiet and Firefox's video decoder (`RDD Process`) led instead.
+      None uses `/dev/kfd`, so none pins the card through KFD.
+- [x] **Not known yet: whether any of them keeps submitting with no
+      outputs.** Wayland clients get no frame callbacks then. X11
+      clients under Xwayland may not be throttled the same way. That is
+      the open half, and no history holds per-client GPU time.
+- [x] **Wrote the instrument, `scripts/dgpu-pin-witness.py`.** Once a
+      second it reads `power/runtime_status`. While the card is awake it
+      also reads every client's engine time on the dGPU's DRM nodes.
+      While it reads `suspended` it reads nothing else, so it cannot be
+      what wakes the card. One JSON line a minute: seconds active and
+      suspended, `runtime_suspended_time` growth, connector state,
+      per-`comm` seconds and milliseconds of work, and
+      `longest_quiet_s`. A quiet run of 5 s or more with no suspend
+      means something it cannot see held the card: kwin is not
+      dumpable, root processes are unreadable, or the driver itself.
+      Dry-run for 20 s on the awake card.
+- [x] **Scheduled**: transient `sysadmin-dgpu-pin-witness.timer`,
+      `OnCalendar=2026-10-02 21:30:00`, 12 h, logging to
+      `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and
+      the user journal. Linger is on. A transient unit does not survive
+      a reboot.
+- [ ] **Read `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl`
+      (after 09:30 on 2026-10-03).** For the minutes where both DP
+      connectors read `disconnected`: if `suspended_ms` is 0 and one
+      `comm` has `s` near 60, that client holds the card, and the fix is
+      the owner's (close it at night, or move it to the iGPU). If
+      `longest_quiet_s` reaches 5 or more with no suspend, the hold is
+      something the witness cannot see; compare the two kernels next.
+      Either way, record what the card draws held awake against
+      suspended.
+
 ## Session 323: a suspended dGPU is not woken to be measured (2026-10-02)
 
 Session 322's next action. `sysadmin/monitor/gpu.py`, `tests/test_gpu.py`,
@@ -44,8 +107,10 @@ and mypy clean. Daemon restarted at 11:06:32 BST (`kill -TERM`).
 - [x] **Falsified:** both new tests fail against `HEAD`'s `gpu.py`.
 - [x] **Not witnessed live**: the card does not suspend on this box at
       present.
-- [ ] **Find out why the dGPU has not runtime-suspended since the
-      kernel 7.2.7 boot.** Under 6.18 LTS it suspended 283 times in one
+- [x] **Find out why the dGPU has not runtime-suspended since the
+      kernel 7.2.7 boot.** *(Answered in part by Session 324: not the
+      kernel, not the monitors. A desktop GPU client is the lead, and an
+      overnight witness is scheduled. See that block.)* Under 6.18 LTS it suspended 283 times in one
       night. Since 2026-09-28 11:49, `runtime_suspended_time` is 0 and
       no row reads `runtime-pm`. Overnight 02:00–05:00 today it averaged
       4–9 % busy at 21–51 W. Both monitors are on the dGPU (`card1`,
