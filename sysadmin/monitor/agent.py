@@ -402,7 +402,13 @@ class SysAdminAgent(BaseAgent):
         # anomaly for the same resource would just be a duplicate.
         self._threshold_keys: set[str] = set()
         # Last known status per service, for service.status change events.
+        # Moved only by `_work_committed`: a run that rolls back drops its
+        # `service.status` events, and had this moved with them the next
+        # run would see no change and never announce the transition.
         self._last_status: dict[str, str] = {}
+        # The transitions this run queued events for, waiting on the
+        # commit. Reset per run, so a failed run's are simply forgotten.
+        self._staged_status: dict[str, str] = {}
         # Stall ladder outcome for the current run. Reset per run rather
         # than accumulated: a stale count reported in agent_runs.details
         # would read as an escalation that this run performed.
@@ -449,12 +455,17 @@ class SysAdminAgent(BaseAgent):
         # is where the population of both was measured.
         self._refreshed: int = 0
 
+    def _work_committed(self) -> None:
+        """The run's rows landed, so the transitions it announced did too."""
+        self._last_status.update(self._staged_status)
+        self._staged_status = {}
+
     def forget_unknown(self) -> list[str]:
         """Drop per-service state for services no longer declared.
 
         Called after a configuration reload (:mod:`sysadmin.reload`), and
-        only then — a scheduled run must never prune, because the three
-        dicts below are exactly what a run is accumulating.
+        only then — a scheduled run must never prune, because the dicts
+        below are exactly what a run is accumulating.
 
         **Streaks for services that survive the reload are kept, and that
         is the decision rather than the shortcut.** ``_degraded_counts``
@@ -481,6 +492,9 @@ class SysAdminAgent(BaseAgent):
             self._degraded_counts.pop(name, None)
             self._failure_counts.pop(name, None)
             self._last_status.pop(name, None)
+            # A reload can land mid-run; a staged name would otherwise
+            # come back into `_last_status` at that run's commit.
+            self._staged_status.pop(name, None)
         return dropped
 
     async def _raise_judged(
@@ -751,6 +765,7 @@ class SysAdminAgent(BaseAgent):
         self._written_titles = set()
         self._suppressed = 0
         self._refreshed = 0
+        self._staged_status = {}
         config = get_config()
         agent_config = config.agents.sysadmin
         services = get_services().services
@@ -865,9 +880,11 @@ class SysAdminAgent(BaseAgent):
                 # the savepoint, not before: an event announcing a
                 # transition whose row rolled back is a state change the
                 # database never saw, and `_last_status` would suppress
-                # the real one on the next run.
+                # the real one on the next run. Staged rather than
+                # written for the same reason one level up: the whole
+                # run's transaction can still roll back after this.
                 if self._last_status.get(svc.name) != status:
-                    self._last_status[svc.name] = status
+                    self._staged_status[svc.name] = status
                     self._queue_event(
                         "service.status",
                         {"service": svc.name, "status": status},

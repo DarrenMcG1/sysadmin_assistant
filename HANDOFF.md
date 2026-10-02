@@ -1,17 +1,22 @@
-# Handoff — 2026-10-01 (Session 320)
+# Handoff — 2026-10-02 (Session 321)
 
 ## Next action
 
-Make a failed monitor run stop leaving `_last_status` claiming a transition nobody heard, with a test (tasks.md, Session 320 block). *(For: session)*
+Correct README.md's declared-service count from 36 to 37 so `test_readme_claims` passes again (tasks.md, Session 321 block). *(For: session)*
 
-It is the first startable unchecked item in tasks.md, and this session
-found it. `MonitorAgent` updates `_last_status` in memory when it queues
-`service.status`. A failed run now drops that event but keeps the
-memory, so the next run never announces the change. No live reader of
-that event was found, so it is small. The `rocm-smi` item below it waits
-on the overnight drive (Scheduled action) and cannot start yet.
+It is the first startable unchecked item in tasks.md, and the suite is
+red until it is done. Commit `347a64a`, another session's, added
+go-to-market's persona model to `services.yaml` and left README's figure
+behind. Check first that the session behind that commit has not
+already fixed it. After that, the dGPU drive below is ready to read: its
+log was written at 05:30 today.
 
-## Scheduled action
+## Waiting to be read: the dGPU wake drive
+
+The drive ran overnight and its log exists (21,556 bytes, written
+2026-10-02 05:30). This is the `rocm-smi` item in tasks.md. Nothing
+below has been read yet.
+
 
 From 05:30 on 2026-10-02, read
 `~/.local/state/sysadmin/dgpu-wake-drive-2026-10-02.jsonl` and choose how
@@ -34,6 +39,37 @@ from 01:30. Read it in this order:
 If only `skipped` lines appear, the card never suspended (a monitor
 stayed on), and the drive needs another night. Then fix `gpu.py`'s
 rule 5 docstring in the same change as the code.
+
+## Session 321: a failed run leaves no transition behind
+
+Session 320's next action. Service code changed and is live: the daemon
+was restarted at 09:06:57 by `kill -TERM` on its main PID
+(`NRestarts=4`, the second restart of the sitting), and `/api/health` answered 200 after systemd's restart
+delay. Full suite 4,470 passed, 1 failed, 2 skipped. The failure is
+README's service count (above), and it fails the same way with this
+session's changes stashed. Ruff and mypy clean; every claim
+`check-ops-claims.sh` reads is `ok`.
+
+- **Decided: stage the transition, apply it on commit.**
+  `SysAdminAgent._execute` writes each changed status to
+  `_staged_status` beside the `service.status` event it queues.
+  `_work_committed`, a new no-op hook on `BaseAgent`, copies it into
+  `_last_status`. `run()` calls the hook after the work's session block,
+  so a commit that fails never reaches it. That is the same rule the
+  event buffer already follows.
+  Rejected: snapshot and restore in `run()`'s `except`. It keys on
+  failure, so every future failure path would have to remember it.
+- **Tests:** two in `tests/test_service_write_isolation.py`, through
+  `run()` with a failing commit and then a clean one. The first went red
+  with the old direct write restored.
+- **`forget_unknown` prunes `_staged_status` too.** A reload that lands
+  mid-run would otherwise carry a removed name back in at that run's
+  commit. Pinned in `tests/test_reload.py`'s prune test.
+- **STATUS.md**: new top block, the deploy and start markers moved to
+  it, and test count 4,471 → 4,473. Open alerts stay at 3, but
+  `venture-chat unreachable` is a new episode: opened 09:04:27, the
+  estate's GPU arbiter stopping the unit under lease 107 for
+  go-to-market's persona model, a planned stop.
 
 ## Session 320: a failed run announces only that it failed
 

@@ -530,6 +530,8 @@ def test_sysadmin_agent_prunes_removed_and_keeps_survivors():
     agent._degraded_counts = {"stays": 2, "goes": 2}
     agent._failure_counts = {"stays": 1, "goes": 1}
     agent._last_status = {"stays": "degraded", "goes": "ok"}
+    # Staged by a run still in flight when the reload landed.
+    agent._staged_status = {"goes": "critical"}
 
     install({"name": "stays", "kind": "http", "url": "http://localhost:1/health"})
     dropped = agent.forget_unknown()
@@ -538,6 +540,7 @@ def test_sysadmin_agent_prunes_removed_and_keeps_survivors():
     assert agent._degraded_counts == {"stays": 2}
     assert agent._failure_counts == {"stays": 1}
     assert agent._last_status == {"stays": "degraded"}
+    assert agent._staged_status == {}
 
 
 def test_log_aggregator_keeps_cursors_for_config_declared_sources(monkeypatch):

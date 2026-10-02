@@ -8,6 +8,33 @@
 
 ---
 
+## Session 321: a failed run leaves no transition behind (2026-10-02)
+
+Session 320's next action. Suite 4,470 passed, 1 failed, 2 skipped; the
+failure is not this session's (below). Ruff and mypy clean. The daemon
+was restarted at 09:06:57 to load it.
+
+- [x] **`_last_status` moves only when the run's transaction commits.**
+      `SysAdminAgent` now stages each transition in `_staged_status` as it
+      queues `service.status`, and copies it into `_last_status` in
+      `_work_committed`. That is a new no-op hook on `BaseAgent`, called by
+      `run()` right after the work's session block exits, so a failed
+      commit never reaches it. A failed run's staged transitions are
+      dropped when the next run resets the dict. Rejected: snapshotting
+      `_last_status` and restoring it in `run()`'s `except`. That keys on
+      failure, and any later failure path would have to remember to
+      restore. Applying on commit keys on the path that is wanted.
+- [x] **Two tests in `tests/test_service_write_isolation.py`,** driven
+      through `run()` because the commit is `run()`'s. One fails the
+      commit and checks that the next run announces the transition. One
+      checks that a committed transition is announced once and not again.
+      The first went red with the old line restored.
+- [ ] **README.md's service count is one short.** `test_readme_claims`
+      fails: README says 36 declared services and `services.yaml` holds 37.
+      Commit `347a64a` (another session's, go-to-market's persona model)
+      added the entry and not the figure. *(Second concern, found by this
+      session; not this session's change)*
+
 ## Session 320: a failed run announces only that it failed (2026-10-01)
 
 Session 319's next action. Suite 4,469 passed, 2 skipped; ruff and mypy
@@ -45,7 +72,7 @@ clean. The daemon was restarted at 22:00:32 to load it.
 - [x] **`mqtt_alerts.py`'s read-back is kept.** Its docstring said the
       run flushes whatever the outcome; it now says the guard refuses
       nothing on today's code and stays because it costs one read.
-- [ ] **A failed monitor run leaves `_last_status` claiming a transition
+- [x] **A failed monitor run leaves `_last_status` claiming a transition
       nobody heard.** `MonitorAgent` records each service's new status in
       memory as it queues `service.status`. When the run then fails, the
       event is now dropped but the memory is not rolled back, so the next
@@ -54,7 +81,7 @@ clean. The daemon was restarted at 22:00:32 to load it.
       `service.status` event was found (the tray does not use the stream;
       a search of `~/projects` found only archived code), so this was
       recorded rather than fixed. *(Second concern, raised by this
-      session)*
+      session)* *(Done 2026-10-02 by Session 321; see that block above)*
 
 ## Session 317: STATUS.md's opening block agrees with the box (2026-10-01)
 

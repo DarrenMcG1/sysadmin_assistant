@@ -173,6 +173,14 @@ class BaseAgent(ABC):
         else:
             self._pending_events.append((event_type, data))
 
+    def _work_committed(self) -> None:
+        """Called once ``_execute``'s transaction has committed, never otherwise.
+
+        The in-memory counterpart of :attr:`_pending_events`: state an
+        agent keeps between runs that describes what a run *wrote* must
+        move only when the write lands. Default is nothing.
+        """
+
     def _flush_events(self) -> None:
         """Publish everything buffered during the run, then stop buffering."""
         pending, self._pending_events = self._pending_events or [], None
@@ -340,6 +348,10 @@ class BaseAgent(ABC):
         try:
             async with get_scheduler_session() as session:
                 result = await self._execute(session)
+            # After the block, not inside it: the commit happens on the
+            # way out, and a commit that fails must reach the `except`
+            # with nothing applied.
+            self._work_committed()
 
             duration = time.monotonic() - start
             outcome = "completed"

@@ -16,7 +16,8 @@ reach ``committed_rows`` if that block exits cleanly, and a bad row
 raises there rather than at the end of the run.
 """
 
-from contextlib import ExitStack
+import asyncio
+from contextlib import ExitStack, asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -320,6 +321,81 @@ class TestOneBadRowDoesNotCostTheOthers:
 
         assert agent._pending_events == []
         assert "poison" not in agent._last_status
+
+
+class TestAFailedRunLeavesNoTransitionBehind:
+    """``_last_status`` moves only when the run's transaction commits.
+
+    Session 320 made a failed run drop its buffered ``service.status``
+    events, but ``_last_status`` had already been written as each one was
+    queued. The next run then compared against a status nobody had heard
+    announced, saw no change, and stayed silent about the transition for
+    good. Driven through ``run()`` rather than ``_execute``, because the
+    commit is ``run()``'s, and the commit that fails is the case.
+    """
+
+    @staticmethod
+    async def _run(agent, mock_config, *, commit_fails: bool) -> list[tuple]:
+        from sysadmin.core.event_bus import EventBus
+
+        bus = EventBus()
+        heard: list[tuple] = []
+
+        async def record(data: dict) -> None:
+            heard.append(("service.status", data))
+
+        bus.subscribe("service.status", record)
+
+        @asynccontextmanager
+        async def work_session():
+            yield FakeSession()
+            if commit_fails:
+                raise RuntimeError("commit failed")
+
+        with ExitStack() as stack:
+            _enter(stack, _drive(
+                agent, [_svc("alpha")], {"alpha": "critical"}, mock_config
+            ))
+            stack.enter_context(patch("sysadmin.core.agent.event_bus", bus))
+            stack.enter_context(
+                patch("sysadmin.core.agent.get_scheduler_session", work_session)
+            )
+            stack.enter_context(patch.object(
+                agent, "_record_start", new_callable=AsyncMock
+            ))
+            stack.enter_context(patch.object(
+                agent, "_record_outcome", new_callable=AsyncMock
+            ))
+            result = await agent.run()
+            # `publish_threadsafe` schedules delivery on the loop.
+            await asyncio.sleep(0)
+
+        assert (result is None) is commit_fails
+        return heard
+
+    @pytest.mark.asyncio
+    async def test_the_next_run_announces_what_the_failed_one_could_not(
+        self, agent, mock_config
+    ):
+        failed = await self._run(agent, mock_config, commit_fails=True)
+        assert failed == []
+        assert "alpha" not in agent._last_status
+
+        retried = await self._run(agent, mock_config, commit_fails=False)
+        assert retried == [
+            ("service.status", {"service": "alpha", "status": "critical"})
+        ]
+        assert agent._last_status == {"alpha": "critical"}
+
+    @pytest.mark.asyncio
+    async def test_a_committed_transition_is_still_announced_once(
+        self, agent, mock_config
+    ):
+        """The fix must not turn every run into an announcement."""
+        first = await self._run(agent, mock_config, commit_fails=False)
+        second = await self._run(agent, mock_config, commit_fails=False)
+        assert len(first) == 1
+        assert second == []
 
 
 class TestSavepointMechanics:
