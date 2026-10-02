@@ -1,6 +1,38 @@
-# Handoff — 2026-10-02 (Session 325)
+# Handoff — 2026-10-02 (Session 326)
 
 ## Next action
+
+Write the rollback for `Type=notify` + `WatchdogSec=` on `sysadmin.service`, then rehearse it (tasks.md, Session 39 block). *(For: session)*
+
+It is the first startable unchecked item in tasks.md. The dGPU witness
+waits for tomorrow morning (below), the alfred-glance topic waits on
+glance's reply to message `fe35a2fa`, and the `UV_PYTHON` item waits for
+the box's interpreter to move (CI pins 3.12.12, the box runs 3.12.12).
+The task's own warning stands: if `READY=1` is never sent, systemd
+treats startup as failed and kills the daemon, so the rollback is
+written down before the unit is edited.
+
+## Scheduled action
+
+After 09:30 on 2026-10-03, read
+`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
+what holds the dGPU awake once the monitors are off (tasks.md, Session
+324 block, last item). The transient timer fires at 21:30 tonight and
+runs for 12 h. A reboot before then cancels it.
+
+## Session 326: STATUS.md's alert count, 3 → 2
+
+Session 325's next action. STATUS.md and the roadmap only; no restart
+owed. The 696 tests in the claim and status files pass.
+
+Re-measured at 13:47 BST: 2 unresolved rows, `Critical disk usage on /`
+and `Project ImbaBots next action idle`. The block's third,
+`venture-chat unreachable`, resolved at 09:32:02. `Estate queue starved`
+opened at 10:08:00 after Session 321's count and resolved by itself at
+11:07:34; it was the GPU lease wait Session 325 traced, so it needs no
+action. `check-ops-claims.sh` now reads every claim `ok`.
+
+## What Session 325 handed on (done by Session 326)
 
 Re-measure STATUS.md's opening block against the box: it counts 3 unresolved alerts and the box now has 2 (tasks.md, Session 322 block). *(For: session)*
 
@@ -13,13 +45,7 @@ against a measured 2. Session 325 found that the same lease-wait episode
 caused the flaky test. The two open now are `Critical disk usage on /`
 and `Project ImbaBots next action idle`.
 
-## Scheduled action
-
-After 09:30 on 2026-10-03, read
-`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
-what holds the dGPU awake once the monitors are off (tasks.md, Session
-324 block, last item). The transient timer fires at 21:30 tonight and
-runs for 12 h. A reboot before then cancels it.
+Done; see the Session 326 block.
 
 ## Session 325: the live negative is pinned to a plain-text instant
 

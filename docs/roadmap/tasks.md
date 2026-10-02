@@ -8,6 +8,21 @@
 
 ---
 
+## Session 326: STATUS.md's alert count, 3 → 2 (2026-10-02)
+
+Session 325's next action. STATUS.md and the roadmap only; no restart
+owed. The 696 tests in the claim and status files pass.
+
+- [x] **Re-measured before editing.** `alerts` holds 2 unresolved rows
+      at 13:47 BST: `Critical disk usage on /` and `Project ImbaBots
+      next action idle`. The block counted 3 and named a third,
+      `venture-chat unreachable`, which resolved at 09:32:02.
+- [x] **`Estate queue starved` needs no action.** It opened at 10:08:00
+      and resolved by itself at 11:07:34. It was the GPU lease wait that
+      Session 325 traced.
+- [x] **Block corrected 3 → 2**, with a dated re-count note.
+      `check-ops-claims.sh` now reads every claim `ok`.
+
 ## Session 325: the live negative is pinned to a plain-text instant (2026-10-02)
 
 Session 324's next action. Test and roadmap only; no restart owed.
@@ -175,12 +190,15 @@ Documentation only; no restart owed.
       is the newest-N trap again: widen or time-bound the read, or skip on
       an empty premise rather than fail. *(Second concern, found by this
       session; not worked here)*
-- [ ] **STATUS.md's opening block names 2 open alerts; the box has 3.**
+- [x] **STATUS.md's opening block names 2 open alerts; the box has 3.**
       Postflight's ops-claim check found it. The third is `Estate queue
       starved` (`estate_judge`), opened 2026-10-02 10:08:00 BST, after
       Session 321 last measured the block. Re-measure the block against
       the box and decide whether the alert itself needs action.
       *(Second concern, found by this session; not worked here)*
+      *(Done 2026-10-02 by Session 326. By then it had turned round: the
+      block said 3 and the box had 2. `Estate queue starved` resolved by
+      itself at 11:07:34 and needs no action. See that block.)*
 
 ## Session 321: a failed run leaves no transition behind (2026-10-02)
 

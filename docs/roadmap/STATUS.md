@@ -3,6 +3,13 @@
 **Last Updated**: 2026-10-02
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **STATUS.md's alert count reads 2 again** (2026-10-02, Session 326).
+> The block counted 3 unresolved alerts and named `venture-chat
+> unreachable` as the third; that row resolved at 09:32. `Estate queue
+> starved`, opened after the last count, resolved by itself at 11:07.
+> The two open are `Critical disk usage on /` and `Project ImbaBots next
+> action idle`. Documentation only.
+
 > **A live journal test no longer fails while a GPU lease waits**
 > (2026-10-02, Session 325). One test checks that the log-format
 > detector can answer "no" for the estate API's journal. It read the
@@ -7308,12 +7315,17 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
 > rows <!--check:alerts-->,
-> `Critical disk usage on /`,
-> `Project ImbaBots next action idle` and
-> `venture-chat unreachable`, **3**
+> `Critical disk usage on /` and
+> `Project ImbaBots next action idle`, **2**
 > named here <!--check:open_titles-->.
+> *(Re-counted 2026-10-02 13:47 BST by Session 326: 3 → 2. The
+> `venture-chat unreachable` row opened at 09:04:27 resolved at
+> 09:32:02, when the arbiter's lease ended. `Estate queue starved`
+> (`estate_judge`, `warning`), opened at 10:08:00 after Session 321's
+> count, resolved by itself at 11:07:34. It was the GPU lease wait that
+> Session 325 traced, so no action here waits on it.)*
 > *(Re-counted 2026-10-02 09:10 BST by Session 321: 3 → 2 → 3. The
 > 21:46:04 `venture-chat unreachable` row resolved at 22:25:37, and
 > another episode opened at 00:05:34 and resolved at 01:30:37. The open
