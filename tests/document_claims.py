@@ -60,8 +60,6 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
 from sysadmin.core.config import REPO_ROOT
 from sysadmin.metadata import Base
 
@@ -236,12 +234,6 @@ def live_migrations() -> set[str]:
 
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
     return {script.revision for script in scripts.walk_revisions()}
-
-
-def live_declared_services() -> set[str]:
-    """Service names declared in ``services.yaml``."""
-    document = yaml.safe_load((REPO_ROOT / "services.yaml").read_text())
-    return {entry["name"] for entry in document["services"]}
 
 
 def live_adr_ids() -> set[str]:

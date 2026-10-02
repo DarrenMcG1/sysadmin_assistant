@@ -7933,6 +7933,13 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 329 — README states no count for `services.yaml` (2026-10-02)
+
+- README describes `services.yaml` as one entry per service, added by
+  the project that owns it, and gives no total. The total is changed by
+  other repositories, so a stated figure went stale with each new
+  service. A test now refuses a figure in that sentence.
+
 ### Session 328 — README's service count, 37 → 38 (2026-10-02)
 
 - README.md states 38 declared services, which is what `services.yaml`

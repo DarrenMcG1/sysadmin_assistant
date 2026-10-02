@@ -1,16 +1,18 @@
-# Handoff — 2026-10-02 (Session 328)
+# Handoff — 2026-10-02 (Session 329)
 
 ## Next action
 
-Decide whether README should state `services.yaml`'s count at all, since other repositories' writes move it (tasks.md, Session 328 block). *(For: session)*
+Decide whether `OnFailure=` should fire on each failed start or only at the start limit, before writing the `Type=notify` sender (tasks.md, `Type=notify` item). *(For: session)*
 
-It is the first startable unchecked item in tasks.md. The figure has
-drifted twice in a week, 36 → 37 and 37 → 38, each time because another
-repository added a `services.yaml` entry under the monitorable-project
-contract without knowing this README quotes the total. Each drift turns
-`test_the_stated_service_count_is_the_measured_one` red and costs a
-session here. Replacing the number with the fact the sentence needs
-would stop that; keeping it means accepting the drift.
+It is the first unchecked item in tasks.md that a session can start
+now. Ahead of it are the owner's redeploy, the dGPU witness read (not
+until 2026-10-03) and the CI interpreter item, which has not triggered
+(`ci.yml` and the box both on 3.12.12). Session 327 wrote that this
+decision comes first: under a watchdog, each kill would fire the failure
+handler, which writes a critical alert and a desktop notification. The
+open snag on it lays out both choices: fire only at the limit
+(`RestartMode=direct`), or keep firing on every failure and correct the
+unit comment.
 
 ## Owed by the owner
 
@@ -28,6 +30,36 @@ After 09:30 on 2026-10-03, read
 what holds the dGPU awake once the monitors are off (tasks.md, Session
 324 block, last item). The transient timer fires at 21:30 tonight and
 runs for 12 h. A reboot before then cancels it.
+
+## Session 329: README states no count for `services.yaml`
+
+Session 328's next action. README now says `services.yaml` holds one
+entry per service, added by the project that owns it, and gives no
+total. The total moves whenever another repository declares a service,
+so a stated figure needed this repository to catch up each time: twice
+in one week. Keeping the figure and accepting the drift was rejected,
+because the drift cost a red suite each time and nothing reads the
+number. `test_services_yaml_is_described_without_a_count` replaces the
+count test and was falsified by restoring the figure. Suite 4,469 passed
+and 1 failed, the installed-unit byte comparison above.
+
+Estate message `a0eec7fa` (venture-manager announcing its backup timer)
+stays open, as Session 328 left it: what it asks of this repository is
+the daemon restart, which is the owner's.
+
+## What Session 328 handed on (done by Session 329)
+
+Decide whether README should state `services.yaml`'s count at all, since other repositories' writes move it (tasks.md, Session 328 block). *(For: session)*
+
+It is the first startable unchecked item in tasks.md. The figure has
+drifted twice in a week, 36 → 37 and 37 → 38, each time because another
+repository added a `services.yaml` entry under the monitorable-project
+contract without knowing this README quotes the total. Each drift turns
+`test_the_stated_service_count_is_the_measured_one` red and costs a
+session here. Replacing the number with the fact the sentence needs
+would stop that; keeping it means accepting the drift.
+
+Done; see the Session 329 block.
 
 ## Session 328: README's service count, 37 → 38
 

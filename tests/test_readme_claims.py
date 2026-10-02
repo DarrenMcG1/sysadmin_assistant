@@ -64,7 +64,6 @@ from tests.document_claims import (
     live_adr_ids,
     live_agents,
     live_dashboard_tabs,
-    live_declared_services,
     live_migrations,
     live_packages,
     live_routers,
@@ -313,10 +312,21 @@ class TestTheStructuralFiguresAgree:
     def test_the_stated_table_count_is_the_measured_one(self, flat: str) -> None:
         assert stated(flat, r"`sysadmin` schema, (\d+) tables") == len(live_tables())
 
-    def test_the_stated_service_count_is_the_measured_one(self, flat: str) -> None:
-        assert stated(flat, r"`services.yaml` — (\d+) declared services") == len(
-            live_declared_services()
-        )
+    def test_services_yaml_is_described_without_a_count(self, flat: str) -> None:
+        """The one structural figure this document refuses to state.
+
+        Every other count here moves only by a commit in this repository.
+        ``services.yaml``'s moves whenever another repository declares a
+        service under the monitorable-project contract — 36 → 37 by
+        ``347a64a`` and 37 → 38 by ``96fa8b8`` in one week — and the writer
+        cannot know this document quotes the total, so a pinned figure turned
+        each new service into a red suite and a session here.  The sentence
+        says who adds an entry instead, which is the fact that does not age.
+        """
+        match = re.search(r"per-service topology in `services.yaml`([^.]+)\.", flat)
+        assert match, "the document no longer describes services.yaml"
+        assert "added by the project" in match.group(1)
+        assert not re.search(r"\d", match.group(1)), match.group(1)
 
     def test_the_named_dashboard_tabs_are_the_ones_the_tray_adds(self, flat: str) -> None:
         """Read as a set: the prose orders them for reading, the code for the

@@ -8,6 +8,26 @@
 
 ---
 
+## Session 329: README states no count for `services.yaml` (2026-10-02)
+
+Session 328's next action. README and the README claims test only; no
+restart owed. Suite 4,469 passed and 1 failed: the installed-unit byte
+comparison, which still waits on the owner's redeploy (Session 327
+block).
+
+- [x] **Decided: the figure goes.** Every other count in README moves
+      only when this repository commits. This one moves whenever another
+      repository declares a service, and that writer cannot know README
+      quotes the total. Refreshing it fixes one sentence until the next
+      new service. The sentence now says who adds an entry, which does
+      not go stale.
+- [x] **`test_the_stated_service_count_is_the_measured_one` became
+      `test_services_yaml_is_described_without_a_count`.** It checks the
+      sentence still says who adds an entry and carries no digit. It was
+      falsified by putting "38 declared services" back into a copy: red,
+      then green on restore. `live_declared_services()` had no other
+      reader and was removed.
+
 ## Session 328: README's service count, 37 → 38 (2026-10-02)
 
 Session 327's next action. README only; no restart owed. Suite 4,469
@@ -19,7 +39,7 @@ the owner's redeploy (Session 327 block).
       was red. Line 124 is the README's only use of either figure.
 - [x] **README corrected 37 → 38.** `tests/test_readme_claims.py` is
       green, 30 of 30.
-- [ ] **Decide whether README should state `services.yaml`'s count at
+- [x] **Decide whether README should state `services.yaml`'s count at
       all.** It has drifted twice in a week, each time because another
       repository wrote `services.yaml` under the monitorable-project
       contract: 36 → 37 by `347a64a` (Session 322), 37 → 38 by `96fa8b8`.
@@ -27,7 +47,8 @@ the owner's redeploy (Session 327 block).
       quotes the total, so each new service costs a red suite and a
       session here. Options: replace the figure with the fact the
       sentence needs, or keep it and accept the drift. Found by
-      Session 328 and left as a second concern.
+      Session 328 and left as a second concern
+      *(Done 2026-10-02 by Session 329: README states no count.)*
 
 ## Session 327: the `Type=notify` rollback, written and rehearsed (2026-10-02)
 
