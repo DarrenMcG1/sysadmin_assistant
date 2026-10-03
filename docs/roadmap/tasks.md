@@ -8,6 +8,77 @@
 
 ---
 
+## Session 335: Steam's web view holds the dGPU awake at night (2026-10-03)
+
+Session 334's next action. Roadmap and handoff only; no code changed,
+no restart owed. A second witness run is scheduled for tonight.
+
+- [x] **The card never slept.** The witness log
+      (`dgpu-pin-witness-2026-10-03.jsonl`, 720 minutes) has both DP
+      connectors `disconnected` from 22:31 to 08:50, 620 minutes. In
+      those minutes `suspended_ms` totals 0, `status` is `active` in
+      every sample, and `longest_quiet_s` peaks at 1. So the rule that
+      needed a quiet run of 5 s or more never ran, and nothing outside
+      the witness's view is needed to explain the hold.
+- [x] **Two clients submitted work in every one of those minutes:
+      Xwayland (620 of 620, about 300 ms of engine time a minute) and
+      Steam's `steamwebhelper` (619 of 620, about 47 ms a minute).**
+      Nothing else was close. llama-server worked in 140 minutes (the
+      enrichment job). WebKitWebProces and the statlocker companion
+      appeared in about 97 minutes for under a second each. plasmashell,
+      spotify and Discord went quiet or had closed. That fits Session
+      324's open half: Wayland clients get no frame callbacks with the
+      outputs off, while X11 clients under Xwayland keep going.
+- [x] **Steam's own log gives the mechanism.** From 02:04 (the oldest
+      line left after log rotation) to 08:50:50, the webhelper wrote
+      `eglGetMscRateANGLE: glXGetMscRateOML failed` and `Calculated bogus
+      refresh interval=1.00… s` about once a second: 55,145 lines, 6,700
+      to 10,300 an hour (`~/.local/share/Steam/logs/webhelper-linux*.txt`,
+      pid 7022, alive since the 30 September boot). The last line comes
+      13 s before the witness first reads the monitors `On` (08:51:03).
+      With no output to time against, Xwayland gives X11 windows a 1 Hz
+      stand-in refresh. Steam's Chromium web view keeps drawing a frame
+      on every tick, and Xwayland copies each one. That is GPU work every
+      second, against a 5 s `autosuspend_delay_ms`.
+- [x] **Why the 27→28 September night slept although Steam was
+      running.** The Steam client (pid 12544) logged all through that
+      night. But Steam's retained GPU log (`webhelper_gpu.txt`) has 289
+      lines dated 27–28 September and only 1 vsync error. So Steam was
+      running and its web view was not drawing, most likely because its
+      window was closed to the tray. This is inferred: no record of the
+      window's state survives. Nights before 30 September cannot be
+      checked the same way: their `webhelper-linux` logs were rotated
+      away, apart from 721 matching lines on one night, 29 August.
+- [x] **What the card draws when held awake.** Taking `resource_snapshots`
+      rows at `gpu_percent` 0 between the monitors going off and coming
+      back: last night 83 rows, median 28 W (10th–90th percentile 15–32
+      W). The 27→28 September night: 78 rows, median 17 W. Those rows
+      are not suspended readings, though. Before Session 323's fix, the
+      poller woke the card to read it. **The suspended draw is
+      unmeasured.** Reading `hwmon` wakes the card, so finding the saving
+      needs a meter at the wall.
+- [x] **One more reading, not acted on.** Per minute, Xwayland's engine
+      time runs almost exactly opposite to llama-server's (r = −0.99,
+      against +0.16 with steamwebhelper). The likely reason is clock
+      speed: under LLM load the card clocks up, so the same copy uses
+      less engine time. It is not measured, so it is no basis for
+      reading engine milliseconds as work done.
+- [ ] **Read `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl`
+      (after 09:30 on 2026-10-04).** Transient
+      `sysadmin-dgpu-pin-witness.timer`, `OnCalendar=2026-10-03
+      21:30:00`, 12 h. It does not survive a reboot. The owner was asked
+      to close Steam's window to the tray, or quit Steam, before the
+      monitors go off. Steam's log tells you which state it was in: no
+      `bogus refresh interval` lines overnight means the web view stopped
+      drawing. If it stopped and `suspended_ms` grows while the monitors
+      are off, Steam is confirmed. Then the remedy is the owner's: close
+      Steam to the tray at night, or turn off GPU-accelerated rendering
+      in Steam's web views. If it stopped and the card still never
+      sleeps, Xwayland is serving another X11 client, so list who is
+      connected to the `/tmp/.X11-unix/X1` socket that night. If Steam
+      was left drawing, the night repeats this one and measures nothing
+      new.
+
 ## Session 334: alfred-glance declines the alert topic (2026-10-03)
 
 Session 333's next action. Roadmap and handoff only; no code changed.
@@ -405,8 +476,11 @@ roadmap only; no `sysadmin/` change, no restart owed.
       `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and
       the user journal. Linger is on. A transient unit does not survive
       a reboot.
-- [ ] **Read `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl`
-      (after 09:30 on 2026-10-03).** For the minutes where both DP
+- [x] **Read `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl`
+      (after 09:30 on 2026-10-03).** *(Read by Session 335: Steam's web
+      view, an X11 client, drew at Xwayland's 1 Hz stand-in refresh all
+      night, and Xwayland copied each frame. The card was never idle for
+      more than 1 s. See that block.)* For the minutes where both DP
       connectors read `disconnected`: if `suspended_ms` is 0 and one
       `comm` has `s` near 60, that client holds the card, and the fix is
       the owner's (close it at night, or move it to the iGPU). If
@@ -454,7 +528,9 @@ and mypy clean. Daemon restarted at 11:06:32 BST (`kill -TERM`).
 - [x] **Find out why the dGPU has not runtime-suspended since the
       kernel 7.2.7 boot.** *(Answered in part by Session 324: not the
       kernel, not the monitors. A desktop GPU client is the lead, and an
-      overnight witness is scheduled. See that block.)* Under 6.18 LTS it suspended 283 times in one
+      overnight witness is scheduled. See that block.)* *(Named by Session
+      335: Steam's web view under Xwayland. A second night's witness will
+      confirm it; see that block.)* Under 6.18 LTS it suspended 283 times in one
       night. Since 2026-09-28 11:49, `runtime_suspended_time` is 0 and
       no row reads `runtime-pm`. Overnight 02:00–05:00 today it averaged
       4–9 % busy at 21–51 W. Both monitors are on the dGPU (`card1`,

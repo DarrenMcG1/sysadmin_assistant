@@ -1,17 +1,30 @@
-# Handoff — 2026-10-03 (Session 334)
+# Handoff — 2026-10-03 (Session 335)
 
 ## Next action
 
-Read the overnight dGPU witness log and name what holds the card awake once the monitors are off (tasks.md, Session 324 block, last item). *(For: session)*
+Make the daemon announce an outage's end as well as its start (tasks.md, the unchecked item beginning "The daemon announces an outage's start"). *(For: session)*
 
-It was scheduled for after 09:30 today and the file is there:
-`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl`, written at
-09:30. The tasks.md item says how to read it: for the minutes where
-both DP connectors read `disconnected`, a single `comm` near 60 s with
-no suspend is the client holding the card. The owner's redeploy stays
-owed (below) and does not block this.
+It is the first unchecked item in tasks.md that a session can start now.
+The items above it are the owner's redeploy, tonight's dGPU witness
+(see Scheduled action), the CI Python pin, which still matches the box
+(3.12.12 both), and the `Type=notify` item, which Sessions 331 and 332
+built and which waits on that same redeploy. The item's own text says
+where the work is: the three resolve paths, not the notifier.
+
+## Scheduled action
+
+Read `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl` after
+09:30 on 2026-10-04 (tasks.md, Session 335 block, last item). A
+transient user timer starts it at 21:30 tonight and runs it for 12 h. A
+reboot cancels it. The item says how to read the result, including the
+case where Steam was left drawing, which measures nothing new.
 
 ## Owed by the owner
+
+**Tonight, before the monitors go off: close Steam's window to the tray,
+or quit Steam** *(For: owner, ~1 min)*. Session 335 found that Steam's
+web view keeps the dGPU awake all night; the block below gives the
+evidence. Tonight's witness can confirm it only if Steam is not drawing.
 
 `sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
 *(For: owner, ~2 min)*. This now arms the watchdog as well as
@@ -24,6 +37,42 @@ the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
 which compares bytes, stays red. The restart is also the one `96fa8b8`
 already owes so the daemon watches venture-manager's backup timer, and
 it loads Session 333's off-loop advice routes.
+
+## Session 335: Steam's web view holds the dGPU awake at night
+
+Session 334's next action. No code changed. Last night's witness log
+covers 620 minutes with both monitors off. In that time the card never
+suspended, and no stretch longer than 1 s passed without some client
+giving it work. Two clients worked in every one of those minutes:
+Xwayland and Steam's `steamwebhelper`. Steam's own log explains why.
+From 02:04 to 08:50:50 its web view logged a "bogus refresh interval"
+of 1.0 s about once a second, 55,145 lines, and stopped 13 s before the
+monitors came back. With no monitor to time against, Xwayland gives X11
+windows a 1 Hz stand-in refresh. Steam's Chromium web view draws a frame
+on every tick and Xwayland copies it, so the card is never idle for the
+5 s it needs before suspending.
+
+Decided: the cause is named as Steam on this evidence, and one more
+night confirms it rather than finding it. On the one night the card did
+sleep (27→28 September), the Steam client was running. Its GPU log for
+that night holds only 1 vsync error, though, so its web view was not
+drawing. That points to Steam's window state, which nothing records.
+Rejected: blaming Xwayland itself. Its work is copying frames for X11
+clients, and Steam was the only X11 client giving the card work every
+second.
+
+The card's draw held awake at zero busy was a median of 28 W last
+night. The suspended draw is unmeasured, because reading `hwmon` wakes
+the card. A meter at the wall is the only way to find the saving.
+
+Tonight's witness is scheduled (above). Nothing is blocked. Estate
+messages `a0eec7fa` (venture-manager's timer entry, which the owed
+restart covers) and `653e9ae9` (whether to judge estate-manager's
+`publish_errors`) are still open and were not touched.
+
+## What Session 334 handed on (done by Session 335)
+
+Read the overnight dGPU witness log and name what holds the card awake once the monitors are off (tasks.md, Session 324 block, last item). *(For: session)*
 
 ## Session 334: alfred-glance declines the alert topic
 

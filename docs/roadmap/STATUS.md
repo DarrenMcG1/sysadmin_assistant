@@ -1,7 +1,20 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-10-02
+**Last Updated**: 2026-10-03
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **Found what keeps the graphics card awake all night: Steam's
+> built-in web view** (2026-10-03, Session 335). With both monitors off
+> from 22:31 to 08:50, the card never powered down. It was never idle
+> for more than 1 second, and it needs 5 seconds idle before it suspends.
+> With no monitor attached, the X11 compatibility layer gives windows a
+> stand-in refresh of once a second. Steam's web view drew a frame on
+> every tick, about 55,000 times, and logged each one as a "bogus refresh
+> interval". On the one recent night the card did sleep, Steam was
+> running but its web view was not drawing. Held awake and idle, the
+> card drew a median of 28 W. A second night's measurement is scheduled
+> for tonight; it confirms the finding only if Steam's window is closed
+> to the tray or Steam is quit.
 
 > **The slow service-advice page no longer freezes the monitor's
 > request loop** (2026-10-02, Session 333). That page took up to
@@ -7974,6 +7987,14 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 335 — Steam's web view holds the dGPU awake at night (2026-10-03)
+
+- The overnight witness log shows 620 monitors-off minutes with no
+  suspend and no gap over 1 s. Xwayland and `steamwebhelper` submitted
+  work in every minute. Steam's log holds 55,145 lines reporting a 1.0 s
+  refresh interval, and they stop 13 s before the monitors return.
+  Tonight's witness is scheduled to confirm the finding.
 
 ### Session 329 — README states no count for `services.yaml` (2026-10-02)
 
