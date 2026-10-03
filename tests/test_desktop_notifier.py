@@ -453,6 +453,12 @@ class _FakeSession:
         #: semantics, so which columns the real ``ON CONFLICT`` actually
         #: updates is a question only the statement can answer.
         self.insert_sql: list[str] = []
+        #: title -> when its row closed, in seconds — what
+        #: ``_closed_since`` reads ``resolved_at`` for. Separate from
+        #: ``still_open`` because the two questions differ: a title can be
+        #: absent from the open set and have closed long before the sweep
+        #: looked, which is the whole of recovery rule 2.
+        self.closed_at: dict[str, float] = {}
 
     # the two context-manager halves ``async with factory()`` needs
     async def __aenter__(self):
@@ -493,6 +499,19 @@ class _FakeSession:
                 # a stale row is still there and pass.
                 self.rows[row["title"]] = row
             return MagicMock()
+        if len(stmt.column_descriptions) == 1:
+            # `_closed_since`: one column, the titles whose row closed at
+            # or after the watermark. Filtered off the compiled statement
+            # for the adoption scan's reason — the bound is the SQL's.
+            self.queries.append("closed_since")
+            params = stmt.compile().params
+            asked = set(params["title_1"])
+            since = params["resolved_at_1"].timestamp()
+            result = MagicMock()
+            result.__iter__ = lambda _self: iter(
+                [(title,) for title, at in self.closed_at.items() if title in asked and at >= since]
+            )
+            return result
         if len(stmt.column_descriptions) == 2:
             # `_still_open`: title and severity, one row per open alert.
             # Told apart from the adoption scan by its shape rather than
@@ -639,7 +658,12 @@ class TestTheRepeatPath:
         send.assert_not_awaited()
 
     async def test_a_fault_that_cleared_is_dropped_and_never_restated(self):
-        """The resolve is what stops a reminder, since nothing announces one."""
+        """The resolve is what stops a reminder.
+
+        No ``closed_at`` for the title, so the fake reports the row closed
+        before the sweep last looked — a stale clear, pruned silently.
+        ``TestRecovery`` drives the fresh one.
+        """
         clock = _Clock()
         desktop, _, still_open = sweeper(clock)
         await announce(desktop)
@@ -914,9 +938,266 @@ class TestTheRepeatPath:
             assert await desktop.sweep_reminders() == 0
 
         send.assert_not_awaited()
-        # Not even the load: a disabled interval is answered from config
-        # before the store is reached.
-        assert session.queries[before:] == []
+        # The open check still runs — it is the recovery path's, and
+        # ``reminder_hours`` says nothing about whether an ending is news
+        # (``TestRecovery.test_zero_reminder_hours_still_announces_an_ending``).
+        # Adoption is the reminder's and does not.
+        assert "adopt" not in session.queries[before:]
+        assert "still_open" in session.queries[before:]
+
+
+class TestRecovery:
+    """The ending of an outage this daemon announced is announced too.
+
+    Keyed on the spoken set and the alert row rather than on
+    ``alert.resolved``, whose producers publish match patterns and which
+    four of the ten resolve writes never publish at all. See the module docstring's
+    three recovery rules.
+    """
+
+    async def _closed_now(self, desktop, session, still_open, title="venture-chat unreachable"):
+        still_open.remove(title)
+        # A closed title stops being adoptable too — the scan reads open rows.
+        session.adoptable[:] = [row for row in session.adoptable if row[0] != title]
+        session.closed_at[title] = desktop._clock()
+
+    async def test_a_fault_that_closed_since_the_last_look_is_announced(self):
+        clock = _Clock()
+        desktop, session, still_open = sweeper(clock)
+        await announce(desktop)
+
+        clock.advance_hours(3)
+        await self._closed_now(desktop, session, still_open)
+        clock.advance_hours(0.05)
+        with wired(), patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send:
+            # The return value is the reminders' count, which this is not.
+            assert await desktop.sweep_reminders() == 0
+
+        send.assert_awaited_once()
+        severity, title, body = send.await_args.args
+        assert title == "Recovered: venture-chat unreachable"
+        assert body == "Cleared within 3 hours of the first alert"
+        # Sent at the recovery rung, not the fault's: a critical's
+        # persist-until-dismissed would pin good news to the screen.
+        assert severity == "warning"
+        assert desktop._spoken == {}
+        assert session.deleted == ["venture-chat unreachable"]
+
+    async def test_a_clear_during_the_trays_watch_is_not_news_when_it_leaves(self):
+        """Rule 2's reason. A watching tray stops the sweep pruning, so the
+        fault is still in the spoken set when the tray leaves — and its row
+        closed while something else was speaking."""
+        clock = _Clock()
+        desktop, session, still_open = sweeper(clock)
+        await announce(desktop)
+
+        clock.advance_hours(1)
+        await self._closed_now(desktop, session, still_open)
+        clock.advance_hours(0.05)
+        with wired(watching=True):
+            await desktop.sweep_reminders()
+        assert "venture-chat unreachable" in desktop._spoken  # not pruned
+
+        clock.advance_hours(48)
+        with wired(), patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send:
+            await desktop.sweep_reminders()
+
+        send.assert_not_awaited()
+        assert desktop._spoken == {}
+
+    async def test_the_same_clear_with_no_watch_between_is_announced(self):
+        """The witness for the test above: one variable, the watching sweep."""
+        clock = _Clock()
+        desktop, session, still_open = sweeper(clock)
+        await announce(desktop)
+
+        clock.advance_hours(1)
+        await self._closed_now(desktop, session, still_open)
+        clock.advance_hours(48.05)
+        with wired(), patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send:
+            await desktop.sweep_reminders()
+
+        send.assert_awaited_once()
+
+    async def test_a_restored_fault_that_closed_before_this_process_is_silent(self):
+        """The live store on 2026-10-03: 5 of 5 rows for alerts already
+        closed. The first tray-absent sweep after a deploy must prune them,
+        not open with "5 faults recovered" about days-old news."""
+        clock = _Clock()
+        titles = [f"closed long ago {i}" for i in range(5)]
+        desktop, session, _ = sweeper(
+            clock,
+            [],
+            stored=[stored_row(t, episode_started_at=0.0, last_spoken_at=0.0) for t in titles],
+        )
+        for title in titles:
+            session.closed_at[title] = clock.now - 86400
+
+        clock.advance_hours(0.05)
+        with wired(), patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send:
+            await desktop.sweep_reminders()
+
+        send.assert_not_awaited()
+        assert sorted(session.deleted) == titles
+
+    async def test_two_recoveries_fold_into_one(self):
+        clock = _Clock()
+        desktop, session, still_open = sweeper(clock, ["b fault", "a fault"])
+        await announce(desktop, title="b fault")
+        await announce(desktop, title="a fault")
+
+        clock.advance_hours(1)
+        await self._closed_now(desktop, session, still_open, "a fault")
+        await self._closed_now(desktop, session, still_open, "b fault")
+        clock.advance_hours(0.05)
+        with wired(), patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send:
+            await desktop.sweep_reminders()
+
+        send.assert_awaited_once()
+        _, title, body = send.await_args.args
+        assert title == "2 faults recovered"
+        assert body == "• a fault\n• b fault"
+
+    async def test_a_fault_adopted_and_never_restated_ends_silently(self):
+        """Rule 3: only what was said gets an ending."""
+        title = "something the tray spoke for"
+        clock = _Clock()
+        desktop, session, still_open = sweeper(
+            clock, [title], adoptable=[(title, clock.now - 60, ["critical"])]
+        )
+        # Adopted just past the grace window, so nearly a full interval
+        # from due — never restated.
+        with wired(absent_hours=0.1), patch.object(desktop, "send", new=AsyncMock()) as send:
+            await desktop.sweep_reminders()
+        send.assert_not_awaited()
+        assert desktop._spoken[title].adopted is True
+
+        clock.advance_hours(1)
+        await self._closed_now(desktop, session, still_open, title)
+        clock.advance_hours(0.05)
+        with wired(absent_hours=1), patch.object(desktop, "send", new=AsyncMock()) as send:
+            await desktop.sweep_reminders()
+
+        send.assert_not_awaited()
+        assert desktop._spoken == {}
+
+    async def test_a_fault_adopted_and_restated_does_get_its_ending(self):
+        title = "something the tray spoke for"
+        clock = _Clock()
+        desktop, session, still_open = sweeper(
+            clock, [title], adoptable=[(title, clock.now - 3600, ["critical"])]
+        )
+        clock.advance_hours(48)
+        with (
+            wired(absent_hours=48),
+            patch.object(desktop, "send", new=AsyncMock(return_value=True)),
+        ):
+            assert await desktop.sweep_reminders() == 1
+
+        clock.advance_hours(1)
+        await self._closed_now(desktop, session, still_open, title)
+        clock.advance_hours(0.05)
+        with (
+            wired(absent_hours=49),
+            patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send,
+        ):
+            await desktop.sweep_reminders()
+
+        send.assert_awaited_once()
+        assert send.await_args.args[1] == f"Recovered: {title}"
+
+    @pytest.mark.parametrize("dnd, landed", [(True, True), (False, False)])
+    async def test_a_held_or_failed_recovery_is_dropped_not_retried(self, dnd, landed):
+        """A reminder keeps a clock; an ending an hour late is history."""
+        clock = _Clock()
+        desktop, session, still_open = sweeper(clock)
+        await announce(desktop)
+
+        clock.advance_hours(1)
+        await self._closed_now(desktop, session, still_open)
+        clock.advance_hours(0.05)
+        with wired(dnd=dnd), patch.object(desktop, "send", new=AsyncMock(return_value=landed)):
+            await desktop.sweep_reminders()
+
+        clock.advance_hours(0.05)
+        with wired(), patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send:
+            await desktop.sweep_reminders()
+        send.assert_not_awaited()
+
+    async def test_an_unreadable_open_check_keeps_the_watermark(self):
+        """The next sweep that can read still covers the blind interval."""
+        clock = _Clock()
+        desktop, session, still_open = sweeper(clock)
+        await announce(desktop)
+
+        clock.advance_hours(1)
+        await self._closed_now(desktop, session, still_open)
+        clock.advance_hours(0.05)
+        original = session.execute
+        session.execute = AsyncMock(side_effect=RuntimeError("connection reset"))
+        with wired(), patch.object(desktop, "send", new=AsyncMock()) as send:
+            await desktop.sweep_reminders()
+        send.assert_not_awaited()
+
+        session.execute = original
+        clock.advance_hours(0.05)
+        with wired(), patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send:
+            await desktop.sweep_reminders()
+        send.assert_awaited_once()
+
+    async def test_a_raised_threshold_silences_an_ending(self):
+        """min_severity is re-read, as it is for a reminder."""
+        clock = _Clock()
+        desktop, session, still_open = sweeper(clock, ["a warning"])
+        await announce(desktop, title="a warning", severity="warning")
+
+        clock.advance_hours(1)
+        await self._closed_now(desktop, session, still_open, "a warning")
+        clock.advance_hours(0.05)
+        config = DesktopNotificationsConfig(min_severity="critical")
+        with wired(config=config), patch.object(desktop, "send", new=AsyncMock()) as send:
+            await desktop.sweep_reminders()
+
+        send.assert_not_awaited()
+
+    async def test_zero_reminder_hours_still_announces_an_ending(self):
+        clock = _Clock()
+        desktop, session, still_open = sweeper(clock)
+        await announce(desktop)
+
+        clock.advance_hours(1)
+        await self._closed_now(desktop, session, still_open)
+        clock.advance_hours(0.05)
+        config = DesktopNotificationsConfig(reminder_hours=0)
+        with (
+            wired(config=config),
+            patch.object(desktop, "send", new=AsyncMock(return_value=True)) as send,
+        ):
+            await desktop.sweep_reminders()
+
+        send.assert_awaited_once()
+
+    async def test_the_freshness_read_is_bounded_by_the_titles_and_the_watermark(self):
+        """Both bounds are in the SQL — the fake reads them back off the
+        compiled statement, so a query that dropped either would hand the
+        notifier every closed row of those titles ever written."""
+        clock = _Clock()
+        desktop, session, _ = sweeper(clock)
+        captured = []
+        original = session.execute
+
+        async def spy(stmt, *a, **k):
+            if len(stmt.column_descriptions) == 1:
+                captured.append(str(stmt.compile()))
+            return await original(stmt, *a, **k)
+
+        session.execute = spy
+        with wired():
+            await desktop._closed_since({"x"}, clock.now)
+
+        assert len(captured) == 1
+        assert "alerts.title IN" in captured[0]
+        assert "alerts.resolved_at >=" in captured[0]
 
 
 class TestTheSweepFailsClosed:

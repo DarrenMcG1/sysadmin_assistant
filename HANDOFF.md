@@ -1,15 +1,17 @@
-# Handoff — 2026-10-03 (Session 335)
+# Handoff — 2026-10-03 (Session 336)
 
 ## Next action
 
-Make the daemon announce an outage's end as well as its start (tasks.md, the unchecked item beginning "The daemon announces an outage's start"). *(For: session)*
+Make the tray identify itself when it polls the alerts route, so only the tray counts as watching (tasks.md, the item beginning "The presence signal cannot tell"). *(For: session)*
 
 It is the first unchecked item in tasks.md that a session can start now.
-The items above it are the owner's redeploy, tonight's dGPU witness
-(see Scheduled action), the CI Python pin, which still matches the box
-(3.12.12 both), and the `Type=notify` item, which Sessions 331 and 332
-built and which waits on that same redeploy. The item's own text says
-where the work is: the three resolve paths, not the notifier.
+The items above it are unchanged from Session 335's list: the owner's
+redeploy, tonight's dGPU witness, the CI Python pin, and the
+`Type=notify` item that waits on the redeploy. The item was deferred
+because an older tray build would go unrecognised and both would toast.
+Check that reason first: the tray runs from this checkout and restarts
+at login, so an "older build" may only mean a tray process not yet
+restarted, which a deploy note can cover.
 
 ## Scheduled action
 
@@ -31,7 +33,42 @@ rollback is written above `Type=` in `systemd/sysadmin.service`. Until
 the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
 which compares bytes, stays red. The restart is also the one `96fa8b8`
 already owes so the daemon watches venture-manager's backup timer, and
-it loads Session 333's off-loop advice routes.
+it loads Session 333's off-loop advice routes and Session 336's recovery
+notices.
+
+## Session 336: the daemon announces an outage's end
+
+Session 335's next action. When the tray is not running, the daemon's
+desktop notifier now says "Recovered: <title>" once an alert it
+announced closes, from its existing reminder sweep
+(`sysadmin/monitor/desktop.py`, `_announce_recoveries`). No restart
+was done here; it takes effect at the owner's restart already owed.
+
+Decided: the recovery is keyed on the notifier's own durable record of
+what it announced (`desktop_notifications`) and on the alert row, not on
+the `alert.resolved` event. Rejected: the item's own plan of making the
+resolve paths name their subject. The notifier already had the subject,
+and the event is not published by four of the ten writes that close
+an alert, including every resource alert's.
+
+Decided: a clear is announced only if the row's `resolved_at` is newer
+than the sweep's previous look. This is required, not polish. While the
+tray watches, the sweep does not prune, and on the live box all 5 rows
+in `desktop_notifications` were for alerts already closed. So the first
+sweep after the restart, if the tray is away, prunes those 5 silently.
+Expect no burst; one would mean this check is broken.
+
+Decided: a fault adopted from the tray and never restated ends
+silently, and a held or failed recovery is not retried. Not built: a
+config switch to turn recovery off. Nobody asked for one, and it would
+be a new key the tray's config report must know about.
+
+The full suite has one red, `test_every_installed_system_unit_is_the_tracked_one`,
+which is the owner's redeploy above, not this change.
+
+## What Session 335 handed on (done by Session 336)
+
+Make the daemon announce an outage's end as well as its start (tasks.md, the unchecked item beginning "The daemon announces an outage's start"). *(For: session)*
 
 ## Session 335: Steam's web view holds the dGPU awake at night
 

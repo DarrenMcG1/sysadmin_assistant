@@ -31,8 +31,18 @@ Three rules it encodes, each measured rather than assumed:
    a domain, and `_queue_event` buffers until the run's transaction
    commits — so the notifier's query cannot race the insert it reacts to.
 
-Recovery is deliberately **not** announced: `alert.resolved` carries a
-match pattern (`"Project % health critical"`), not a subject.
+**Recovery is announced, from the sweep and not from `alert.resolved`**
+(2026-10-03). It was deliberately silent until then, on the reading that
+a recovery toast needed the resolve event to name its subject, and every
+producer publishes a match pattern instead. The subject was already in
+the spoken set; the event was never needed, and would have been
+incomplete — four of the ten writes that close an alert publish nothing. The sweep announces a
+fault it spoke for once its row closes, **only if the row's
+`resolved_at` is newer than the sweep's previous look** (a watching tray
+stops pruning, and 5 of 5 stored rows were for closed alerts when this
+was written), and never for a fault adopted and not yet restated. The
+three rules and their measurements are in `sysadmin/monitor/desktop.py`'s
+module docstring.
 
 **A detected fault has to keep speaking, and the ladder that makes it do
 so lives in `core`** (Session 39). `sysadmin/core/escalation.py` owns

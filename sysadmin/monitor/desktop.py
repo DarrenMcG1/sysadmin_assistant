@@ -115,12 +115,42 @@ Six rules, four of them the opposite of the obvious implementation:
    :meth:`DesktopNotifier._adopt` for the bound, the ordering and why
    the two faces turn out to be multiplicative rather than independent.
 
-**Recovery is deliberately not announced.**  ``alert.resolved`` carries
-a *match pattern* rather than a subject — ``"Project % health critical"``
-for the project organiser — so two of the three producers would publish
-something that reads as gibberish on a desktop.  Announcing the start of
-an outage and never its end is a real gap and is recorded as one rather
-than papered over with a pattern string.
+**An outage this daemon announced is announced again when it ends** —
+:meth:`DesktopNotifier._announce_recoveries`, called from the sweep.
+Until 2026-10-03 recovery was deliberately silent, on the reading that
+it needed ``alert.resolved`` to name what recovered, and every producer
+of that event publishes a *match pattern* (``"recovered"``,
+``"went quiet"``, ``"Estate port %"``) rather than a subject.  The
+reading was wrong about where the subject lives, and three rules follow
+from correcting it, each the opposite of the obvious implementation:
+
+1. **The subject is already here; the event was never needed.**  Rule 5
+   made the spoken set durable, so this module holds the exact titles it
+   announced, and the sweep already notices when one of them stops being
+   open — that is how ``_spoken`` has always been pruned.  Subscribing
+   to ``alert.resolved`` instead would also have been *incomplete*: it
+   is published by six resolve sites, and four more writes set
+   ``resolved`` with no event at all (the monitor's
+   ``_resolve_alert_ids``, which closes every resource alert, its two
+   escalation swaps, and ``resolve_unit_failures`` at startup).  Only
+   the row sees every write that closes it.
+2. **A clear is announced only if the row closed since the sweep last
+   looked**, which costs one read of ``resolved_at`` — and is not
+   optional.  A watching tray stops the sweep pruning (rule 2 returns
+   first), so the store can hold faults that closed days ago: measured
+   on 2026-10-03, **5 of 5** rows in ``desktop_notifications`` were for
+   alerts no longer open.  Announcing at prune time would have opened
+   the first tray-absent sweep after this deploy with "5 faults
+   recovered" about days-old news.  The watermark is the previous
+   sweep, any sweep, because a sweep that met a watching tray handed
+   that interval to the tray; it starts at process start, so a clear
+   the previous process saw is never this one's news.
+3. **Only what was said gets an ending.**  A fault adopted under rule 6
+   and never yet restated was never spoken for by this daemon, so its
+   clear is pruned silently — a "recovered" toast for an outage nobody
+   heard begin is the noise this module exists to avoid.  A failed or
+   DND-held recovery is dropped rather than retried: unlike a reminder
+   it has no clock to keep, and a recovery an hour late is history.
 
 **The transport is ``notify-send``, not D-Bus directly.**  The backend
 has no Qt and no D-Bus dependency (both live in the ``tray`` extra), and
@@ -187,6 +217,15 @@ _ROLLUP_THRESHOLD = 2
 
 #: Titles named inside a roll-up before it starts counting instead.
 _MAX_LISTED_TITLES = 5
+
+#: The rung a recovery is *sent* at, whatever the fault's own rung was.
+#: ``warning`` maps to the ``normal`` urgency and a ten-second expiry:
+#: ``critical`` would pin good news to the screen until dismissed, and
+#: ``low`` urgency is the one a desktop is allowed to keep out of the
+#: popups — Plasma, this box's desktop, has a ``LowPriorityPopups``
+#: setting for exactly that — so an ``info`` recovery could land in the
+#: history and be seen by nobody.
+_RECOVERY_RUNG = "warning"
 
 #: The most standing faults the sweep will **adopt** — carry without
 #: having announced them (rule 6).  Derived by reuse rather than
@@ -337,9 +376,9 @@ class DesktopNotifier:
     consistent view rather than racing the insert it is reacting to.
 
     :meth:`sweep_reminders` is the other entry point, called on a
-    schedule so that a fault announced once and still open is restated —
-    see the module docstring for why that could not be a call from an
-    agent.
+    schedule so that a fault announced once and still open is restated,
+    and one announced and since closed is announced as recovered — see
+    the module docstring for why neither could be a call from an agent.
     """
 
     def __init__(self, session_factory=None, clock: Callable[[], float] | None = None) -> None:
@@ -367,6 +406,12 @@ class DesktopNotifier:
         #: suppresses adoption — rule 6 must not run against a spoken set
         #: it knows to be incomplete.
         self._loaded = False
+        #: When the sweep last looked — the watermark a clear must be
+        #: newer than to be announced as a recovery (module docstring,
+        #: recovery rule 2).  Starts at construction, which is process
+        #: start, so a store restored from a previous process cannot
+        #: announce a clear that process already saw.
+        self._looked_at: float = self._clock()
 
     # ── the subscriber ────────────────────────────────────────────
 
@@ -498,8 +543,12 @@ class DesktopNotifier:
     async def sweep_reminders(self) -> int:
         """Restate every fault this process announced that is still open.
 
+        And announce the end of every one that has closed since the last
+        sweep — the recovery path, which lives here rather than on
+        ``alert.resolved`` for the reasons in the module docstring.
         Scheduled as ``desktop_reminder_sweep``; returns how many faults
-        were restated, which is what the log line carries.  Never raises,
+        were restated, which is what the log line carries — recoveries
+        log their own ``desktop_recovery_sent`` line.  Never raises,
         for :meth:`on_alert_raised`'s reason one layer over: a scheduled
         job that throws is a job APScheduler stops trusting, and the
         failure it would be reporting is a notification that did not
@@ -513,13 +562,16 @@ class DesktopNotifier:
 
     async def _sweep(self) -> int:
         now = self._clock()
+        # The previous look, taken before anything can return: every
+        # exit below except an unreadable database moves the watermark,
+        # because each one has decided that interval — a disabled
+        # notifier or a watching tray as surely as a sweep that read the
+        # table (recovery rule 2).
+        since = self._looked_at
 
         config = get_config().notifications.desktop
         if not config.enabled:
-            return 0
-
-        interval = config.reminder_hours * 3600
-        if interval <= 0:
+            self._looked_at = now
             return 0
 
         # Rule 5, and it has to come **before** the tray gate.  A
@@ -553,22 +605,37 @@ class DesktopNotifier:
             # cannot act on it, because a reminder needs the tray absent
             # and this same gate corrects the stamp on the first sweep
             # after the restart, inside one grace window.
+            #
+            # The watermark moves too, and that is what keeps a clear
+            # during the tray's watch from being announced the moment it
+            # leaves: this branch does not prune, so the fault is still
+            # here then, but its row closed before this stamp.
             for fault in self._spoken.values():
                 fault.last_spoken_at = now
+            self._looked_at = now
             return 0
 
         if self._spoken:
             still_open = await self._still_open(set(self._spoken))
             if still_open is None:
-                return 0  # unreadable database → silence, as gate 2 does
+                # Unreadable database → silence, as gate 2 does.  The
+                # watermark stays put, so the next sweep that can read
+                # still covers this interval's clears.
+                return 0
 
-            cleared = set(self._spoken) - set(still_open)
-            for title in cleared:
-                # The fault cleared.  Dropping it means a recurrence
-                # months later is announced as news by gate 2 rather than
-                # arriving as a reminder of something already fixed.
-                del self._spoken[title]
-            await self._forget(cleared)
+            # The fault cleared.  Dropping it means a recurrence months
+            # later is announced as news by gate 2 rather than arriving as
+            # a reminder of something already fixed.  ``pop`` with a
+            # default, because ``on_alert_raised`` runs on the API loop
+            # and this on a scheduler thread.
+            cleared: list[_SpokenFault] = []
+            for title in set(self._spoken) - set(still_open):
+                gone = self._spoken.pop(title, None)
+                if gone is not None:
+                    cleared.append(gone)
+            await self._forget(fault.title for fault in cleared)
+            if cleared:
+                await self._announce_recoveries(cleared, since, now, config)
             # The row's rung, not the one this process announced
             # (SNAG-ESTATE-010). Taken unconditionally rather than only
             # when it fell: an escalation has already replaced the whole
@@ -581,6 +648,15 @@ class DesktopNotifier:
                 spoken = self._spoken.get(title)
                 if spoken is not None:
                     spoken.severity = rung
+
+        self._looked_at = now
+
+        # Below the recovery path rather than at the top, where it sat
+        # until recovery arrived: ``reminder_hours`` is the reminder's
+        # interval and says nothing about whether an ending is news.
+        interval = config.reminder_hours * 3600
+        if interval <= 0:
+            return 0
 
         threshold = SEVERITY_LEVELS.get(config.min_severity, 1)
 
@@ -953,6 +1029,99 @@ class DesktopNotifier:
             extra={"title": fault.title, "reminders_sent": fault.reminders_sent},
         )
         return 1
+
+    # ── the ending ────────────────────────────────────────────────
+
+    async def _announce_recoveries(
+        self, cleared: list[_SpokenFault], since: float, now: float, config: Any
+    ) -> int:
+        """Say that faults this daemon spoke for have closed.  Returns how many.
+
+        *cleared* has already left the spoken set and the store, so every
+        exit here is final: a recovery that is not news, not ours, held by
+        DND or not landed is simply not said (module docstring, recovery
+        rules 2 and 3).  The gates run cheapest first, and the one read
+        runs only for faults that survived the others.
+        """
+        threshold = SEVERITY_LEVELS.get(config.min_severity, 1)
+        candidates = [
+            fault
+            # Sorted, as the reminder roll-up is: *cleared* came out of a
+            # set difference, and a toast should not reorder between runs.
+            for fault in sorted(cleared, key=lambda f: f.title)
+            # Rule 3: a fault adopted and never restated was never said.
+            if (not fault.adopted or fault.reminders_sent > 0)
+            # The row's last rung, kept current by every sweep that saw
+            # the fault open — a fault quietened below the threshold
+            # stopped being one this daemon speaks about, ending included.
+            and SEVERITY_LEVELS.get(fault.severity, 0) >= threshold
+            and not dnd_manager.should_suppress(fault.severity)
+        ]
+        if not candidates:
+            return 0
+
+        fresh = await self._closed_since({fault.title for fault in candidates}, since)
+        recovered = [fault for fault in candidates if fault.title in fresh]
+        if not recovered:
+            return 0
+
+        if len(recovered) >= _ROLLUP_THRESHOLD:
+            lines = [f"• {fault.title}" for fault in recovered[:_MAX_LISTED_TITLES]]
+            if len(recovered) > _MAX_LISTED_TITLES:
+                lines.append(f"…and {len(recovered) - _MAX_LISTED_TITLES} more")
+            title = f"{len(recovered)} faults recovered"
+            body = "\n".join(lines)
+        else:
+            fault = recovered[0]
+            # "Within", because the clear happened somewhere between the
+            # previous sweep and this one — the age is an upper bound by
+            # up to one sweep interval, and the sentence says so.
+            age = humanise_hours(max(0.0, now - fault.episode_started_at) / 3600)
+            title = f"Recovered: {fault.title}"
+            body = f"Cleared within {age} of the first alert"
+
+        if not await self.send(_RECOVERY_RUNG, title, body):
+            return 0
+        logger.info(
+            "desktop_recovery_sent",
+            extra={"count": len(recovered), "titles": [f.title for f in recovered]},
+        )
+        return len(recovered)
+
+    async def _closed_since(self, titles: set[str], since: float) -> set[str]:
+        """Which of *titles* had a row close at or after *since*.
+
+        **A sequential scan, measured and accepted.**  Neither partial
+        index on ``alerts`` covers a closed row, and the read is over
+        ``resolved_at``: live against 652,995 rows it is **24 ms and
+        41,652 buffers**.  It runs only when a fault this daemon spoke
+        for has closed and passed every cheaper gate — a handful a week —
+        so an index to serve it would cost every insert into the busiest
+        table on the box to save a fraction of a second a week.
+
+        An unreadable database answers **nothing is fresh**, silence, for
+        :meth:`_is_new_incident`'s reason: the faults have already left
+        the spoken set, and the cost of the quiet direction is one
+        recovery not said.
+        """
+        factory = self._factory()
+        if factory is None:
+            return set()
+
+        try:
+            async with factory() as session:
+                rows = await session.execute(
+                    select(Alert.title)
+                    .where(
+                        Alert.title.in_(titles),
+                        Alert.resolved_at >= datetime.fromtimestamp(since, UTC),
+                    )
+                    .distinct()
+                )
+                return {title for (title,) in rows}
+        except Exception:  # noqa: BLE001 - a blip must not become a storm
+            logger.exception("desktop_recovery_check_failed")
+            return set()
 
     # ── the transport ─────────────────────────────────────────────
 

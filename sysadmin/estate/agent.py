@@ -420,9 +420,9 @@ class EstateJudgeAgent(BaseAgent):
         )
         # One event for the batch, carrying a match rather than a subject
         # — the shape `BaseAgent.resolve_alerts` and the log aggregator
-        # both emit. Recovery is deliberately not announceable from it:
-        # `sysadmin/monitor/desktop.py` speaks `alert.raised` only, and a
-        # resolved event naming its subject is what would let it start.
+        # both emit. Nothing announces a recovery from it:
+        # `sysadmin/monitor/desktop.py` reads the closed row itself on its
+        # sweep, which needs no subject here (its module docstring).
         self._queue_event(
             "alert.resolved",
             {

@@ -418,10 +418,13 @@ class NotificationPolicy:
            :meth:`backend_reachable` owns it.  Letting an alerts payload
            close it would make a question about reachability answerable
            by the surface that cannot be read while it is open.
-        5. **Recovery is not announced**, matching the daemon's rule for
-           ``alert.resolved``.  The icon already goes green within one
-           poll, and a second toast per restart is the noise this whole
-           derivation exists to avoid.
+        5. **Recovery is not announced.**  The icon already goes green
+           within one poll, and a second toast per restart is the noise
+           this whole derivation exists to avoid.  (This said "matching
+           the daemon's rule" until 2026-10-03, when the daemon began
+           announcing the end of an alert it had announced; the reason
+           here was always the tray's own, and this is a reachability
+           episode rather than an alert row.)
 
         The honest cost, filed rather than implied: the state is in
         memory, so a tray restart re-opens the episode and re-speaks

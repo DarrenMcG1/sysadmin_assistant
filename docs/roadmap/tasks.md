@@ -8,6 +8,43 @@
 
 ---
 
+## Session 336: the daemon announces an outage's end (2026-10-03)
+
+Session 335's next action. Code in `sysadmin/monitor/desktop.py` and its
+tests. Takes effect at the owner's restart already owed.
+
+- [x] **The understudy now announces the end of an outage it announced.**
+      `DesktopNotifier._announce_recoveries`, called from the reminder
+      sweep: "Recovered: <title>", body "Cleared within <age> of the
+      first alert", sent at the `warning` rung (normal urgency, 10 s).
+      Two or more fold into one "N faults recovered" toast.
+- [x] **Not built the way the item said, and why.** The item asked for
+      the resolve paths to name their subject in `alert.resolved`. The
+      notifier already holds the subject: since the spoken set went
+      durable it knows exactly which titles it announced, and the sweep
+      already notices when one stops being open. The event route would
+      also have been incomplete: six sites publish `alert.resolved`, and
+      four more writes set `resolved` with no event at all (the monitor's
+      `_resolve_alert_ids` for every resource alert, its two escalation
+      swaps, and `resolve_unit_failures`). No producer changed.
+- [x] **A clear is announced only if the row's `resolved_at` is newer
+      than the sweep's previous look.** A watching tray stops the sweep
+      pruning, so the store keeps faults that closed long ago: on the live
+      box all 5 rows in `desktop_notifications` were for alerts no longer
+      open. Without this check the first tray-absent sweep after the
+      deploy would have opened with "5 faults recovered" about old news.
+      The read is a sequential scan (24 ms, about 41,600 buffers on
+      652,995 rows) that runs only when a spoken fault has closed.
+- [x] **A fault adopted and never restated ends silently**, since this
+      daemon never spoke for it. A DND-held or failed recovery is dropped,
+      not retried. `reminder_hours: 0` no longer stops the sweep before
+      the open check, so it disables reminders and adoption but not
+      recovery.
+- [x] **Tests**: `TestRecovery`, 13 cases, in
+      `tests/test_desktop_notifier.py`. Four mutations were each caught:
+      no freshness check, the watching branch not moving the watermark,
+      no "was it said" check, and a database error moving the watermark.
+
 ## Session 335: Steam's web view holds the dGPU awake at night (2026-10-03)
 
 Session 334's next action. Roadmap and handoff only; no code changed,
@@ -16589,7 +16626,7 @@ Conformance (noticed 2026-09-05, Session 175):
       *(Checkbox removed by Session 266, 2026-09-27; the bullet stays because it is a standing note, not work owed. A directive about how the health-path item above may be acted on, not work owed.)*
 
 Notifications (from SNAG-CFG-001, 2026-08-11):
-- [ ] **The daemon announces an outage's start and never its end.**
+- [x] **The daemon announces an outage's start and never its end.**
       `sysadmin/monitor/desktop.py` notifies on `alert.raised` only,
       because `alert.resolved` carries a *match pattern* rather than a
       subject — `BaseAgent.resolve_alerts` publishes
@@ -16598,6 +16635,7 @@ Notifications (from SNAG-CFG-001, 2026-08-11):
       resolve events to name what recovered, which means changing the
       three resolve paths, not the notifier
       *(Re-read by Session 266, 2026-09-27, and left open: `sysadmin/monitor/desktop.py` still subscribes to `alert.raised` only, and its docstring still says recovery is deliberately not announced.)*
+      *(Done 2026-10-03 by Session 336, without touching the resolve paths: the sweep announces the end of a fault it spoke for once its row closes after the sweep's previous look. See the Session 336 block.)*
 - [ ] **The presence signal cannot tell the tray from any other client.**
       Any GET of `/api/sysadmin/alerts` counts as "somebody is watching",
       including a `curl`. It errs towards silence, which is the safe

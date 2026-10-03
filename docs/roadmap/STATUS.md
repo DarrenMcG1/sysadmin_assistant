@@ -3,6 +3,16 @@
 **Last Updated**: 2026-10-03
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The monitor now says when an outage it announced is over**
+> (2026-10-03, Session 336). When the tray is not running, the monitor
+> pops up its own alerts, and until now it said only that something had
+> broken, never that it was fixed. Now a fault it announced gets a
+> "Recovered" notice once the alert closes, folded into one notice when
+> several close together. It speaks only about faults it announced
+> itself, and only if the alert closed since it last checked, so old
+> alerts do not come back as news after a restart. Takes effect at the
+> owner's restart already owed.
+
 > **Found what keeps the graphics card awake all night: Steam's
 > built-in web view** (2026-10-03, Session 335). With both monitors off
 > from 22:31 to 08:50, the card never powered down. It was never idle
@@ -7987,6 +7997,14 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 336 — the daemon announces an outage's end (2026-10-03)
+
+- `DesktopNotifier`'s sweep announces "Recovered: <title>" for a fault
+  it spoke for, once the alert row closes after the sweep's previous
+  look. It reads the row rather than `alert.resolved`, so no resolve
+  path changed and the four resolve writes that publish no event are
+  covered too. Tests: `TestRecovery`, 13 cases.
 
 ### Session 335 — Steam's web view holds the dGPU awake at night (2026-10-03)
 
