@@ -22,7 +22,7 @@ case where Steam was left drawing, which measures nothing new.
 ## Owed by the owner
 
 **Tonight, before the monitors go off: close Steam's window to the tray,
-or quit Steam** *(For: owner, ~1 min)*. Session 335 found that Steam's
+or quit Steam** *(For: owner, ~1 min, at 2026-10-03 22:30)*. Session 335 found that Steam's
 web view keeps the dGPU awake all night; the block below gives the
 evidence. Tonight's witness can confirm it only if Steam is not drawing.
 
