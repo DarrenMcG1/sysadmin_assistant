@@ -66,9 +66,9 @@ no restart owed. A second witness run is scheduled for tonight.
 - [ ] **Read `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl`
       (after 09:30 on 2026-10-04).** Transient
       `sysadmin-dgpu-pin-witness.timer`, `OnCalendar=2026-10-03
-      21:30:00`, 12 h. It does not survive a reboot. The owner was asked
-      to close Steam's window to the tray, or quit Steam, before the
-      monitors go off. Steam's log tells you which state it was in: no
+      21:30:00`, 12 h. It does not survive a reboot. The owner quit
+      Steam before the monitors went off: no Steam process was left at
+      21:53. Steam's log tells you which state it was in: no
       `bogus refresh interval` lines overnight means the web view stopped
       drawing. If it stopped and `suspended_ms` grows while the monitors
       are off, Steam is confirmed. Then the remedy is the owner's: close

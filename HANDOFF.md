@@ -21,11 +21,6 @@ case where Steam was left drawing, which measures nothing new.
 
 ## Owed by the owner
 
-**Tonight, before the monitors go off: close Steam's window to the tray,
-or quit Steam** *(For: owner, ~1 min, at 2026-10-03 22:30)*. Session 335 found that Steam's
-web view keeps the dGPU awake all night; the block below gives the
-evidence. Tonight's witness can confirm it only if Steam is not drawing.
-
 `sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
 *(For: owner, ~2 min)*. This now arms the watchdog as well as
 installing Sessions 327 and 330's edits. Afterwards `systemctl show
@@ -65,7 +60,11 @@ The card's draw held awake at zero busy was a median of 28 W last
 night. The suspended draw is unmeasured, because reading `hwmon` wakes
 the card. A meter at the wall is the only way to find the saving.
 
-Tonight's witness is scheduled (above). Nothing is blocked. Estate
+Tonight's witness is scheduled (above). The owner quit Steam before
+the monitors went off, as asked: no Steam process was left at 21:53,
+and the witness had been logging since 21:30. Steam was still drawing
+until about 21:52, so read only the minutes with the monitors off.
+Nothing is blocked. Estate
 messages `a0eec7fa` (venture-manager's timer entry, which the owed
 restart covers) and `653e9ae9` (whether to judge estate-manager's
 `publish_errors`) are still open and were not touched.
