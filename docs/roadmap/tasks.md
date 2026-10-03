@@ -4,9 +4,19 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-02
+> **Last Updated**: 2026-10-03
 
 ---
+
+## Session 334: alfred-glance declines the alert topic (2026-10-03)
+
+Session 333's next action. Roadmap and handoff only; no code changed.
+
+- [x] **The alfred-glance item is closed as moot**, its checkbox
+      removed rather than ticked, because the renderer was declined, not
+      built (estate message `d588bc23`, glance owner's ruling
+      2026-10-02). The note sits on the item under Session 39's block.
+      The message is closed with a note.
 
 ## Session 333: the advice routes compute off the event loop (2026-10-02)
 
@@ -16230,7 +16240,7 @@ work:
       config keys for host/username/topic, the publisher itself wired to
       the severity gate, and the topic scheme under `estate/…`)*
       *(Re-read by Session 266, 2026-09-27, and left open: no MQTT client anywhere in `sysadmin/`, `sysadmin_tray/`, `pyproject.toml` or `config.yaml`. Only the broker side exists (the estate's, 2026-08-11).)*
-- [ ] **Register the topic in alfred-glance** — `BusEvents.kt` renderer,
+- **Register the topic in alfred-glance** — `BusEvents.kt` renderer,
       `BusPayloads.kt` shape. Separate repo, separate session if it needs
       an Android release
       *(Re-read by Session 266, 2026-09-27, and left open: blocked on the item above: nothing is published, so there is no topic to register.)*
@@ -16244,6 +16254,17 @@ work:
       render the topic, with the wire shape, the measured volume and the
       broker ACL its phones already hold. Waiting on glance's reply; it
       closes here either way, a declined renderer included)*
+      *(Checkbox removed by Session 334, 2026-10-03; the bullet stays
+      because it is moot, not done. Glance's owner ruled on 2026-10-02
+      not to render `estate/alerts/raised` (estate message
+      `d588bc23`): glance connects to the broker only while the app is
+      in the foreground, so an alert would arrive at the next app open,
+      the topic carries no resolve to tell a stale critical from a live
+      one, and it would replay one message per alert row rather than
+      per incident. The desktop path already covers warning and above.
+      Glance reconsiders only if it gains background delivery (its
+      ideas.md entry `2026-08-24-1`). Nothing changes here: the topic
+      keeps publishing, and glance asked nothing of this repository)*
 - [x] **A failed run still announces the alerts its rollback removed.**
       `BaseAgent.run` flushes its buffered events whatever the outcome, so
       an `alert.raised` for a row that was never committed reaches the SSE

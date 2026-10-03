@@ -1,17 +1,15 @@
-# Handoff — 2026-10-02 (Session 333)
+# Handoff — 2026-10-03 (Session 334)
 
 ## Next action
 
-Close tasks.md's item to register the alert topic in alfred-glance, which glance declined on 2026-10-02 (estate message d588bc23). *(For: session)*
+Read the overnight dGPU witness log and name what holds the card awake once the monitors are off (tasks.md, Session 324 block, last item). *(For: session)*
 
-It is the first unchecked item in tasks.md a session can start now
-(the redeploy is the owner's, and the dGPU read waits until tomorrow).
-Glance's owner ruled on 2026-10-02 not to render `estate/alerts/raised`
-until glance gains background delivery, so the item is moot rather than
-blocked: record that and close the message. Two other estate messages
-are open: venture-manager's new timer entry, which the owed restart
-already covers, and estate-manager's `publish_errors` count, whose
-judging is ours to decide.
+It was scheduled for after 09:30 today and the file is there:
+`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl`, written at
+09:30. The tasks.md item says how to read it: for the minutes where
+both DP connectors read `disconnected`, a single `comm` near 60 s with
+no suspend is the client holding the card. The owner's redeploy stays
+owed (below) and does not block this.
 
 ## Owed by the owner
 
@@ -27,13 +25,38 @@ which compares bytes, stays red. The restart is also the one `96fa8b8`
 already owes so the daemon watches venture-manager's backup timer, and
 it loads Session 333's off-loop advice routes.
 
-## Scheduled action
+## Session 334: alfred-glance declines the alert topic
 
-After 09:30 on 2026-10-03, read
-`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-03.jsonl` and name
-what holds the dGPU awake once the monitors are off (tasks.md, Session
-324 block, last item). The transient timer fires at 21:30 tonight and
-runs for 12 h. A reboot before then cancels it.
+Session 333's next action. Docs only. tasks.md's item to register
+`estate/alerts/raised` in alfred-glance lost its checkbox rather than
+being ticked, because nothing was built: glance's owner ruled on
+2026-10-02 not to render it (estate message `d588bc23`). The reasons,
+recorded on the item: glance's broker connection lives only while the
+app is open, so alerts arrive late; the topic has no resolve event, so
+a late critical reads as live; and it replays per alert row, not per
+incident. Glance reconsiders only if it gains background delivery.
+
+Nothing changes in code. The topic keeps publishing, and the
+`mqtt_alerts.py` docstring already describes a room with no renderer
+in it. Message `d588bc23` is closed. Two estate messages stay open:
+venture-manager's new timer entry (`a0eec7fa`), which the owed restart
+covers, and estate-manager's `publish_errors` count (`653e9ae9`),
+whose judging is ours to decide and has no task yet.
+
+## What Session 333 handed on (done by Session 334)
+
+Close tasks.md's item to register the alert topic in alfred-glance, which glance declined on 2026-10-02 (estate message d588bc23). *(For: session)*
+
+It is the first unchecked item in tasks.md a session can start now
+(the redeploy is the owner's, and the dGPU read waits until tomorrow).
+Glance's owner ruled on 2026-10-02 not to render `estate/alerts/raised`
+until glance gains background delivery, so the item is moot rather than
+blocked: record that and close the message. Two other estate messages
+are open: venture-manager's new timer entry, which the owed restart
+already covers, and estate-manager's `publish_errors` count, whose
+judging is ours to decide.
+
+Done; see the Session 334 block.
 
 ## Session 333: the advice routes compute off the event loop
 
