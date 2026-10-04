@@ -4,7 +4,7 @@
 >
 > **Related**: [tasks.md](tasks.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-01
+> **Last Updated**: 2026-10-04
 
 ---
 
@@ -16,13 +16,17 @@
   - **Shape of a fix**: fetch in partitions (`session.stream` with `yield_per`, or `Result.partitions`), so each compiled loop covers a few thousand rows and the GIL changes hands between them. Or reduce the rows: the timer read keeps every 60 s observation for 30 days when cadence needs only the points where `last_run` changes, which is a change to `recommend`'s input and needs its own argument.
   - **Why it is left**: 0.67 s is 45× below the 30 s ping interval, and the route has had 18 callers since 2026-08-15. It grows with rows per timer, which is bounded by retention.
   - **Status:** Open
-- [P3] SNAG-FILES-001: **when the fitted disk line has already passed a threshold the latest reading has not, `_project_fit` reports `not_growing`, so the most imminent crossing reads as no crossing at all** (2026-10-01, opened by Session 307 while adding the 7-day secondary fit)
+- [P3] SNAG-FILES-001: **when the fitted disk line has already passed a threshold the latest reading has not, `_project_fit` reports `not_growing`, so the most imminent crossing reads as no crossing at all** (2026-10-01, opened by Session 307 while adding the 7-day secondary fit; **CLOSED 2026-10-04 by Session 340**, the crossing is reported `projected` at day 0)
   - **Symptom**: in `sysadmin/files/forecast.py`, a positive slope whose projected crossing day is at or before the latest sample returns `ThresholdProjection(threshold, "not_growing")`. The comment beside it says "treat as imminent rather than claiming a date in the past", and the code does the opposite. `not_growing` raises no risk item in `/api/files/actions` and reads "not on current trend" in the tray.
   - **Measured 2026-10-01**, replaying each day's 30-day series from `resource_snapshots`: the whole-series fit took this branch on **5** of 89 days (2026-08-26 to 08-30, readings 78.7–79.5 %, 80 % crossed on 08-31), so those days reported "90 % in 18 days" instead of an imminent 80 %. The 7-day fit took it on 3 days (08-16, 08-17, 08-30). Since Session 307 the short fit covers 4 of the whole-series fit's 5 days; 08-30 is lost by both.
   - **Why it is left**: it changes what the whole-series fit reports, which is a separate concern from adding the short fit. The short fit makes the branch commoner, because a step up inside a week lifts its line above the latest reading; a test in `TestSecondaryWindow` had to keep the step out of its window to be about something else.
   - **Shape of fix, unpriced**: report `projected` with `days_from_now=0.0` and the latest sample's date, which `most_urgent_projection` then ranks first and `_disk_risk` reports inside the horizon. Every reader already handles a `projected` state; none handles a fourth.
   - **No check names this entry**: what one would drive asserts the fix.
-  - **Status:** Open — owed, P3.
+  - **Status:** **Closed 2026-10-04 by Session 340** — `_project_fit` in `sysadmin/files/forecast.py` clamps the crossing to `days_from_now=0.0` with the latest sample's date, the shape above. Three tests in `tests/test_forecast.py` and one in `tests/test_file_recommendations.py` hold it.
+  - **Falsified at the original defect**: with the old branch restored verbatim, the three forecast tests turn red and the other 53 stay green. Restored with the file's mtime kept.
+  - **Replayed against `resource_snapshots`**, each day cut at 23:59 UTC: the whole-series fit now reports 80 % `projected` at day 0 on 2026-08-25 to 08-29, and `most_urgent_projection` picks it on all five. On 08-30 the last reading was already 80.7 %, so it reads `exceeded`. These are the entry's five days, one day earlier because of the cut. The entry's 08-26 to 08-30 used a different time of day.
+  - **One reader changed its wording**: `_disk_risk` said "about 0 days away", so a crossing under a day now reads "today". The tray already renders 0.0 as "under a day", and the disk review's narrative digest counts it as "expected soon". `DiskThresholdInfo` is unchanged.
+  - **The reclaimable-milestone forecast has the same shape and is not fixed here**: `_compute_reclaimable_forecast` in `sysadmin/files/router.py` drops a milestone whose fitted line is already past it (`if days_from_now > 0`). It is recorded as a task in tasks.md, Session 340 block.
 
 - [P4] SNAG-LOG-021: **under estate ADR-0216's gate, every boot raises mosquitto's `Failed to start` warning for a harmless refusal, and it is the same line a genuinely failed start logs** (2026-10-01, opened by Session 302 on the condition Session 290's task stated)
   - **Symptom**: the gate's `ExecStartPre=` (estate-manager's drop-in at `/etc/systemd/system/mosquitto.service.d/override.conf`) refuses the broker until `192.168.1.2` is assigned to `eno1`. The refusal ends the start job, systemd logs `Failed to start Mosquitto MQTT Broker daemon.` at priority 3, and the log aggregator opens `Log error: mosquitto.service — Failed to start …` at `warning`. The retry 5 s later succeeds, and the row closes itself about 16 minutes on (21:38:47 to 21:54:48 BST on 2026-09-30).

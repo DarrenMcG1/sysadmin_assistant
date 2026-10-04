@@ -134,10 +134,16 @@ def _disk_risk(
             # usually growth resuming after a cleanup.
             else f"growth of the last {projection.window_days:.0f} days"
         )
+        when = (
+            # The fitted line is already past it; the latest reading
+            # is not yet.
+            "today"
+            if days < 1
+            else f"about {days:.0f} days away"
+        )
         detail = (
             f"Disk usage is projected to cross {projection.percent:.0f}% "
-            f"on {projection.date} — about {days:.0f} days away, on the "
-            f"{trend}."
+            f"on {projection.date} — {when}, on the {trend}."
         )
     else:  # unknown state — say nothing rather than guess
         return None

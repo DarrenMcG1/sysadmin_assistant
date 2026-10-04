@@ -49,6 +49,17 @@ its own 7-day period — is unchanged. A date the short fit decided carries
 contradict the whole-series Growth rate beside them; `DiskThresholdInfo` on
 the route was deliberately not widened.
 
+**A fitted line already past a threshold the latest reading has not reached
+is a crossing due now** (Session 340, 2026-10-04, `SNAG-FILES-001`). It is
+reported `projected` with `days_from_now=0.0` and the latest sample's date,
+never `not_growing`, which every reader takes to mean no crossing at all.
+There is no fourth state because every reader already handles `projected`,
+and `most_urgent_projection` ranks day 0 first without being told to.
+Replayed, the whole-series fit took this case on five consecutive days
+before 80 % was crossed on 2026-08-31, and until the fix it reported
+"90 % in 18 days" on each of them. The short fit makes the case commoner,
+because a step up inside its week lifts its line above the latest reading.
+
 `GET /api/files/review` is the weekly disk review, stored in its own
 `disk_reviews` table. It was built as the mirror of the project review
 that has since moved to 8400. It is one of three LLM-narrated reviews this

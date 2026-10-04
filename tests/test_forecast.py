@@ -224,6 +224,34 @@ class TestProjectDiskThresholds:
         assert len(projections) == 1
         assert projections[0].percent == 75.0
 
+    def test_a_fitted_line_already_past_a_threshold_is_due_now(self):
+        # Climbing 3.25 pp/day, the last reading dipping to 79.5 %: the
+        # fitted line stands at 80.25 % on the last day, so 80 % is due
+        # now.  It used to read not_growing, which every reader takes
+        # to mean no crossing at all (SNAG-FILES-001).
+        history = ResourceHistoryResponse.from_dict(
+            _history([70.0, 74.0, 78.0, 79.5])
+        )
+        projections = project_disk_thresholds(disk_series(history, "/"))
+
+        assert projections[0] == ThresholdProjection(
+            80.0, "projected", days_from_now=0.0, date="2026-07-04"
+        )
+        assert projections[1].state == "projected"
+        assert projections[1].days_from_now == pytest.approx(3.0, abs=0.05)
+
+    def test_a_crossing_due_now_is_the_most_urgent(self):
+        history = ResourceHistoryResponse.from_dict(
+            _history([70.0, 74.0, 78.0, 79.5])
+        )
+        chosen = most_urgent_projection(
+            project_disk_thresholds(disk_series(history, "/"))
+        )
+
+        assert chosen is not None
+        assert chosen.percent == 80.0
+        assert chosen.days_from_now == 0.0
+
     def test_noisy_series_still_projects_from_the_fitted_trend(self):
         history = ResourceHistoryResponse.from_dict(
             _history([70.0, 72.0, 71.0, 73.0, 72.0, 74.0])
@@ -282,6 +310,24 @@ class TestSecondaryWindow:
         assert chosen.days_from_now is not None
         assert whole.days_from_now is not None
         assert chosen.days_from_now < whole.days_from_now
+
+    def test_a_step_inside_the_week_brings_the_crossing_to_now(self):
+        # Three weeks at 0.1 pp/day, a step to 79 % six days ago, then
+        # flat: the 7-day line rises through the step and stands above
+        # 80 % on the last day though no reading reached it.  The whole
+        # series projects 80 % weeks out; the short fit says now.
+        percents = [60.0 + 0.1 * i for i in range(23)] + [79.0] * 6
+        percents[-1] = 79.4
+        series = self._series(percents)
+        whole = project_disk_thresholds(series, secondary_days=None)[0]
+
+        chosen = project_disk_thresholds(series)[0]
+
+        assert whole.state == "projected"
+        assert whole.days_from_now is not None and whole.days_from_now > 1
+        assert chosen.state == "projected"
+        assert chosen.days_from_now == 0.0
+        assert chosen.window_days == 7.0
 
     def test_a_series_under_twice_the_window_gets_no_second_fit(self):
         # Thirteen days: the whole-series fit is already short, so a

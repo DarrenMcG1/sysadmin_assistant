@@ -185,6 +185,18 @@ class TestDiskRiskRanking:
         assert "current growth trend" in whole_detail
         assert "growth of the last 7 days" in short_detail
 
+    def test_a_crossing_due_now_reads_today(self, agent_config):
+        projection = ThresholdProjection(
+            percent=80.0, state="projected", days_from_now=0.0, date="2026-08-30"
+        )
+        recs = recommendations_for_audit(
+            self._busy_findings(), agent_config, projection
+        )
+
+        assert recs[0].severity == "risk"
+        assert "on 2026-08-30 — today," in recs[0].detail
+        assert "0 days" not in recs[0].detail
+
     def test_crossing_beyond_the_horizon_is_a_trend_not_a_risk(self, agent_config):
         projection = ThresholdProjection(
             percent=90.0,

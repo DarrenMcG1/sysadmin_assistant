@@ -1,13 +1,16 @@
-# Handoff — 2026-10-04 (Session 339)
+# Handoff — 2026-10-04 (Session 340)
 
 ## Next action
 
-Fix SNAG-FILES-001: a disk trend line already past a threshold reads `not_growing`; report it as `projected` at day 0 instead (snag_list.md has the shape). *(For: session)*
+Measure how often `_compute_reclaimable_forecast` dropped a milestone its fitted line had already passed, then fix it (tasks.md, Session 340). *(For: session)*
 
-It is the open, owed entry with the highest priority (P3), and it bears
-on the live `Critical disk usage on /` alert. The other owed entry,
-SNAG-DOCS-032, is P4. The unchecked tasks above it all wait on the
-owner.
+This is the twin Session 340 found while fixing SNAG-FILES-001, a P3
+snag in which the disk forecast reported a crossing that was due now
+as "not on current trend". It is the first unchecked task in tasks.md
+that does not wait on the owner. It feeds only the tray's "Reaches N GB"
+rows, so the cost of each miss is one row; measure how often it has
+happened before choosing a fix. The other owed snag, SNAG-DOCS-032,
+is P4.
 
 ## Owed by the owner
 
@@ -26,9 +29,46 @@ and `direct`, and `systemctl status sysadmin` should be `active
 rollback is written above `Type=` in `systemd/sysadmin.service`. Until
 the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
 which compares bytes, stays red. The restart also loads Session 336's
-recovery notices and Session 337's tray check. (The owner's plain restart at 2026-10-03
+recovery notices, Session 337's tray check and Session 340's forecast fix. (The owner's plain restart at 2026-10-03
 09:55:07 already brought in venture-manager's backup timer and Session
 333's off-loop advice routes; it did not install the unit file.)
+
+## Session 340: a disk line already past a threshold is due now
+
+Session 339's next action. Code changed in `sysadmin/files/`, so the
+owner's restart below now carries this fix too.
+
+`_project_fit` in `sysadmin/files/forecast.py` used to report a
+threshold as `not_growing` when its fitted line was past it and the
+latest reading was not. That state raises no risk, and the tray shows it
+as "not on current trend". It now returns `projected` with
+`days_from_now=0.0` and the latest sample's date, the shape the snag
+recorded. `_disk_risk` says "today" rather than "about 0 days away".
+
+Decided: no fourth state. Every reader already handles `projected`, and
+`most_urgent_projection` ranks day 0 first without a change.
+`DiskThresholdInfo` is unchanged.
+
+Verified: four new tests, three of which turn red when the old branch
+is restored verbatim. Replayed against `resource_snapshots`:
+2026-08-25 to 08-29 now read 80 % `projected` at day 0, chosen first on
+all five days. Full suite 4,522 passed, 1 failed. The failure is
+`test_every_installed_system_unit_is_the_tracked_one`, which stays red
+until the owner's deploy. Ruff and mypy are clean.
+
+Not fixed: `_compute_reclaimable_forecast` in `sysadmin/files/router.py`
+has the same shape (it drops a milestone with `if days_from_now > 0`).
+It is a second concern, recorded as a task and named as the next
+action.
+
+## What Session 339 handed on (done by Session 340)
+
+Fix SNAG-FILES-001: a disk trend line already past a threshold reads `not_growing`; report it as `projected` at day 0 instead (snag_list.md has the shape). *(For: session)*
+
+It is the open, owed entry with the highest priority (P3), and it bears
+on the live `Critical disk usage on /` alert. The other owed entry,
+SNAG-DOCS-032, is P4. The unchecked tasks above it all wait on the
+owner.
 
 ## Session 339: the 2026-10-03 restart was the owner's
 

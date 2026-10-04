@@ -69,7 +69,9 @@ class ThresholdProjection(NamedTuple):
     ``days_from_now`` and ``date`` are ``None`` when the crossing cannot
     be projected; ``state`` explains why:
 
-    ``"projected"``  — a future crossing date was computed
+    ``"projected"``  — a crossing date was computed; ``days_from_now``
+                       is ``0.0`` when the fitted line is already past
+                       the threshold but the latest reading is not
     ``"exceeded"``   — the latest reading is already at or past it
     ``"not_growing"``— the series is flat or shrinking
 
@@ -265,14 +267,12 @@ def _project_fit(
             continue
 
         days_to_target = (threshold - fit.intercept) / fit.slope
-        days_from_now = days_to_target - days_elapsed
-        if days_from_now <= 0:
-            # The fitted line already sits above the threshold even
-            # though the last reading does not — treat as imminent
-            # rather than claiming a date in the past.
-            projections.append(ThresholdProjection(float(threshold), "not_growing"))
-            continue
-
+        # When the fitted line already sits above the threshold though
+        # the last reading does not, the crossing is imminent: report
+        # it as due now, never as a date in the past and never as
+        # ``not_growing``, which every reader takes to mean no crossing
+        # at all (SNAG-FILES-001).
+        days_from_now = max(days_to_target - days_elapsed, 0.0)
         target_date = latest_ts + timedelta(days=days_from_now)
         projections.append(
             ThresholdProjection(

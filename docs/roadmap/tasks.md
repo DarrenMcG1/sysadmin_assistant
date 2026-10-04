@@ -8,6 +8,36 @@
 
 ---
 
+## Session 340: a disk line already past a threshold is due now (2026-10-04)
+
+Session 339's next action, `SNAG-FILES-001` (P3). Code in
+`sysadmin/files/`, so a daemon restart is owed. It is the same restart
+the handoff already asks of the owner.
+
+- [x] **`_project_fit` reports a crossing due now as `projected` at day
+      0.** If the fitted line was past a threshold and the latest reading
+      was not, it used to return `not_growing`, which raises no risk and
+      reads "not on current trend" in the tray. Its own comment said
+      "treat as imminent". It now clamps `days_from_now` to `0.0` and
+      uses the latest sample's date.
+- [x] **The risk item says "today" for a crossing under a day**, not
+      "about 0 days away" (`_disk_risk` in
+      `sysadmin/files/recommendations.py`).
+- [x] **Four tests, falsified at the original defect.** With the old
+      branch restored verbatim, the three new forecast tests turn red.
+- [x] **Replayed against `resource_snapshots`.** On 2026-08-25 to 08-29,
+      the five days before 80 % was crossed, the forecast now reports
+      80 % as due now, where it used to report "90 % in 18 days".
+- [ ] **The reclaimable-milestone forecast drops a milestone its fitted
+      line has already passed.** `_compute_reclaimable_forecast` in
+      `sysadmin/files/router.py` keeps a milestone only
+      `if days_from_now > 0`, the same shape as `SNAG-FILES-001`. Found
+      by this session and not fixed, because it is a second concern. It
+      is also a different series: reclaimable MB from audits, not disk
+      %. It feeds the tray's "Reaches N GB" rows and nothing that raises
+      a risk, so a miss loses a row and raises no false calm. Measure
+      how often it has happened before choosing a shape. *(For: session)*
+
 ## Session 339: the 2026-10-03 restart was the owner's (2026-10-04)
 
 Session 338's next action. Roadmap, STATUS.md and handoff only; no code
