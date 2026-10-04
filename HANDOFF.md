@@ -1,17 +1,14 @@
-# Handoff — 2026-10-04 (Session 342)
+# Handoff — 2026-10-04 (Session 343)
 
 ## Next action
 
-Fit the junk-growth line over a span of days instead of the 10 newest scans, after measuring a 30-day window on the stored audits (SNAG-FILES-002). *(For: session)*
+Bound the clock in `check_expiry` so an `HH:MM` inside a PCI address or a seconds-bearing time no longer pins an `expires` marker (SNAG-DOCS-032). *(For: session)*
 
-Session 342 made the tray's "Reaches N GB" rows show for the first time,
-and they show the wrong dates: 50 GB in 2029 and 100 GB in 2040, from a
-12.7 MB/day fit, while the whole series grows 125.7 MB/day and would
-reach 50 GB in about 83 days. The fit takes whatever 10 scans are newest,
-and scans cluster. `SNAG-FILES-002` in snag_list.md has the replay and
-the shape of a fix. The disk forecast already fits over a span of days,
-so it is the pattern to copy. Measure first whether a 30-day window
-gives a stable date on a series that moves in steps.
+It is the first owed entry left in snag_list.md, and tasks.md has no
+startable item: its open boxes are the owner's or wait on a trigger.
+The entry has the shape of a fix, `(?<![\d:])HH:MM(?![\d])`, and two
+specimens to drive it at. The one live prediction's sentence is clean,
+so the population is empty today and the test must mint its own.
 
 ## Owed by the owner
 
@@ -30,10 +27,33 @@ and `direct`, and `systemctl status sysadmin` should be `active
 rollback is written above `Type=` in `systemd/sysadmin.service`. Until
 the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
 which compares bytes, stays red. The restart also loads Session 336's
-recovery notices, Session 337's tray check and Sessions 340 and 341's forecast fixes. Session 342's row-order fix in the tray needs only
+recovery notices, Session 337's tray check and Sessions 340, 341 and 343's forecast fixes. Session 342's row-order fix in the tray needs only
 `systemctl --user restart sysadmin-tray`. (The owner's plain restart at 2026-10-03
 09:55:07 already brought in venture-manager's backup timer and Session
 333's off-loop advice routes; it did not install the unit file.)
+
+## Session 343: the junk-growth fit spans 30 days
+
+Session 342's next action, `SNAG-FILES-002`. Decided: the forecast on
+`/api/files/trends` fits every audit from the last `history_days`
+(default 30, the disk fit's default), and `limit` picks only the scans
+list.
+
+Measured first, replaying every stored audit as "now": 30 days was the
+shortest window that never changed sign (80 of 80 positive), and its
+50 GB date stayed between 2026-11-23 and 2027-01-16. Rejected: 14 days,
+which still flipped once and dated 50 GB in 2254, because a fortnight can
+sit between two steps; and 45 days, steadier but measurable on only 44
+windows and slower to follow a cleanup. Also rejected: fitting the step
+rate directly. A span of days already averages the steps over time, and
+nothing else on the box models steps.
+
+Verified: three new tests, all red against the pre-change router; full
+suite 4,529 passed, ruff and mypy clean. On the stored audits the
+deployed helper reads 117.8 MB/day over 83 scans, 50 GB on 2026-12-29 and
+100 GB on 2028-03-08 (today's route: 2029 and 2040). Not live until the
+owner's restart. Also corrected the helper's docstring, which still said
+the milestones default to 1/5/10 GB.
 
 ## Session 342: reclaimable milestones are an absolute ladder
 

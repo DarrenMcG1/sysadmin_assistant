@@ -3,6 +3,15 @@
 **Last Updated**: 2026-10-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The junk-growth dates are now fitted over a month, not ten scans**
+> (2026-10-04, Session 343). The "Reaches N GB" rows read 50 GB in 2029
+> and 100 GB in 2040, because the line was fitted to whatever ten scans
+> were newest, and scans bunch up. It is now fitted to every scan from
+> the last 30 days. Replayed over the stored history, that window never
+> once showed shrinking junk and kept the 50 GB date inside a seven-week
+> band. Today it reads 50 GB on 2026-12-29 and 100 GB on 2028-03-08.
+> Takes effect at the owner's restart already owed.
+
 > **The tray's "Reaches N GB" rows now show, and their dates are not yet
 > trustworthy** (2026-10-04, Session 342). The milestones were 1, 5 and
 > 10 GB, and this box has held more than 34 GB of reclaimable files since

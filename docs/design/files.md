@@ -97,6 +97,40 @@ session. The tray now orders the rows by date and then size. Before
 this it sorted the labels as text, which put "100GB" above "50GB". No
 one had seen that, because no row had ever shown.
 
+**The junk-growth fit spans 30 days of audits, never the newest N scans**
+(Session 343, 2026-10-04, `SNAG-FILES-002` closed). `get_trends` now
+makes two queries. `limit` picks the newest scans for the `scans` list
+and nothing else. The forecast reads every audit's `scanned_at` and
+`total_reclaimable_mb` from the last `history_days` (default 30, the
+same as the disk fit on `/actions`). It selects the two columns and not
+the row, because each row carries a `findings` blob and the 30 days held
+4 MB of them.
+
+The window was measured before it was chosen, by replaying every stored
+audit as "now":
+
+| window | windows | slope > 0 | sign flips | 50 GB date |
+|---|---|---|---|---|
+| 10 newest scans | 214 | 93 | 13 | 3 days to 386 years out |
+| 14 days | 189 | 188 | 1 | 2026-09-27 to 2254 |
+| 30 days | 80 | 80 | 0 | 2026-11-23 to 2027-01-16 |
+| 45 days | 44 | 44 | 0 | 2026-12-07 to 2026-12-21 |
+
+The series moves in steps with flat stretches between them. A count of
+scans can land inside one flat stretch and read no growth, or across one
+step inside a day and read gigabytes a day. A span of days holds whole
+steps and the flats between them, so its slope is the step rate averaged
+over time, which is what a "reaches 50 GB" date needs. 14 days is still
+short enough to sit between two steps. 30 days is the shortest window
+measured that never changed sign, and its 50 GB date moved a median of
+1 day per day and at most 12. 45 days is steadier still, but it was
+measurable on only 44 windows and would answer more slowly after a
+cleanup. On the live audits the 30-day fit reads 117.8 MB/day over 83
+scans, 50 GB on 2026-12-29 and 100 GB on 2028-03-08, where the 10-scan
+fit read 2029 and 2040. If the organiser stops scanning for a month the
+window empties and the route says `insufficient_data`. It does not fall
+back to older scans.
+
 `GET /api/files/review` is the weekly disk review, stored in its own
 `disk_reviews` table. It was built as the mirror of the project review
 that has since moved to 8400. It is one of three LLM-narrated reviews this

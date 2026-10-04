@@ -186,13 +186,24 @@ async def get_misplaced_files(session: AsyncSession = Depends(get_db_session)):
 @router.get("/trends")
 async def get_trends(
     limit: int = Query(default=10, le=50),
+    history_days: int = Query(default=30, ge=2, le=365),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get historical finding counts with growth rate and threshold projection.
 
     Night Worker uses this to predict when disk thresholds will be hit.
-    Returns per-scan data plus a ``forecast`` section with linear growth
-    rate and projected dates for warning/critical thresholds.
+    Returns the ``limit`` newest scans plus a ``forecast`` section with
+    linear growth rate and projected milestone dates.
+
+    The forecast is fitted over every audit in the last ``history_days``,
+    never over the ``limit`` newest (SNAG-FILES-002).  Scans cluster —
+    fourteen on one day, one on another — and junk grows in steps, so ten
+    scans could sit inside one flat stretch and read no growth, or straddle
+    one step inside a day and read 5 GB/day.  A span of days always holds
+    whole steps and the flats between them.  Replayed over the 214 stored
+    windows on 2026-10-04, ten scans changed sign 13 times; 30 days never
+    did, and its 50 GB date stayed between 2026-11-23 and 2027-01-16.  The
+    same default ``history_days`` as the disk fit on ``/actions``.
     """
     query = (
         select(FilesystemAudit)
@@ -201,6 +212,16 @@ async def get_trends(
     )
     result = await session.execute(query)
     audits = result.scalars().all()
+
+    cutoff = datetime.now(UTC) - timedelta(days=history_days)
+    # Two columns, not the row: each audit carries a ``findings`` blob,
+    # and the 30-day window held 4 MB of them on 2026-10-04.
+    window_result = await session.execute(
+        select(FilesystemAudit.scanned_at, FilesystemAudit.total_reclaimable_mb)
+        .where(FilesystemAudit.scanned_at >= cutoff)
+        .order_by(FilesystemAudit.scanned_at)
+    )
+    window = [(row.scanned_at, row.total_reclaimable_mb) for row in window_result]
 
     scans = [
         {
@@ -217,7 +238,7 @@ async def get_trends(
         for a in audits
     ]
 
-    forecast = _compute_reclaimable_forecast(list(audits))
+    forecast = _compute_reclaimable_forecast(window)
 
     return {
         "scans": scans,
@@ -342,21 +363,20 @@ async def get_file_actions(
 
 
 def _compute_reclaimable_forecast(
-    audits: list[FilesystemAudit],
+    samples: list[tuple[datetime | None, int]],
 ) -> dict:
     """Compute linear growth rate of reclaimable_mb and project threshold dates.
 
-    Uses simple linear regression on (timestamp, reclaimable_mb) pairs.
+    Uses simple linear regression on the (scanned_at, reclaimable_mb)
+    pairs it is given; the caller chooses the window.
     Returns growth_rate_mb_per_day and projected dates when reclaimable
     space reaches the milestones configured under
-    ``agents.file_organiser.reclaimable_milestones_mb`` (default 1/5/10 GB).
+    ``agents.file_organiser.reclaimable_milestones_mb`` (default a ladder
+    from 1 GB to 100 GB).
     """
-    if len(audits) < 2:
-        return {"insufficient_data": True}
-
-    # Build (days_since_first, reclaimable_mb) pairs — oldest first
+    # Oldest first
     ordered = sorted(
-        [(a.scanned_at, a.total_reclaimable_mb) for a in audits if a.scanned_at],
+        [(ts, mb) for ts, mb in samples if ts is not None],
         key=lambda x: x[0],
     )
     if len(ordered) < 2:

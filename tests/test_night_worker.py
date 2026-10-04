@@ -80,6 +80,23 @@ def _mock_scalars_all(mock_session, rows):
     mock_session.execute = AsyncMock(return_value=result)
 
 
+def _mock_trends(mock_session, scans, window=None):
+    """Answer ``/api/files/trends``' two queries: the newest scans, then the
+    forecast window's (scanned_at, reclaimable_mb) rows.  ``window``
+    defaults to the same audits, which is the case where every scan is
+    inside the span of days."""
+    scans_result = MagicMock()
+    scans_result.scalars.return_value.all.return_value = scans
+    window_result = MagicMock()
+    window_result.__iter__.return_value = iter(
+        [
+            MagicMock(scanned_at=a.scanned_at, total_reclaimable_mb=a.total_reclaimable_mb)
+            for a in (scans if window is None else window)
+        ]
+    )
+    mock_session.execute = AsyncMock(side_effect=[scans_result, window_result])
+
+
 # ---------------------------------------------------------------------------
 # /api/logs/recent — Night Worker enhancements
 # ---------------------------------------------------------------------------
@@ -181,7 +198,7 @@ class TestFilesTrendsForecast:
             _make_audit(days_ago=3, reclaimable_mb=400),
             _make_audit(days_ago=0, reclaimable_mb=600),
         ]
-        _mock_scalars_all(mock_session, audits)
+        _mock_trends(mock_session, audits)
 
         resp = await test_client.get("/api/files/trends")
         assert resp.status_code == 200
@@ -197,7 +214,7 @@ class TestFilesTrendsForecast:
     @pytest.mark.asyncio
     async def test_forecast_insufficient_data(self, test_client, mock_session):
         audits = [_make_audit(days_ago=0, reclaimable_mb=100)]
-        _mock_scalars_all(mock_session, audits)
+        _mock_trends(mock_session, audits)
 
         resp = await test_client.get("/api/files/trends")
         data = resp.json()
@@ -209,7 +226,7 @@ class TestFilesTrendsForecast:
             _make_audit(days_ago=7, reclaimable_mb=500),
             _make_audit(days_ago=0, reclaimable_mb=500),
         ]
-        _mock_scalars_all(mock_session, audits)
+        _mock_trends(mock_session, audits)
 
         resp = await test_client.get("/api/files/trends")
         data = resp.json()
@@ -223,7 +240,7 @@ class TestFilesTrendsForecast:
             _make_audit(days_ago=7, reclaimable_mb=2000),
             _make_audit(days_ago=0, reclaimable_mb=3000),
         ]
-        _mock_scalars_all(mock_session, audits)
+        _mock_trends(mock_session, audits)
 
         resp = await test_client.get("/api/files/trends")
         data = resp.json()
@@ -243,7 +260,7 @@ class TestFilesTrendsForecast:
             _make_audit(days_ago=5, reclaimable_mb=1500),
             _make_audit(days_ago=0, reclaimable_mb=1000),
         ]
-        _mock_scalars_all(mock_session, audits)
+        _mock_trends(mock_session, audits)
 
         resp = await test_client.get("/api/files/trends")
         milestones = resp.json()["forecast"]["projected_milestones"]
@@ -263,7 +280,7 @@ class TestFilesTrendsForecast:
             _make_audit(days_ago=7, reclaimable_mb=39_900),
             _make_audit(days_ago=0, reclaimable_mb=40_762),
         ]
-        _mock_scalars_all(mock_session, audits)
+        _mock_trends(mock_session, audits)
 
         resp = await test_client.get("/api/files/trends")
         milestones = resp.json()["forecast"]["projected_milestones"]
@@ -271,9 +288,59 @@ class TestFilesTrendsForecast:
         assert milestones["50gb"] < milestones["100gb"]
 
     @pytest.mark.asyncio
+    async def test_the_fit_reads_the_window_not_the_newest_scans(
+        self, test_client, mock_session
+    ):
+        # SNAG-FILES-002's shape: ten scans inside the last day, all on one
+        # flat stretch, while the month holds two steps.  The ten newest
+        # read no growth; the span of days reads the step rate.
+        now = datetime.now(UTC)
+        flat = []
+        for i in range(10):
+            audit = _make_audit(reclaimable_mb=40_762)
+            audit.scanned_at = now - timedelta(hours=2 * i)
+            flat.append(audit)
+        window = [
+            _make_audit(days_ago=29, reclaimable_mb=37_000),
+            _make_audit(days_ago=20, reclaimable_mb=37_000),
+            _make_audit(days_ago=19, reclaimable_mb=38_500),
+            _make_audit(days_ago=10, reclaimable_mb=38_500),
+            _make_audit(days_ago=9, reclaimable_mb=40_762),
+            *reversed(flat),
+        ]
+        _mock_trends(mock_session, flat, window)
+
+        resp = await test_client.get("/api/files/trends")
+        data = resp.json()
+        # ``limit`` still governs the scans list, and only that.
+        assert data["count"] == 10
+        forecast = data["forecast"]
+        assert forecast["growth_rate_mb_per_day"] > 100
+        assert forecast["data_points"] == len(window)
+        assert set(forecast["projected_milestones"]) == {"50gb", "100gb"}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("query, days", [("", 30), ("?history_days=7", 7)])
+    async def test_the_window_is_a_span_of_days(
+        self, test_client, mock_session, query, days
+    ):
+        _mock_trends(mock_session, [])
+
+        before = datetime.now(UTC)
+        await test_client.get(f"/api/files/trends{query}")
+        after = datetime.now(UTC)
+
+        statement = mock_session.execute.await_args_list[1].args[0]
+        assert statement._limit_clause is None
+        (cutoff,) = statement.compile().params.values()
+        assert (
+            before - timedelta(days=days) <= cutoff <= after - timedelta(days=days)
+        )
+
+    @pytest.mark.asyncio
     async def test_scans_still_returned(self, test_client, mock_session):
         audits = [_make_audit(days_ago=1), _make_audit(days_ago=0)]
-        _mock_scalars_all(mock_session, audits)
+        _mock_trends(mock_session, audits)
 
         resp = await test_client.get("/api/files/trends")
         data = resp.json()

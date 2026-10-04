@@ -8,6 +8,31 @@
 
 ---
 
+## Session 343: the junk-growth fit spans 30 days (2026-10-04)
+
+Session 342's next action, the task ticked in its block below. Code in
+`sysadmin/files/router.py`, so it waits on the owner's restart already
+owed. The reasoning and the replay table are in `docs/design/files.md`
+(the paragraph beginning "The junk-growth fit spans 30 days").
+
+- [x] **Measured before choosing**, by replaying every stored audit as
+      "now". The 10 newest scans changed sign 13 times; 14 days once;
+      30 days never (80 of 80 positive), with its 50 GB date between
+      2026-11-23 and 2027-01-16. 45 days was steadier but measurable on
+      only 44 windows and slower after a cleanup.
+- [x] **The forecast reads the last `history_days` of audits** (default
+      30, the same as the disk fit on `/actions`). `limit` picks only the
+      `scans` list. The window query selects two columns, not the row,
+      because the 30 days held 4 MB of `findings` blobs.
+- [x] **Tests**: three in `tests/test_night_worker.py` (ten flat newest
+      scans inside a stepped month read the step rate; the window query
+      has no `LIMIT` and its cutoff is 30 days, or 7 when asked). All
+      three fail against the pre-change router. The trends tests now
+      mock both queries through `_mock_trends`.
+- [x] **The tray's growth row will read "(83 scans)"** where it read
+      "(10 scans)". That is the number of audits the fit uses, so no tray
+      change.
+
 ## Session 342: reclaimable milestones are an absolute ladder (2026-10-04)
 
 Session 341's next action, the task ticked in its block below. The
@@ -37,8 +62,8 @@ decision is written in `docs/design/files.md` (the paragraph beginning
       shows exactly the 50 and 100 GB rungs) and one in
       `tests/test_forecast.py` (row order). Both fail against the
       pre-change code and pass after it.
-- [ ] **Fit the junk-growth line over a span of days, not the 10 newest
-      scans (`SNAG-FILES-002`).** The live rows read 50 GB in 2029 and
+- [x] **Fit the junk-growth line over a span of days, not the 10 newest
+      scans (`SNAG-FILES-002`).** *(Done by Session 343: 30 days, block above.)* The live rows read 50 GB in 2029 and
       100 GB in 2040, from a 12.7 MB/day fit. The whole series grows
       125.7 MB/day, which reaches 50 GB in about 83 days. Measure
       whether a 30-day window gives a stable date over this step-shaped
