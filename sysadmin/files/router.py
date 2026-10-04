@@ -397,10 +397,13 @@ def _compute_reclaimable_forecast(
             if current_mb >= target_mb:
                 continue
             days_to_target = (target_mb - intercept) / slope
-            days_from_now = days_to_target - days_since_first
-            if days_from_now > 0:
-                projected_date = latest_ts + timedelta(days=days_from_now)
-                projections[label] = projected_date.strftime("%Y-%m-%d")
+            # A fitted line already past a milestone the latest scan has
+            # not reached is a milestone due now, dated at that scan —
+            # never dropped, which the tray reads as no milestone at
+            # all.  The same shape as ``_project_fit`` (SNAG-FILES-001).
+            days_from_now = max(days_to_target - days_since_first, 0.0)
+            projected_date = latest_ts + timedelta(days=days_from_now)
+            projections[label] = projected_date.strftime("%Y-%m-%d")
 
         if projections:
             result["projected_milestones"] = projections

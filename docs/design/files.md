@@ -60,6 +60,17 @@ before 80 % was crossed on 2026-08-31, and until the fix it reported
 "90 % in 18 days" on each of them. The short fit makes the case commoner,
 because a step up inside its week lifts its line above the latest reading.
 
+**The reclaimable-milestone forecast on `/api/files/trends` follows the same
+rule** (Session 341, 2026-10-04). `_compute_reclaimable_forecast` in
+`router.py` used to drop a milestone its fitted line had already passed.
+It now dates the milestone at the latest scan. The case was measured
+before the fix and never happened here: replaying all 215 stored audits
+found it on 0 of 214 windows, because reclaimable space has never been
+below 34,844 MB and the configured milestones stop at 10 GB. Every
+milestone is skipped as already reached, so the tray's "Reaches N GB"
+rows have never been shown on this box. That is recorded as a task, not
+changed here.
+
 `GET /api/files/review` is the weekly disk review, stored in its own
 `disk_reviews` table. It was built as the mirror of the project review
 that has since moved to 8400. It is one of three LLM-narrated reviews this

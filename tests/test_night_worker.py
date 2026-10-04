@@ -232,6 +232,26 @@ class TestFilesTrendsForecast:
         assert "1gb" not in forecast.get("projected_milestones", {})
 
     @pytest.mark.asyncio
+    async def test_fitted_line_past_milestone_is_due_now(
+        self, test_client, mock_session
+    ):
+        # Fit: slope 100 MB/day, intercept ~333, so the line stands at
+        # ~1,333 MB at the latest scan while the scan itself reads 1,000.
+        # 1 GB is due now, dated at the latest scan, not dropped.
+        audits = [
+            _make_audit(days_ago=10, reclaimable_mb=0),
+            _make_audit(days_ago=5, reclaimable_mb=1500),
+            _make_audit(days_ago=0, reclaimable_mb=1000),
+        ]
+        _mock_scalars_all(mock_session, audits)
+
+        resp = await test_client.get("/api/files/trends")
+        milestones = resp.json()["forecast"]["projected_milestones"]
+        assert milestones["1gb"] == audits[-1].scanned_at.strftime("%Y-%m-%d")
+        # The milestone still ahead of the line is projected as before.
+        assert milestones["5gb"] > milestones["1gb"]
+
+    @pytest.mark.asyncio
     async def test_scans_still_returned(self, test_client, mock_session):
         audits = [_make_audit(days_ago=1), _make_audit(days_ago=0)]
         _mock_scalars_all(mock_session, audits)

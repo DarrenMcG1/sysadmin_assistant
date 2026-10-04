@@ -3,6 +3,15 @@
 **Last Updated**: 2026-10-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The junk-growth forecast no longer drops a milestone that is due now**
+> (2026-10-04, Session 341). This is the same fix as the disk forecast
+> below, applied to the "Reaches N GB" rows in the tray's disk panel. It
+> has never mattered here: the box has always held more than 34 GB of
+> reclaimable files, so all three milestones (1, 5 and 10 GB) were passed
+> long ago, and those rows have never been shown. Whether the milestones
+> should change is recorded as a task. Takes effect at the owner's
+> restart already owed.
+
 > **The disk forecast no longer misses a crossing that is due now**
 > (2026-10-04, Session 340). When disk usage was rising fast enough
 > that its trend line had already passed 80 % but the latest reading had

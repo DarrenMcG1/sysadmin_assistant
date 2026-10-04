@@ -8,6 +8,33 @@
 
 ---
 
+## Session 341: a reclaimable milestone already passed by the line is due now (2026-10-04)
+
+Session 340's next action, the task ticked in its block below. Code in
+`sysadmin/files/router.py`, so a daemon restart is owed. It is the same
+restart the handoff already asks of the owner.
+
+- [x] **Measured first: 0 milestones dropped in 214 replays.** Each of
+      the 215 stored `filesystem_audits` was replayed as the route sees
+      it, with the 10 newest audits up to that one and milestones of 1,
+      5 and 10 GB. No milestone was dropped, and none was kept either.
+      Reclaimable space has stayed between 34,844 and 40,764 MB since
+      2026-08-06, so every milestone is skipped as already reached
+      before the faulty branch runs.
+- [x] **Fixed anyway, in the same shape as `_project_fit`.** A milestone
+      whose fitted line is already past it is now dated at the latest
+      scan, not dropped. One test in `tests/test_night_worker.py` holds
+      it. With the old branch restored it fails with `KeyError: '1gb'`.
+- [ ] **The "Reaches N GB" rows have never been shown on this box.**
+      All three configured milestones (`reclaimable_milestones_mb` in
+      `config.yaml`, 1, 5 and 10 GB) sit below the lowest reclaimable
+      total ever stored (34,844 MB). So the tray shows "Reclaimable now"
+      and "Junk growth" and never a milestone. Found by this session and
+      left, because it is a second concern. Decide whether milestones
+      should be set above the current total, or measured from it (for
+      example "+5 GB from now"), and say which in the design note first.
+      *(For: session)*
+
 ## Session 340: a disk line already past a threshold is due now (2026-10-04)
 
 Session 339's next action, `SNAG-FILES-001` (P3). Code in
@@ -28,7 +55,7 @@ the handoff already asks of the owner.
 - [x] **Replayed against `resource_snapshots`.** On 2026-08-25 to 08-29,
       the five days before 80 % was crossed, the forecast now reports
       80 % as due now, where it used to report "90 % in 18 days".
-- [ ] **The reclaimable-milestone forecast drops a milestone its fitted
+- [x] **The reclaimable-milestone forecast drops a milestone its fitted
       line has already passed.** `_compute_reclaimable_forecast` in
       `sysadmin/files/router.py` keeps a milestone only
       `if days_from_now > 0`, the same shape as `SNAG-FILES-001`. Found

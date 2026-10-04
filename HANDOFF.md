@@ -1,16 +1,16 @@
-# Handoff — 2026-10-04 (Session 340)
+# Handoff — 2026-10-04 (Session 341)
 
 ## Next action
 
-Measure how often `_compute_reclaimable_forecast` dropped a milestone its fitted line had already passed, then fix it (tasks.md, Session 340). *(For: session)*
+Decide whether the reclaimable milestones should sit above today's 35 GB or count from it, since no "Reaches N GB" row has ever shown (tasks.md, Session 341). *(For: session)*
 
-This is the twin Session 340 found while fixing SNAG-FILES-001, a P3
-snag in which the disk forecast reported a crossing that was due now
-as "not on current trend". It is the first unchecked task in tasks.md
-that does not wait on the owner. It feeds only the tray's "Reaches N GB"
-rows, so the cost of each miss is one row; measure how often it has
-happened before choosing a fix. The other owed snag, SNAG-DOCS-032,
-is P4.
+Session 341 found this while measuring its own fix. The three configured
+milestones (1, 5 and 10 GB) are all below the lowest reclaimable total
+ever stored (34,844 MB), so the tray's disk panel has never shown a
+milestone row. It is the first unchecked task in tasks.md that does not
+wait on the owner. The design note in `docs/design/files.md` should say
+which rule was chosen before the config changes. The other owed snag,
+SNAG-DOCS-032, is P4.
 
 ## Owed by the owner
 
@@ -29,9 +29,40 @@ and `direct`, and `systemctl status sysadmin` should be `active
 rollback is written above `Type=` in `systemd/sysadmin.service`. Until
 the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
 which compares bytes, stays red. The restart also loads Session 336's
-recovery notices, Session 337's tray check and Session 340's forecast fix. (The owner's plain restart at 2026-10-03
+recovery notices, Session 337's tray check and Sessions 340 and 341's forecast fixes. (The owner's plain restart at 2026-10-03
 09:55:07 already brought in venture-manager's backup timer and Session
 333's off-loop advice routes; it did not install the unit file.)
+
+## Session 341: a reclaimable milestone already passed by the line is due now
+
+Session 340's next action. Code changed in `sysadmin/files/router.py`,
+so the owner's restart above now carries this fix too.
+
+Measured first, as the task asked. Each of the 215 stored
+`filesystem_audits` was replayed as `/api/files/trends` sees it: the 10
+newest audits up to that one, milestones of 1, 5 and 10 GB. The faulty
+branch was taken on 0 of 214 windows, and no milestone was kept either.
+Every milestone was skipped earlier, as already reached, because
+reclaimable space has stayed between 34,844 and 40,764 MB.
+
+Decided: fix it anyway, in the same shape as `_project_fit`. A milestone
+whose fitted line is already past it is now dated at the latest scan.
+The empty count describes this box's sizes, not the code. The fix is
+four lines, and two forecasts on one rule are easier to reason about
+than one with an exception. `FileTrendForecast` is unchanged.
+
+Verified: one new test in `tests/test_night_worker.py`. With the old
+branch restored it fails with `KeyError: '1gb'`. Full suite 4,523
+passed, 1 failed. The failure is
+`test_every_installed_system_unit_is_the_tracked_one`, red until the
+owner's deploy. Ruff and mypy are clean.
+
+Not changed: the milestone sizes. That is a second concern, recorded as
+the task named in the next action.
+
+## What Session 340 handed on (done by Session 341)
+
+Measure how often `_compute_reclaimable_forecast` dropped a milestone its fitted line had already passed, then fix it (tasks.md, Session 340). *(For: session)*
 
 ## Session 340: a disk line already past a threshold is due now
 
