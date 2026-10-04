@@ -1,12 +1,13 @@
-# Handoff — 2026-10-04 (Session 338)
+# Handoff — 2026-10-04 (Session 339)
 
 ## Next action
 
-Correct STATUS.md's stale "The daemon restarted at" time, first finding who restarted sysadmin.service on 2026-10-03 at 09:55 (tasks.md, Session 337 block). *(For: session)*
+Fix SNAG-FILES-001: a disk trend line already past a threshold reads `not_growing`; report it as `projected` at day 0 instead (snag_list.md has the shape). *(For: session)*
 
-This is the first unchecked item in tasks.md that a session can start.
-The item above it in Session 338's block is the owner's root witness
-run (below), which needs `sudo`.
+It is the open, owed entry with the highest priority (P3), and it bears
+on the live `Critical disk usage on /` alert. The other owed entry,
+SNAG-DOCS-032, is P4. The unchecked tasks above it all wait on the
+owner.
 
 ## Owed by the owner
 
@@ -24,10 +25,39 @@ and `direct`, and `systemctl status sysadmin` should be `active
 (running)` within a few seconds. If it sits in `activating`, the
 rollback is written above `Type=` in `systemd/sysadmin.service`. Until
 the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
-which compares bytes, stays red. The restart is also the one `96fa8b8`
-already owes so the daemon watches venture-manager's backup timer, and
-it loads Session 333's off-loop advice routes, Session 336's recovery
-notices and Session 337's tray check.
+which compares bytes, stays red. The restart also loads Session 336's
+recovery notices and Session 337's tray check. (The owner's plain restart at 2026-10-03
+09:55:07 already brought in venture-manager's backup timer and Session
+333's off-loop advice routes; it did not install the unit file.)
+
+## Session 339: the 2026-10-03 restart was the owner's
+
+Session 338's next action. Roadmap, STATUS.md and handoff only; no code
+changed, no restart owed by this session.
+
+The daemon's 2026-10-03 09:55:07 restart was the owner's, run from
+venture-manager's session `02586aaf` so the daemon would watch
+`venture-manager-backup-timer`. Found from that session's transcript
+(the owner typed "sysadmin service restarted" at 09:55:17) and the
+system journal (a polkit authorisation for UID 1000 from 09:54:59 to
+09:55:07, and no `sudo`). So it was a plain `systemctl restart`: the
+unit file was not reinstalled and still reads `Type=simple`.
+
+Decided: STATUS.md gets a new entry carrying the bold timestamp and the
+two check markers, and Session 323's sentence keeps its own (true)
+11:06:32 timestamp unbolded. Rewriting 323's time would have made it
+say that restart loaded the GPU fix, which it did not. The start-time
+check now reads `ok`; the deploy check still reads `no`, because
+Sessions 336 and 337's code is newer than the running daemon. That is
+the owner's restart below, not this session's to pay with `kill -TERM`,
+since the same restart should also install the unit file.
+
+Closed estate message `a0eec7fa`: venture-manager's ask was the restart,
+and the timer has read `ok` since 10:00:09 on 2026-10-03.
+
+## What Session 338 handed on (done by Session 339)
+
+Correct STATUS.md's stale "The daemon restarted at" time, first finding who restarted sysadmin.service on 2026-10-03 at 09:55 (tasks.md, Session 337 block). *(For: session)*
 
 ## Session 338: with Steam quit, the dGPU still never slept
 

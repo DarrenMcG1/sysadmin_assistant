@@ -3,6 +3,18 @@
 **Last Updated**: 2026-10-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The monitor's last restart was the owner's, and is now on record**
+> (2026-10-04, Session 339). This page said the monitor last restarted
+> on 2 October; it has been running since 3 October. The daemon
+> restarted at **2026-10-03 09:55:07** <!--check:deploy-->
+> <!--check:daemon_start-->, by the owner from a venture-manager
+> session, so that it would start watching venture-manager's new backup
+> timer. It does: the timer read `ok` from its first check at 10:00.
+> That restart also loaded the faster advice pages (Session 333). The
+> recovery notices (Session 336), the tray-only presence check (Session
+> 337) and the new service file still need the owner's restart.
+> Documentation only.
+
 > **Steam was not the only thing keeping the graphics card awake**
 > (2026-10-04, Session 338). Last night the owner quit Steam, and its
 > web view did stop drawing. With both monitors off for nearly 11 hours,
@@ -134,8 +146,8 @@
 > woke the card 93 times. The overnight test of which reads are safe
 > found the card awake all night, and it has not suspended once since
 > the 28 September kernel update, so today's change has nothing to act
-> on yet. The daemon restarted at **2026-10-02 11:06:32**
-> <!--check:deploy--> <!--check:daemon_start--> to load it.
+> on yet. The daemon restarted at 2026-10-02 11:06:32
+> to load it.
 
 > **README's service count reads 37 again** (2026-10-02, Session 322).
 > go-to-market's persona model was added to `services.yaml` and the

@@ -8,6 +8,39 @@
 
 ---
 
+## Session 339: the 2026-10-03 restart was the owner's (2026-10-04)
+
+Session 338's next action. Roadmap, STATUS.md and handoff only; no code
+changed, no restart owed by this session.
+
+- [x] **Found who restarted `sysadmin.service` at 2026-10-03 09:55:07.**
+      The owner did, from venture-manager's session `02586aaf`, which had
+      asked for the restart so the daemon would watch
+      `venture-manager-backup-timer`. The owner typed "sysadmin service
+      restarted" at 09:55:17. The system journal agrees: a polkit
+      authorisation for UID 1000 started at 09:54:59 and finished at
+      09:55:07, the second of the stop. There is no `sudo` line, so it
+      was a plain `systemctl restart`, and `setup-systemd.sh` was not
+      run: the unit still reads `Type=simple`, `WatchdogUSec=0`,
+      `RestartMode=normal`. venture-manager confirmed the timer `ok` at
+      10:00:09 (its commit `3bb8088`), and it still reads `ok`.
+- [x] **What that restart paid and what it did not.** It loaded the code
+      as of `57188ef`: venture-manager's timer (`96fa8b8`) and Session
+      333's off-loop advice routes (`57188ef`). Session 336's recovery
+      notices (`bb70fb4`, 22:13 that night) and Session 337's tray check
+      (`79c6785`) came later and are still owed, as is the unit-file
+      deploy.
+- [x] **STATUS.md corrected by a new entry, not by editing Session
+      323's.** That sentence was true when written: the daemon did
+      restart at 2026-10-02 11:06:32 to load the GPU fix. Its timestamp
+      lost the bold and both check markers, and the new entry carries
+      them. `check-ops-claims.sh` now reads the start time `ok`; the
+      deploy check still reads `no`, which is the owner's restart above.
+- [x] **Estate message `a0eec7fa` closed.** venture-manager asked for
+      the owner's restart so the timer would be polled. It was paid, and
+      the timer is polled. Sessions 328 to 330 had held it open for that
+      restart alone.
+
 ## Session 338: with Steam quit, the dGPU still never slept (2026-10-04)
 
 Session 337's handoff named this. Roadmap and handoff only; no code
@@ -98,13 +131,14 @@ owed; the tray half took effect when this session restarted the tray.
       (named, unnamed, another name) and `TestApiWorkerNamesItself` in
       `tests/test_tray/test_client.py`. Putting back the unconditional
       mark turns the two "does not" cases red.
-- [ ] **STATUS.md's opening block gives the daemon's last restart as
+- [x] **STATUS.md's opening block gives the daemon's last restart as
       2026-10-02 11:06:32; it has been active since 2026-10-03
       09:55:07.** Postflight's ops-claim check flagged it on
       2026-10-04. Session 336 says it did no restart, so first find out
       who did and why, then correct the sentence near the top of
       STATUS.md that says "The daemon restarted at". Found by Session 337
       and not worked there, because it is a separate concern.
+      *(Done by Session 339, 2026-10-04: the owner restarted it from a venture-manager session, for the backup timer. STATUS.md now records it.)*
 
 ## Session 336: the daemon announces an outage's end (2026-10-03)
 
@@ -497,6 +531,10 @@ installed copy has to be redeployed to match.
       The edit is comments only, but `test_every_installed_system_unit_is_the_tracked_one`
       compares bytes and is red until then. The restart is the one
       `96fa8b8` already owes for venture-manager's backup timer.
+      *(Session 339, 2026-10-04: that half was paid on 2026-10-03 at
+      09:55:07, when the owner ran a plain `systemctl restart` for
+      venture-manager. The unit file was not reinstalled, so this item
+      stands.)*
       *(Session 330, 2026-10-02: no longer comments only. The file now
       carries `RestartMode=direct`, so `OnFailure=` fires only at the
       start limit. After the restart, `systemctl show sysadmin -p
