@@ -3,6 +3,17 @@
 **Last Updated**: 2026-10-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **Steam was not the only thing keeping the graphics card awake**
+> (2026-10-04, Session 338). Last night the owner quit Steam, and its
+> web view did stop drawing. With both monitors off for nearly 11 hours,
+> no program the measurement can see used the card for whole minutes at
+> a time, yet the card never powered down. Something it cannot see holds
+> the card: the desktop's compositor, a system process, or the driver.
+> The card has not powered down once since the 28 September system
+> update, which changed the kernel, the card's firmware and the desktop
+> together. Next is the same overnight measurement run with
+> administrator rights, which the owner has to start.
+
 > **Only the tray now counts as watching** (2026-10-04, Session 337).
 > The monitor stays silent while the tray is running, so the two never
 > both pop up the same alert. It decided that by noticing anything
@@ -8005,6 +8016,16 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 338 — with Steam quit, the dGPU still never slept (2026-10-04)
+
+- The second witness night: monitors off 22:25 to 09:16, `active` in
+  every second, 0 ms suspended, and 531 of 652 minutes with no readable
+  client submitting at all. Steam's web view had stopped drawing and
+  Xwayland was idle. The holder is outside the witness's view (kwin, a
+  root process, or the driver). No runtime suspend since the
+  2026-09-28 upgrade that changed kernel, firmware, kwin and mesa
+  together. Next: the witness run as root (owner).
 
 ### Session 337 — only the tray counts as watching (2026-10-04)
 

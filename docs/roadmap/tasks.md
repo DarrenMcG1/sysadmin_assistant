@@ -8,6 +8,70 @@
 
 ---
 
+## Session 338: with Steam quit, the dGPU still never slept (2026-10-04)
+
+Session 337's handoff named this. Roadmap and handoff only; no code
+changed, no restart owed. Read
+`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl` (720
+minutes, 2026-10-03 21:31 to 2026-10-04 09:30).
+
+- [x] **Steam stopped drawing, and the card still never slept.** Both
+      DP monitors read `disconnected` from 22:25 to 09:16, 652 minutes.
+      In those minutes `status` is `active` in every sample and
+      `suspended_ms` totals 0. Steam's
+      `webhelper-linux.txt` was last written at 2026-10-03 19:33, and
+      its last `bogus refresh interval` line is from 08:50:50 the
+      morning before. No `steamwebhelper` process submitted work after
+      22:25. So the night measured what it was meant to, and Steam was
+      not the only thing holding the card.
+- [x] **Nothing the witness can see submitted work.** In 531 of the 652
+      minutes `longest_quiet_s` is 60: a whole minute with no readable
+      client submitting, against a 5 s `autosuspend_delay_ms`. Xwayland
+      submitted nothing all night, so the item's other branch (Xwayland
+      serving another X11 client) is refuted too. The only real work was
+      llama-server in 118 minutes (the enrichment job). spotify,
+      plasmashell, electron, firefox, spectacle and WebKitWebProces show
+      up in 1 to 3 minutes each, around the monitors going off and
+      coming back. By the witness's own rule, a quiet run of 5 s or
+      more with no suspend means something it cannot see held the card.
+- [x] **What the witness cannot see.** `kwin_wayland`'s `fd`
+      directory cannot be listed without root (checked: Xwayland's can,
+      kwin's cannot), nor can about 500 root processes' (`unreadable`
+      488 to 527 a minute). The driver itself is the third option. None
+      of the processes holds `/dev/kfd`, so ROCm's KFD reference is
+      ruled out. The card's HDMI audio function (`0000:03:00.1`) has
+      been `suspended` all boot, so it is ruled out too.
+- [x] **Since 28 September the card has not runtime-suspended once.**
+      Boot 0 (from 30 September) reports `runtime_suspended_time` 0. Boot −1's
+      three `PSP is resuming` lines (all on 30 September) are GPU-reset
+      recoveries, each with `VRAM is lost due to GPU reset`, not wakes
+      from suspend. Boot −2's 283 had no such line. So six nights in a
+      row have had no suspend, starting with the 11:49 reboot on 28
+      September. That reboot loaded one upgrade from 11:44, which
+      changed more than the kernel: linux 7.2.7 as the default, AMD GPU
+      firmware 20260810 → 20260916, kwin and powerdevil 6.7.4 → 6.7.5,
+      mesa 26.2.2 → 26.2.3. Session 324 cleared "the kernel" on 6.18
+      nights. Those nights probably had a client drawing, and the
+      argument never covered the firmware or kwin. Last night is the
+      first night since the upgrade with no visible client submitting,
+      and it did not sleep either. `amdgpu` reports `Using BACO for
+      runtime pm` on both kernels, so the power-down mode did not change.
+- [ ] **Owner: run the witness once as root, to see kwin.** *(Needs
+      `sudo`; quit Steam again first.)* As root, kwin and the root
+      processes become visible.
+      `sudo systemd-run --unit=sysadmin-dgpu-pin-witness-root
+      --on-calendar='YYYY-MM-DD 21:30:00' /usr/bin/python3
+      /home/gaddi/projects/sysadmin_assistant/scripts/dgpu-pin-witness.py
+      --log /home/gaddi/.local/state/sysadmin/dgpu-pin-witness-root-<next day>.jsonl
+      --duration 43200`. The script needs no change, because as root
+      every process's `fd` directory can be listed and `unreadable`
+      should read near 0. If kwin (or a root process) submits work all
+      through the off window, that is the holder. If every client is
+      still quiet for whole minutes and the card stays `active`, the
+      driver is holding it. Then the next test is one night booted on
+      `linux-lts` (6.18.54, still installed), which separates the kernel
+      from the firmware and kwin.
+
 ## Session 337: only the tray counts as watching (2026-10-04)
 
 Session 336's next action. Code in `sysadmin/core/contracts.py`,
@@ -134,8 +198,9 @@ no restart owed. A second witness run is scheduled for tonight.
       speed: under LLM load the card clocks up, so the same copy uses
       less engine time. It is not measured, so it is no basis for
       reading engine milliseconds as work done.
-- [ ] **Read `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl`
-      (after 09:30 on 2026-10-04).** Transient
+- [x] **Read `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl`
+      (after 09:30 on 2026-10-04).** *(Read by Session 338: Steam had
+      stopped drawing and the card still never slept; see that block.)* Transient
       `sysadmin-dgpu-pin-witness.timer`, `OnCalendar=2026-10-03
       21:30:00`, 12 h. It does not survive a reboot. The owner quit
       Steam before the monitors went off: no Steam process was left at

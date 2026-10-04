@@ -1,20 +1,20 @@
-# Handoff — 2026-10-04 (Session 337)
+# Handoff — 2026-10-04 (Session 338)
 
 ## Next action
 
-Read last night's dGPU witness log, `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl` (tasks.md, Session 335 block, last item). *(For: session)*
+Correct STATUS.md's stale "The daemon restarted at" time, first finding who restarted sysadmin.service on 2026-10-03 at 09:55 (tasks.md, Session 337 block). *(For: session)*
 
-The witness finished at 09:30 today, so this is now the first unchecked
-item in tasks.md that a session can start. The item says how to read
-it: the owner quit Steam before the monitors went off, so the card
-sleeping overnight would confirm Steam's web view as what held it awake.
-It is its own concern, which is why Session 337 did not read it.
-Session 337 added one task above it in tasks.md: STATUS.md's opening
-block gives a stale time for the daemon's last restart. The witness goes
-first because the owner quit Steam last night for this measurement, and
-the stale time can wait.
+This is the first unchecked item in tasks.md that a session can start.
+The item above it in Session 338's block is the owner's root witness
+run (below), which needs `sudo`.
 
 ## Owed by the owner
+
+Run the dGPU witness once as root, overnight, with Steam quit
+(tasks.md, Session 338 block, has the command) *(For: owner, ~3 min, at
+2026-10-04 21:00)*. This shows whether kwin or a root process keeps the
+card awake. If everything is still quiet, the next step is one night on
+`linux-lts`.
 
 `sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
 *(For: owner, ~2 min)*. This now arms the watchdog as well as
@@ -28,6 +28,39 @@ which compares bytes, stays red. The restart is also the one `96fa8b8`
 already owes so the daemon watches venture-manager's backup timer, and
 it loads Session 333's off-loop advice routes, Session 336's recovery
 notices and Session 337's tray check.
+
+## Session 338: with Steam quit, the dGPU still never slept
+
+Session 337's next action. Roadmap and handoff only; no code changed.
+Read last night's witness log
+(`~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl`).
+
+Steam was quit, and its log shows the web view stopped drawing (last
+`bogus refresh interval` line 2026-10-03 08:50:50). The monitors were
+off from 22:25 to 09:16. The card read `active` every second and
+suspended 0 ms. In 531 of those 652 minutes no readable client
+submitted anything for the whole minute; Xwayland submitted nothing all
+night. So Steam was a holder on the night before, but not the only one,
+and whatever holds the card now is outside the witness's view: kwin
+(its `fd` directory needs root), a root process, or the driver.
+
+Measured besides: the card has not runtime-suspended once in the six
+nights since the 2026-09-28 11:49 reboot. Boot −1's three `PSP is
+resuming` lines are GPU-reset recoveries, not wakes. That reboot loaded
+a new kernel, AMD GPU firmware, kwin, powerdevil and mesa together, so
+Session 324's "not the kernel" reading covers none of the firmware,
+kwin or mesa. No process holds `/dev/kfd`, and the card's audio function
+sleeps, so neither is the cause.
+
+Decided: no change to `scripts/dgpu-pin-witness.py`. Run as root it
+already sees every process, so the owner's next run needs only a
+different `sudo systemd-run`. Its docstring's "the kernel is not what
+separates the nights" is now weaker than it reads; the task records
+that rather than this session rewriting a closed measurement.
+
+## What Session 337 handed on (done by Session 338)
+
+Read last night's dGPU witness log, `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl` (tasks.md, Session 335 block, last item). *(For: session)*
 
 ## Session 337: only the tray counts as watching
 
