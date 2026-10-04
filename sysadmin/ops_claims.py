@@ -566,6 +566,21 @@ EXPIRY_NAIVE_FORMAT = "%Y-%m-%dT%H:%M"
 EXPIRY_CLOCK_FORMAT = "%H:%M"
 
 
+def states_clock(prose: str, clock: str) -> bool:
+    """Whether ``prose`` names the wall clock ``clock`` as a clock of its own.
+
+    **Bounded, since ``SNAG-DOCS-032``.**  The pin was ``clock in prose``,
+    and a five-character needle is a substring of tokens that are not
+    clocks: ``amdgpu 0000:03:00.0`` contains ``03:00``, and ``15:03:00``
+    contains it too.  A digit or colon before the needle makes it the tail
+    of a longer token and a digit after makes it the head of one, so either
+    refuses.  A colon *after* is admitted: ``15:03:00`` names the minute
+    ``15:03`` and a sentence stating its prediction to the second is
+    pinned, where the ``03:00`` in it is that time's minutes and seconds.
+    """
+    return re.search(rf"(?<![\d:]){re.escape(clock)}(?!\d)", prose) is not None
+
+
 @dataclass(frozen=True)
 class Claim:
     """One line of the report.
@@ -2507,14 +2522,14 @@ def check_expiry(marker: Marker, now: datetime) -> Claim:
     clock = moment.astimezone().strftime(EXPIRY_CLOCK_FORMAT)
     stated = moment.strftime(EXPIRY_CLOCK_FORMAT)
     prose = marker.sentence
-    if clock not in prose:
+    if not states_clock(prose, clock):
         note = (
             f"the marker names {clock} and the sentence it stands in does not — pinned "
             "rather than trusted, because the instant is the one fact stated twice here. "
             "Move the marker into the sentence naming the clock, or name the clock in "
             "this one; the whole block is deliberately not searched (SNAG-DOCS-008)"
         )
-        if stated != clock and stated in prose:
+        if stated != clock and states_clock(prose, stated):
             note = (
                 f"the marker's instant is {clock} on this box and the sentence says "
                 f"{stated}, which is that moment in the marker's own zone — the sentence "

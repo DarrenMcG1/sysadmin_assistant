@@ -8,6 +8,39 @@
 
 ---
 
+## Session 344: an `expires` clock must stand alone (2026-10-04)
+
+Session 343's next action, `SNAG-DOCS-032`. Code in
+`sysadmin/ops_claims.py`, which the daemon does not import, so no
+restart is owed by it.
+
+- [x] **The pin is a bounded match.** `states_clock` asks for `HH:MM`
+      with no digit or colon before it and no digit after it, and
+      `check_expiry` uses it for both the pin and the different-zone
+      note. `amdgpu 0000:03:00.0` and `15:03:00` no longer pin `03:00`;
+      `15:03:00` still pins `15:03`, its own minute.
+- [x] **Tests**: `TestTheClockStandsAlone`, 11 cases in
+      `tests/test_ops_claims.py`. Six go red with the helper reverted to
+      a substring test. The live-prediction regression test now asks the
+      same helper. The live marker (`2026-10-08T03:00+01:00`) still
+      reads `match`.
+- [ ] **Record the owner's 2026-10-04 20:50:41 deploy, then restart once
+      for Session 343's fix.** Found while closing Session 344, and a
+      second concern, so not worked there. `systemctl show sysadmin`
+      reads `Type=notify`, `WatchdogUSec=1min`, `NRestarts=0`, and the
+      journal shows a clean stop and start at 20:50:41: the owner's owed
+      `setup-systemd.sh` and restart have happened, and the installed-unit
+      test is green. `sysadmin/files/router.py` was written at 20:52, so
+      Session 343's junk-growth fit is still not live.
+      `check-ops-claims.sh` reports the daemon stale and the STATUS
+      block's restart (2026-10-03 09:55:07) out of date. Owed: say whose
+      restart it was in the block (as Session 339 did for the last one),
+      restart once (`kill -TERM` the main PID; `Restart=always` brings it
+      back), and retire the deploy ask from tasks.md and HANDOFF.md. The same
+      re-record must account for a third open alert, `venture-chat
+      unreachable` (opened 2026-10-04 22:00 BST, another repository's
+      service), which the block's marked sentence does not name.
+
 ## Session 343: the junk-growth fit spans 30 days (2026-10-04)
 
 Session 342's next action, the task ticked in its block below. Code in

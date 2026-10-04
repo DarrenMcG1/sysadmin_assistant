@@ -77,6 +77,7 @@ from sysadmin.ops_claims import (
     quick_status_rows,
     read_claim,
     read_markers,
+    states_clock,
     status_figures,
     sweep_sources,
 )
@@ -1450,6 +1451,88 @@ class TestTheLiveBlockCarriesAPrediction:
             assert "nobody re-measured it" in (claim.note or "")
 
 
+class TestTheClockStandsAlone:
+    """SNAG-DOCS-032 — inside its own sentence, the pin is a bounded clock.
+
+    :class:`TestTheBlockIsItsOwnRegressionTest` holds that no clock stated in
+    *another* sentence pins a marker. This holds the other half: a token in
+    the marker's own sentence that merely *contains* ``HH:MM`` does not.
+    Both specimens are the region's own: the GPU's PCI address
+    ``0000:03:00.0`` and a seconds-bearing time, each holding ``03:00``.
+
+    Instants are local by construction and mid-January, so the needle is
+    exactly the clock written whatever ``TZ`` the runner has.
+    """
+
+    MINUTE = timedelta(minutes=1)
+
+    @staticmethod
+    def _instant(hour: int, minute: int) -> datetime:
+        return datetime(2027, 1, 15, hour, minute).astimezone()
+
+    def _claim(self, sentence: str, moment: datetime) -> Claim:
+        block = (
+            f"> **{sentence}**"
+            f"<!--check:expires {moment.isoformat(timespec='minutes')} the row-->"
+        )
+        (marker,) = (m for m in read_markers(block) if m.key == "expires")
+        return check_expiry(marker, moment - self.MINUTE)
+
+    @pytest.mark.parametrize(
+        "sentence",
+        [
+            "The reset of amdgpu 0000:03:00.0 clears the row at 04:10.",
+            "The scan logged 15:03:00 and the row clears at 04:10.",
+            "The row clears at 04:10, after the 103:00 hours of uptime.",
+            "The row clears at 04:10, and 03:001 is a build tag.",
+        ],
+        ids=["pci-address", "seconds-bearing", "digit-before", "digit-after"],
+    )
+    def test_a_clock_shaped_piece_of_a_longer_token_does_not_pin(self, sentence):
+        """Falsified by ``clock in prose``: every one of these is ``match``."""
+        claim = self._claim(sentence, self._instant(3, 0))
+        assert claim.verdict == "unknown", claim.measured
+        assert "the sentence it stands in does not" in (claim.note or "")
+
+    @pytest.mark.parametrize(
+        "sentence",
+        [
+            "The row clears at 03:00.",
+            "The row clears at 03:00:00 exactly.",
+            "The window runs 02:30–03:00 and the row clears with it.",
+            "The row clears at `03:00`.",
+            "03:00 is when the row clears.",
+        ],
+        ids=["full-stop", "to-the-second", "end-of-range", "code-span", "sentence-start"],
+    )
+    def test_a_clock_standing_alone_still_pins(self, sentence):
+        """The bound must not cost the correct case, including a time to the second."""
+        assert self._claim(sentence, self._instant(3, 0)).verdict == "match"
+
+    def test_the_zone_diagnostic_is_bounded_too(self):
+        """A bus address must not be read as the marker's clock in another zone.
+
+        The marker names 03:00 at ``+05:00``, which this box renders as
+        some other hour, and the sentence's only ``03:00`` is inside the
+        PCI address. Unbounded, the note blames a zone copy
+        (SNAG-ESTATE-013) that never happened; bounded, it is the ordinary
+        unpinned note.
+        """
+        moment = datetime(2027, 1, 15, 3, 0, tzinfo=timezone(timedelta(hours=5)))
+        if moment.astimezone().strftime("%H:%M") == "03:00":
+            pytest.skip("this runner's zone is +05:00, so the two clocks coincide")
+        claim = self._claim("The reset of amdgpu 0000:03:00.0 clears the row.", moment)
+        assert claim.verdict == "unknown"
+        assert "SNAG-ESTATE-013" not in (claim.note or "")
+        assert "SNAG-DOCS-008" in (claim.note or "")
+
+    def test_the_helper_is_what_the_check_asks(self):
+        """The two specimens the entry named, at the helper directly."""
+        assert not states_clock("amdgpu 0000:03:00.0", "03:00")
+        assert not states_clock("at 15:03:00", "03:00")
+        assert states_clock("at 15:03:00", "15:03")
+
+
 class TestTheBlockIsItsOwnRegressionTest:
     """Rule 9's narrowing, driven at every clock the real block already states.
 
@@ -1582,7 +1665,7 @@ class TestTheBlockIsItsOwnRegressionTest:
                 if m.group(2).strip() == marker.argument
             ]
             assert len(closes) == 1, f"{marker.argument!r} is not stated once in the prose"
-            assert clock in marker.sentence, (
+            assert states_clock(marker.sentence, clock), (
                 f"{marker.argument!r} is unpinned before anything is taken out, which "
                 "TestTheLiveBlockCarriesAPrediction reports; off Europe/London it is the "
                 "runner's zone, and ci.yml sets TZ for that reason"

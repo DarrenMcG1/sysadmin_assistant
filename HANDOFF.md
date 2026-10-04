@@ -1,14 +1,16 @@
-# Handoff — 2026-10-04 (Session 343)
+# Handoff — 2026-10-04 (Session 344)
 
 ## Next action
 
-Bound the clock in `check_expiry` so an `HH:MM` inside a PCI address or a seconds-bearing time no longer pins an `expires` marker (SNAG-DOCS-032). *(For: session)*
+Record the owner's 20:50:41 deploy in STATUS.md, then restart the daemon once so Session 343's junk-growth fit goes live (tasks.md, Session 344). *(For: session)*
 
-It is the first owed entry left in snag_list.md, and tasks.md has no
-startable item: its open boxes are the owner's or wait on a trigger.
-The entry has the shape of a fix, `(?<![\d:])HH:MM(?![\d])`, and two
-specimens to drive it at. The one live prediction's sentence is clean,
-so the population is empty today and the test must mint its own.
+The owner's owed deploy has already happened: `systemctl show sysadmin`
+reads `Type=notify`, `WatchdogUSec=1min`, and the journal has a clean
+stop and start at 2026-10-04 20:50:41 with `NRestarts=0`. Session 343
+wrote `sysadmin/files/router.py` at 20:52, so its fix is not live, and
+`check-ops-claims.sh` reports the daemon stale and the block's restart
+record (2026-10-03 09:55:07) out of date. Whose restart it was is not
+yet recorded; Session 339's block shows how to establish it.
 
 ## Owed by the owner
 
@@ -18,19 +20,41 @@ Run the dGPU witness once as root, overnight, with Steam quit
 card awake. If everything is still quiet, the next step is one night on
 `linux-lts`.
 
-`sudo ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`
-*(For: owner, ~2 min)*. This now arms the watchdog as well as
-installing Sessions 327 and 330's edits. Afterwards `systemctl show
-sysadmin -p Type,WatchdogUSec,RestartMode` should read `notify`, `1min`
-and `direct`, and `systemctl status sysadmin` should be `active
-(running)` within a few seconds. If it sits in `activating`, the
-rollback is written above `Type=` in `systemd/sysadmin.service`. Until
-the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
-which compares bytes, stays red. The restart also loads Session 336's
-recovery notices, Session 337's tray check and Sessions 340, 341 and 343's forecast fixes. Session 342's row-order fix in the tray needs only
-`systemctl --user restart sysadmin-tray`. (The owner's plain restart at 2026-10-03
-09:55:07 already brought in venture-manager's backup timer and Session
-333's off-loop advice routes; it did not install the unit file.)
+The unit-file deploy (`setup-systemd.sh` and a restart), owed since
+Session 327, is done as of 20:50:41 and is no longer asked for.
+Session 342's row-order fix in the tray needs only
+`systemctl --user restart sysadmin-tray`.
+
+## Session 344: an `expires` clock must stand alone
+
+Session 343's next action, `SNAG-DOCS-032`, closed. `check_expiry`
+pins a prediction through `states_clock`, which matches `HH:MM` only
+with no digit or colon before it and no digit after. It is used for
+both the pin and the different-zone note (SNAG-ESTATE-013's diagnostic),
+which had the same substring test.
+
+Decided: a colon *after* the clock is admitted. `15:03:00` names the
+minute `15:03`, so a prediction stated to the second still pins; the
+`03:00` inside it does not. Rejected: also refusing `+` or `-` before
+the clock, which would stop the `01:00` in an offset `+01:00` from
+pinning but would also refuse the second end of a range like
+`10:00-11:00`. No sentence carries an offset today, so it was left.
+
+Verified: 11 tests in `TestTheClockStandsAlone`; six red with the helper
+reverted to `clock in prose`, the five correct-case ones green either
+way. Full suite 4,540 passed and 2 skipped, ruff and mypy clean. The live
+prediction still reads `match`. `ops_claims.py` is not imported by the
+daemon, so no restart is owed by this change.
+
+## What Session 343 handed on (done by Session 344)
+
+Bound the clock in `check_expiry` so an `HH:MM` inside a PCI address or a seconds-bearing time no longer pins an `expires` marker (SNAG-DOCS-032). *(For: session)*
+
+It is the first owed entry left in snag_list.md, and tasks.md has no
+startable item: its open boxes are the owner's or wait on a trigger.
+The entry has the shape of a fix, `(?<![\d:])HH:MM(?![\d])`, and two
+specimens to drive it at. The one live prediction's sentence is clean,
+so the population is empty today and the test must mint its own.
 
 ## Session 343: the junk-growth fit spans 30 days
 
