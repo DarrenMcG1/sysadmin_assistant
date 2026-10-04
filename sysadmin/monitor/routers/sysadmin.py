@@ -4,7 +4,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import desc, func, select
@@ -13,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sysadmin.core.auth import require_auth
 from sysadmin.core.config import get_config
 from sysadmin.core.contracts import (
+    CLIENT_HEADER,
+    TRAY_CLIENT,
     AlertAckResponse,
     AlertsResponse,
     DndStatusResponse,
@@ -288,19 +290,25 @@ async def get_resource_history(
 async def get_alerts(
     active_only: bool = Query(default=True),
     limit: int = Query(default=50, le=200),
+    client: str | None = Header(default=None, alias=CLIENT_HEADER),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Get alerts, optionally filtered to active (unresolved) only.
 
-    Polling this route is what tells the daemon somebody is already
-    watching, which keeps its own desktop notifier quiet — see
+    The tray polling this route is what tells the daemon somebody is
+    already watching, which keeps its own desktop notifier quiet — see
     :mod:`sysadmin.monitor.desktop`.  Marked here rather than in
     middleware because this is the *only* route the tray's notification
     loop depends on: a client fetching ``/status`` for a dashboard is not
     going to show anyone an alert, and treating it as presence would
     silence the daemon for a reader that never sees alerts at all.
+
+    Only a poll that names the tray in :data:`CLIENT_HEADER` counts.  A
+    ``curl`` of this route used to count as well, and it shows nobody a
+    toast either.
     """
-    tray_presence.mark_seen()
+    if client == TRAY_CLIENT:
+        tray_presence.mark_seen()
 
     query = select(Alert).order_by(desc(Alert.created_at)).limit(limit)
     if active_only:

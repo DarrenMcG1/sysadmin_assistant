@@ -23,6 +23,8 @@ import httpx
 from PyQt6.QtCore import QMutex, QObject, QThread, pyqtSignal, pyqtSlot
 
 from sysadmin_tray.models import (
+    CLIENT_HEADER,
+    TRAY_CLIENT,
     AlertsResponse,
     CleanResultResponse,
     DuplicatesResponse,
@@ -96,6 +98,11 @@ class ApiWorker(QObject):
         # Send the bearer token on every request (only mutating endpoints
         # require it, but sending it everywhere is harmless and simpler).
         headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
+        # Name the tray on every request for the same reason.  Only the
+        # alerts route reads it: a poll carrying it is what tells the
+        # daemon the tray is watching, so the daemon's own desktop
+        # notifier stays quiet (sysadmin/monitor/desktop.py, gate 1).
+        headers[CLIENT_HEADER] = TRAY_CLIENT
         self._client = httpx.Client(timeout=10.0, headers=headers)
         # Tri-state, and the third state is the whole of SNAG-TRAY-009's
         # first face.  ``False`` used to be the initial value, so a tray

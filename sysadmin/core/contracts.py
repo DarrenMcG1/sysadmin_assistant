@@ -51,6 +51,19 @@ def _fill_count(data: Any, key: str) -> Any:
     return data
 
 
+# ── Request headers ──────────────────────────────────────────────────
+
+#: The header a client names itself in, and the value the tray sends.
+#: ``GET /api/sysadmin/alerts`` counts a poll as "the tray is watching"
+#: only when it carries this pair, which keeps the daemon's desktop
+#: notifier quiet (``sysadmin/monitor/desktop.py``, gate 1).  A ``curl``
+#: of the route used to count too.  Defined here, not at either end,
+#: because a spelling that drifted would make the daemon stop
+#: recognising the tray, and then both would toast.
+CLIENT_HEADER = "X-Sysadmin-Client"
+TRAY_CLIENT = "sysadmin-tray"
+
+
 # ── /health ──────────────────────────────────────────────────────────
 
 

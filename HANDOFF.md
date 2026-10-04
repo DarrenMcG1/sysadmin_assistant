@@ -1,25 +1,18 @@
-# Handoff — 2026-10-03 (Session 336)
+# Handoff — 2026-10-04 (Session 337)
 
 ## Next action
 
-Make the tray identify itself when it polls the alerts route, so only the tray counts as watching (tasks.md, the item beginning "The presence signal cannot tell"). *(For: session)*
+Read last night's dGPU witness log, `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl` (tasks.md, Session 335 block, last item). *(For: session)*
 
-It is the first unchecked item in tasks.md that a session can start now.
-The items above it are unchanged from Session 335's list: the owner's
-redeploy, tonight's dGPU witness, the CI Python pin, and the
-`Type=notify` item that waits on the redeploy. The item was deferred
-because an older tray build would go unrecognised and both would toast.
-Check that reason first: the tray runs from this checkout and restarts
-at login, so an "older build" may only mean a tray process not yet
-restarted, which a deploy note can cover.
-
-## Scheduled action
-
-Read `~/.local/state/sysadmin/dgpu-pin-witness-2026-10-04.jsonl` after
-09:30 on 2026-10-04 (tasks.md, Session 335 block, last item). A
-transient user timer starts it at 21:30 tonight and runs it for 12 h. A
-reboot cancels it. The item says how to read the result, including the
-case where Steam was left drawing, which measures nothing new.
+The witness finished at 09:30 today, so this is now the first unchecked
+item in tasks.md that a session can start. The item says how to read
+it: the owner quit Steam before the monitors went off, so the card
+sleeping overnight would confirm Steam's web view as what held it awake.
+It is its own concern, which is why Session 337 did not read it.
+Session 337 added one task above it in tasks.md: STATUS.md's opening
+block gives a stale time for the daemon's last restart. The witness goes
+first because the owner quit Steam last night for this measurement, and
+the stale time can wait.
 
 ## Owed by the owner
 
@@ -33,8 +26,43 @@ rollback is written above `Type=` in `systemd/sysadmin.service`. Until
 the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
 which compares bytes, stays red. The restart is also the one `96fa8b8`
 already owes so the daemon watches venture-manager's backup timer, and
-it loads Session 333's off-loop advice routes and Session 336's recovery
-notices.
+it loads Session 333's off-loop advice routes, Session 336's recovery
+notices and Session 337's tray check.
+
+## Session 337: only the tray counts as watching
+
+Session 336's next action. The tray now sends `X-Sysadmin-Client:
+sysadmin-tray` on every request, and `GET /api/sysadmin/alerts` marks
+the tray present only when a poll carries that pair. A `curl` of the
+route no longer keeps the daemon's desktop notifier quiet. The header
+name and value are constants in `sysadmin/core/contracts.py`, which
+both ends import, so the two spellings cannot drift apart.
+
+Measured first: 1,440 polls of the route in the 24 h before the change,
+1,439 of them at second :46 of the minute. The tray was the only
+client, so nothing on this box was silencing the daemon by mistake. The
+change makes the signal exact by construction, not just by luck.
+
+Decided: the item's deferral reason, that an older tray would go
+unrecognised and both would toast, is met by restart order rather than
+by code. The tray runs from this checkout, so "older build" only means a
+tray process started before this commit. The running daemon ignores the
+header, so the tray was restarted first (after the dGPU witness ended at
+09:30, since a starting Qt app can wake the card). The owner's daemon
+restart then turns the check on against a tray that already sends it.
+If anyone restarts the daemon while a tray started before 2026-10-04
+09:30:16 is still running, both will toast until the tray restarts.
+
+Rejected: keeping a headerless poll as presence during a transition
+window. That is the old behaviour under another name, and the restart
+order already closes the window.
+
+The full suite has one red, `test_every_installed_system_unit_is_the_tracked_one`,
+which is the owner's redeploy above, not this change.
+
+## What Session 336 handed on (done by Session 337)
+
+Make the tray identify itself when it polls the alerts route, so only the tray counts as watching (tasks.md, the item beginning "The presence signal cannot tell"). *(For: session)*
 
 ## Session 336: the daemon announces an outage's end
 

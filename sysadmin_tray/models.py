@@ -23,6 +23,8 @@ from enum import Enum
 
 # Re-exported shared contracts (imported by client, dashboard, widgets, tests)
 from sysadmin.core.contracts import (  # noqa: F401
+    CLIENT_HEADER,
+    TRAY_CLIENT,
     AlertInfo,
     AlertsResponse,
     CleanResultResponse,

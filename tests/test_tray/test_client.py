@@ -72,6 +72,25 @@ class TestApiWorkerAuth:
         worker.cleanup()
 
 
+class TestApiWorkerNamesItself:
+    """The header the daemon reads to know the tray is watching."""
+
+    def test_every_request_names_the_tray(self):
+        from sysadmin.core.contracts import CLIENT_HEADER, TRAY_CLIENT
+
+        worker = ApiWorker("http://test:8500")
+        assert worker._client.headers[CLIENT_HEADER] == TRAY_CLIENT
+        worker.cleanup()
+
+    def test_a_token_does_not_displace_it(self):
+        from sysadmin.core.contracts import CLIENT_HEADER, TRAY_CLIENT
+
+        worker = ApiWorker("http://test:8500", auth_token="secret-token")
+        assert worker._client.headers[CLIENT_HEADER] == TRAY_CLIENT
+        assert worker._client.headers["Authorization"] == "Bearer secret-token"
+        worker.cleanup()
+
+
 class TestApiWorkerFetchStatus:
     """ApiWorker.fetch_status() with mocked HTTP."""
 

@@ -4,9 +4,43 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-03
+> **Last Updated**: 2026-10-04
 
 ---
+
+## Session 337: only the tray counts as watching (2026-10-04)
+
+Session 336's next action. Code in `sysadmin/core/contracts.py`,
+`sysadmin/monitor/routers/sysadmin.py`, `sysadmin_tray/client.py` and
+their tests. The daemon half takes effect at the owner's restart already
+owed; the tray half took effect when this session restarted the tray.
+
+- [x] **The tray names itself, and only that poll counts as presence.**
+      Every tray request carries `X-Sysadmin-Client: sysadmin-tray`
+      (`CLIENT_HEADER`, `TRAY_CLIENT` in `core/contracts.py`, which both
+      ends import). `GET /api/sysadmin/alerts` calls
+      `tray_presence.mark_seen()` only when the pair matches, so a `curl`
+      of the route no longer keeps the daemon's desktop notifier quiet.
+- [x] **The deferral reason held only for a tray process not restarted,
+      and the restart order removes it.** The tray runs from this
+      checkout, so an "older build" is a tray process started before the
+      commit. The running daemon ignores the header, so restarting the
+      tray first is safe; the owner's daemon restart then turns the check
+      on against a tray that already sends it. Measured before the
+      change: 1,440 polls of the route in 24 h, 1,439 of them at second
+      :46 of the minute. The tray was the only client, so nothing was
+      silencing the daemon by mistake on this box.
+- [x] **Tests**: three route cases in `TestPresenceIsMarkedByTheRoute`
+      (named, unnamed, another name) and `TestApiWorkerNamesItself` in
+      `tests/test_tray/test_client.py`. Putting back the unconditional
+      mark turns the two "does not" cases red.
+- [ ] **STATUS.md's opening block gives the daemon's last restart as
+      2026-10-02 11:06:32; it has been active since 2026-10-03
+      09:55:07.** Postflight's ops-claim check flagged it on
+      2026-10-04. Session 336 says it did no restart, so first find out
+      who did and why, then correct the sentence near the top of
+      STATUS.md that says "The daemon restarted at". Found by Session 337
+      and not worked there, because it is a separate concern.
 
 ## Session 336: the daemon announces an outage's end (2026-10-03)
 
@@ -16636,7 +16670,7 @@ Notifications (from SNAG-CFG-001, 2026-08-11):
       three resolve paths, not the notifier
       *(Re-read by Session 266, 2026-09-27, and left open: `sysadmin/monitor/desktop.py` still subscribes to `alert.raised` only, and its docstring still says recovery is deliberately not announced.)*
       *(Done 2026-10-03 by Session 336, without touching the resolve paths: the sweep announces the end of a fault it spoke for once its row closes after the sweep's previous look. See the Session 336 block.)*
-- [ ] **The presence signal cannot tell the tray from any other client.**
+- [x] **The presence signal cannot tell the tray from any other client.**
       Any GET of `/api/sysadmin/alerts` counts as "somebody is watching",
       including a `curl`. It errs towards silence, which is the safe
       direction and the pre-existing behaviour, but a tray that
@@ -16645,6 +16679,7 @@ Notifications (from SNAG-CFG-001, 2026-08-11):
       unrecognised and both would toast — the duplicate this design
       exists to prevent
       *(Re-read by Session 266, 2026-09-27, and left open: `tray_presence.mark_seen()` fires on any GET of `/api/sysadmin/alerts`, and the tray's client sends no identifying header, only `Authorization`.)*
+      *(Done by Session 337, 2026-10-04: the tray sends `X-Sysadmin-Client: sysadmin-tray` and the route marks presence only on that. The older-build risk was met by restarting the tray before the daemon.)*
 - **The tray re-announces the open alert set on every start**, because
       `NotificationPolicy`'s fingerprint state is in-memory. Now that
       `sysadmin-tray.service` starts at login this happens every login.

@@ -302,9 +302,8 @@ class TestTransport:
 class TestPresenceIsMarkedByTheRoute:
     """The gate is only as good as the signal that feeds it."""
 
-    async def test_polling_the_alerts_route_marks_the_tray_present(
-        self, test_client, mock_session
-    ):
+    @staticmethod
+    async def _poll(test_client, mock_session, headers):
         from sysadmin.monitor.desktop import tray_presence
 
         result = MagicMock()
@@ -312,9 +311,40 @@ class TestPresenceIsMarkedByTheRoute:
         mock_session.execute = AsyncMock(return_value=result)
 
         with patch.object(tray_presence, "mark_seen") as mark:
-            await test_client.get("/api/sysadmin/alerts")
+            resp = await test_client.get("/api/sysadmin/alerts", headers=headers)
+
+        assert resp.status_code == 200
+        return mark
+
+    async def test_the_tray_polling_the_alerts_route_marks_it_present(
+        self, test_client, mock_session
+    ):
+        from sysadmin.core.contracts import CLIENT_HEADER, TRAY_CLIENT
+
+        mark = await self._poll(test_client, mock_session, {CLIENT_HEADER: TRAY_CLIENT})
 
         mark.assert_called_once()
+
+    async def test_an_unnamed_poll_of_the_alerts_route_does_not(
+        self, test_client, mock_session
+    ):
+        """A ``curl`` of the route shows nobody a toast.
+
+        Until 2026-10-04 it counted, and kept the daemon's notifier quiet
+        for a reader that would never pass an alert on.
+        """
+        mark = await self._poll(test_client, mock_session, {})
+
+        mark.assert_not_called()
+
+    async def test_another_client_naming_itself_does_not(
+        self, test_client, mock_session
+    ):
+        from sysadmin.core.contracts import CLIENT_HEADER
+
+        mark = await self._poll(test_client, mock_session, {CLIENT_HEADER: "curl"})
+
+        mark.assert_not_called()
 
     async def test_another_route_does_not(self, test_client, mock_session):
         """A dashboard reading /status shows nobody an alert."""

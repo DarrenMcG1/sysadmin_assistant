@@ -13,12 +13,13 @@ every alerting path in the daemon ends at a database row, and
 Three gates decide whether the daemon speaks, and each exists because of
 something measured on this estate:
 
-1. **Is anything else already watching?**  The tray marks its presence
+1. **Is the tray already watching?**  The tray marks its presence
    every time it polls the alerts route.  Inside the grace window the
    daemon stays quiet, so the two can never both toast the same alert.
-   Any client of that route counts, not only the tray — the route has no
-   way to tell them apart, and erring towards silence keeps the
-   pre-existing behaviour when the answer is unclear.
+   Only the tray counts: its poll carries ``X-Sysadmin-Client:
+   sysadmin-tray`` (``core/contracts.py``), and a poll without it — a
+   ``curl``, a dashboard — shows nobody a toast and is not presence.
+   Until 2026-10-04 any client counted, which erred towards silence.
 2. **Is this a new incident, or the same one still failing?**  The
    monitor writes **one alert row per failed check**: 186 rows for one
    ``venture-assistant`` outage, 123 for one ``internet`` outage, 88
@@ -238,7 +239,7 @@ MAX_ADOPTED_TITLES = _MAX_LISTED_TITLES
 
 
 class TrayPresence:
-    """Whether something is already reading the alerts route.
+    """Whether the tray is already reading the alerts route.
 
     Deliberately in-memory and monotonic-clocked.  Persisting it would
     make a daemon restart inherit a stale belief that the tray is up, and
