@@ -338,9 +338,15 @@ agents:
     large_file_mb: 100
     similarity_threshold: 0.75
     reclaimable_milestones_mb:  # /api/files/trends projects dates these are reached
+      # A ladder, not a guess at this box's total: the route skips every
+      # rung at or below today's reclaimable space, so the rungs above it
+      # are the ones shown, and a cleanup brings the low ones back.
       - 1024    # 1 GB
       - 5120    # 5 GB
       - 10240   # 10 GB
+      - 25600   # 25 GB
+      - 51200   # 50 GB
+      - 102400  # 100 GB
     skip_dirs:
       - .git
       - .cache

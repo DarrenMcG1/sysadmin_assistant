@@ -8,6 +8,42 @@
 
 ---
 
+## Session 342: reclaimable milestones are an absolute ladder (2026-10-04)
+
+Session 341's next action, the task ticked in its block below. The
+decision is written in `docs/design/files.md` (the paragraph beginning
+"Milestones are absolute sizes").
+
+- [x] **Decided: absolute sizes, set as a ladder, never counted from
+      today.** The ladder is 1, 5, 10, 25, 50 and 100 GB, in both
+      `config.yaml` and the `FileOrganiserConfig` default. The route
+      skips the rungs at or below the latest total, so the rungs above
+      it show, and a cleanup brings the low ones back. Counting from
+      today was rejected because its date is `N / slope`, which repeats
+      the growth row, and because it moves at every scan and is never
+      reached.
+- [x] **Measured by replaying all 214 stored windows.** With the ladder,
+      both the 50 and 100 GB rows show on every window with a positive
+      slope (93). Under the old 1/5/10 GB rungs, none showed on any
+      window.
+- [x] **Live after a config reload, at 15:37 UTC.** `/api/files/trends`
+      now returns `50gb` and `100gb`. No restart was needed, because the
+      key is not on `RESTART_ONLY`.
+- [x] **The tray orders milestone rows by date and then size.**
+      `describe_reclaimable_forecast` in `sysadmin/files/forecast.py`
+      sorted the labels as text, which put "100GB" above "50GB". The
+      tray picks this up at its next restart.
+- [x] **Tests**: one in `tests/test_night_worker.py` (a 40 GB total
+      shows exactly the 50 and 100 GB rungs) and one in
+      `tests/test_forecast.py` (row order). Both fail against the
+      pre-change code and pass after it.
+- [ ] **Fit the junk-growth line over a span of days, not the 10 newest
+      scans (`SNAG-FILES-002`).** The live rows read 50 GB in 2029 and
+      100 GB in 2040, from a 12.7 MB/day fit. The whole series grows
+      125.7 MB/day, which reaches 50 GB in about 83 days. Measure
+      whether a 30-day window gives a stable date over this step-shaped
+      series before changing it. *(For: session)*
+
 ## Session 341: a reclaimable milestone already passed by the line is due now (2026-10-04)
 
 Session 340's next action, the task ticked in its block below. Code in
@@ -25,7 +61,7 @@ restart the handoff already asks of the owner.
       whose fitted line is already past it is now dated at the latest
       scan, not dropped. One test in `tests/test_night_worker.py` holds
       it. With the old branch restored it fails with `KeyError: '1gb'`.
-- [ ] **The "Reaches N GB" rows have never been shown on this box.**
+- [x] **The "Reaches N GB" rows have never been shown on this box.**
       All three configured milestones (`reclaimable_milestones_mb` in
       `config.yaml`, 1, 5 and 10 GB) sit below the lowest reclaimable
       total ever stored (34,844 MB). So the tray shows "Reclaimable now"
@@ -33,7 +69,7 @@ restart the handoff already asks of the owner.
       left, because it is a second concern. Decide whether milestones
       should be set above the current total, or measured from it (for
       example "+5 GB from now"), and say which in the design note first.
-      *(For: session)*
+      **Done by Session 342**: absolute rungs, set as a ladder.
 
 ## Session 340: a disk line already past a threshold is due now (2026-10-04)
 

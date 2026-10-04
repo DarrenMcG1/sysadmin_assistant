@@ -1,16 +1,17 @@
-# Handoff — 2026-10-04 (Session 341)
+# Handoff — 2026-10-04 (Session 342)
 
 ## Next action
 
-Decide whether the reclaimable milestones should sit above today's 35 GB or count from it, since no "Reaches N GB" row has ever shown (tasks.md, Session 341). *(For: session)*
+Fit the junk-growth line over a span of days instead of the 10 newest scans, after measuring a 30-day window on the stored audits (SNAG-FILES-002). *(For: session)*
 
-Session 341 found this while measuring its own fix. The three configured
-milestones (1, 5 and 10 GB) are all below the lowest reclaimable total
-ever stored (34,844 MB), so the tray's disk panel has never shown a
-milestone row. It is the first unchecked task in tasks.md that does not
-wait on the owner. The design note in `docs/design/files.md` should say
-which rule was chosen before the config changes. The other owed snag,
-SNAG-DOCS-032, is P4.
+Session 342 made the tray's "Reaches N GB" rows show for the first time,
+and they show the wrong dates: 50 GB in 2029 and 100 GB in 2040, from a
+12.7 MB/day fit, while the whole series grows 125.7 MB/day and would
+reach 50 GB in about 83 days. The fit takes whatever 10 scans are newest,
+and scans cluster. `SNAG-FILES-002` in snag_list.md has the replay and
+the shape of a fix. The disk forecast already fits over a span of days,
+so it is the pattern to copy. Measure first whether a 30-day window
+gives a stable date on a series that moves in steps.
 
 ## Owed by the owner
 
@@ -29,9 +30,43 @@ and `direct`, and `systemctl status sysadmin` should be `active
 rollback is written above `Type=` in `systemd/sysadmin.service`. Until
 the deploy, `test_every_installed_system_unit_is_the_tracked_one`,
 which compares bytes, stays red. The restart also loads Session 336's
-recovery notices, Session 337's tray check and Sessions 340 and 341's forecast fixes. (The owner's plain restart at 2026-10-03
+recovery notices, Session 337's tray check and Sessions 340 and 341's forecast fixes. Session 342's row-order fix in the tray needs only
+`systemctl --user restart sysadmin-tray`. (The owner's plain restart at 2026-10-03
 09:55:07 already brought in venture-manager's backup timer and Session
 333's off-loop advice routes; it did not install the unit file.)
+
+## Session 342: reclaimable milestones are an absolute ladder
+
+Session 341's next action. Decided: the milestones are absolute sizes,
+set as a ladder (1, 5, 10, 25, 50, 100 GB), never counted from today.
+The route already skips rungs at or below the latest total, so the rungs
+above it show, and the low ones come back after a cleanup without a
+config edit.
+
+Rejected: "+N GB from now". Its date is `N / slope`, which repeats the
+"Junk growth" row beside it. It is also re-anchored at every scan, so
+it is never reached. Rejected as well: picking two rungs just above
+today (say 45 and 50 GB). They would be wrong again after the first
+cleanup, which is the mistake the 1/5/10 GB rungs from 2026-03 already
+made.
+
+Measured: replaying all 214 stored windows, the old rungs showed a row
+on none and the ladder shows the 50 and 100 GB rows on all 93 windows
+with a positive slope. Applied live with `POST /api/sysadmin/reload` at
+15:37 UTC, and `/api/files/trends` returns both. No restart was needed.
+The tray had sorted the labels as text ("100GB" above "50GB"). It now
+orders the rows by date and then size, effective at its next restart.
+
+Verified: two new tests, both red against the pre-change code. Full
+suite 4,525 passed, 1 failed, and the failure is
+`test_every_installed_system_unit_is_the_tracked_one`, red until the
+owner's deploy. Ruff and mypy are clean. The dates the rows carry are
+poor, which is `SNAG-FILES-002`, opened and named as the next action
+above.
+
+## What Session 341 handed on (done by Session 342)
+
+Decide whether the reclaimable milestones should sit above today's 35 GB or count from it, since no "Reaches N GB" row has ever shown (tasks.md, Session 341).
 
 ## Session 341: a reclaimable milestone already passed by the line is due now
 

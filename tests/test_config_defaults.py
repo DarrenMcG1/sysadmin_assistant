@@ -63,7 +63,9 @@ class TestLiftedMagicNumbers:
     # which guards the trim rather than the departed arithmetic.
 
     def test_reclaimable_milestones_default(self):
-        assert FileOrganiserConfig().reclaimable_milestones_mb == [1024, 5120, 10240]
+        assert FileOrganiserConfig().reclaimable_milestones_mb == [
+            1024, 5120, 10240, 25600, 51200, 102400,
+        ]
 
     def test_schedules_defaults(self):
         s = SchedulesConfig()

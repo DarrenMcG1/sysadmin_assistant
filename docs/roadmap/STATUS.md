@@ -3,6 +3,16 @@
 **Last Updated**: 2026-10-04
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **The tray's "Reaches N GB" rows now show, and their dates are not yet
+> trustworthy** (2026-10-04, Session 342). The milestones were 1, 5 and
+> 10 GB, and this box has held more than 34 GB of reclaimable files since
+> August, so none of the rows ever showed. They are now a ladder up to
+> 100 GB, and only the rungs above today's total are shown. They show 50
+> and 100 GB today. The dates they carry (2029 and 2040) come from a fit
+> over the 10 newest scans, which sees too little of the series. The
+> whole series reaches 50 GB in about three months. Fixing the fit is
+> the next action. Applied live by a config reload.
+
 > **The junk-growth forecast no longer drops a milestone that is due now**
 > (2026-10-04, Session 341). This is the same fix as the disk forecast
 > below, applied to the "Reaches N GB" rows in the tray's disk panel. It

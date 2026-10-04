@@ -68,8 +68,34 @@ before the fix and never happened here: replaying all 215 stored audits
 found it on 0 of 214 windows, because reclaimable space has never been
 below 34,844 MB and the configured milestones stop at 10 GB. Every
 milestone is skipped as already reached, so the tray's "Reaches N GB"
-rows have never been shown on this box. That is recorded as a task, not
-changed here.
+rows have never been shown on this box.
+
+**Milestones are absolute sizes, set as a ladder, and never counted from
+today's total** (Session 342, 2026-10-04). The ladder is 1, 5, 10, 25, 50
+and 100 GB. The route already skips every rung at or below the latest
+total, so the rungs shown are the ones above it, and a cleanup brings the
+low ones back without anyone editing `config.yaml`. The 1/5/10 GB rungs
+date from 2026-03-23 and were never measured against this box, which has
+held 34,844 to 40,764 MB of reclaimable files since 2026-08-06.
+
+Counting from today ("+5 GB from now") was rejected for two reasons.
+Its date is `5120 / slope` days from the latest scan, so it restates the
+"Junk growth" row beside it and tells the reader nothing new. And it is
+re-anchored at every scan, so it moves away as fast as time passes and is
+never reached. An absolute rung has a fixed meaning, its date can arrive,
+and a reader can watch it get closer.
+
+The ladder's dates are only as good as the slope, and that slope is
+poor here. Replayed over all 214 stored windows, it is zero or negative
+on 121 and runs up to 5,075 MB/day on the others. The rungs now show
+whenever the slope is positive (93 windows). But on 2026-10-04 they read
+50 GB in 2029 and 100 GB in 2040, from a 12.7 MB/day fit, while the
+whole series grows 125.7 MB/day and reaches 50 GB in about 83 days. The
+cause is that the fit window is the 10 newest scans rather than a span
+of days, and scans cluster. That is `SNAG-FILES-002`, left for its own
+session. The tray now orders the rows by date and then size. Before
+this it sorted the labels as text, which put "100GB" above "50GB". No
+one had seen that, because no row had ever shown.
 
 `GET /api/files/review` is the weekly disk review, stored in its own
 `disk_reviews` table. It was built as the mirror of the project review

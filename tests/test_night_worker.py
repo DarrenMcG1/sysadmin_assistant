@@ -252,6 +252,25 @@ class TestFilesTrendsForecast:
         assert milestones["5gb"] > milestones["1gb"]
 
     @pytest.mark.asyncio
+    async def test_a_total_past_the_old_rungs_still_shows_milestones(
+        self, test_client, mock_session
+    ):
+        # This box's shape: ~40 GB reclaimable and growing.  Under the old
+        # 1/5/10 GB rungs no milestone could show; the ladder shows the
+        # rungs above the total and none at or below it (Session 342).
+        audits = [
+            _make_audit(days_ago=14, reclaimable_mb=39_000),
+            _make_audit(days_ago=7, reclaimable_mb=39_900),
+            _make_audit(days_ago=0, reclaimable_mb=40_762),
+        ]
+        _mock_scalars_all(mock_session, audits)
+
+        resp = await test_client.get("/api/files/trends")
+        milestones = resp.json()["forecast"]["projected_milestones"]
+        assert set(milestones) == {"50gb", "100gb"}
+        assert milestones["50gb"] < milestones["100gb"]
+
+    @pytest.mark.asyncio
     async def test_scans_still_returned(self, test_client, mock_session):
         audits = [_make_audit(days_ago=1), _make_audit(days_ago=0)]
         _mock_scalars_all(mock_session, audits)

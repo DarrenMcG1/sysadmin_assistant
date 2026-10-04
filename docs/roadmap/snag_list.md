@@ -10,6 +10,15 @@
 
 ## Open Issues
 
+- [P3] SNAG-FILES-002: **the junk-growth fit on `/api/files/trends` takes the 10 newest scans rather than a span of days, so its slope, and every milestone date built on it, depends on how the scans happened to cluster** (2026-10-04, opened by Session 342 when its milestone ladder made the dates visible)
+  - **Symptom**: on 2026-10-04 the tray's disk panel read "Reaches 50GB 2029-01-04" and "Reaches 100GB 2040-01-27", from a fitted slope of 12.67 MB/day. The whole stored series (215 audits since 2026-08-06) grows 125.7 MB/day and reaches 50 GB in about 83 days.
+  - **Where**: `get_trends` in `sysadmin/files/router.py` passes `limit` (default 10, and the tray sends no other) newest `filesystem_audits` to `_compute_reclaimable_forecast`. Scans are irregular. 14 days carry 1 scan and 2 days carry 14, so 10 scans span anything from a few hours to weeks.
+  - **Measured 2026-10-04**, replaying each of the 214 windows: the slope is zero or negative on 121 and positive on 93. The positive ones range up to 5,075 MB/day, where a window falls inside one day across a step. The sign changes 13 times between consecutive windows, and the milestone rows appear and vanish with it. The series moves in steps (+1,582 MB on 2026-08-27, +983 on 09-11, +741 on 09-28) with flat stretches between them, which is the shape a short window misreads in both directions.
+  - **Why it is left**: Session 342's concern was which milestones to show. The window decides how far off they are, and choosing it means choosing between a span of days (what the disk fit does) and a scan count, and between slope over steps and the step rate. That is its own argument.
+  - **Shape of a fix, unpriced**: fit over a span of days, as `project_disk_thresholds` does over `resource_snapshots`, by selecting audits newer than `now - N days` and not the newest `limit`. The `limit` parameter would then control only the `scans` list. Whether 30 days gives a stable date over a step series is the measurement to make first.
+  - **No check names this entry**: the population is the stored audits, and a replay is its measurement.
+  - **Status:** Open — owed, P3.
+
 - [P4] SNAG-SVC-008: **the advice routes still hold the GIL in whole-result loops, so a concurrent request can wait up to 0.67 s** (2026-10-02, opened by Session 333 as the stated limit of its fix)
   - **Symptom**: `/api/services/actions` and `/reliability` now compute on a worker thread (`run_off_loop`), but the thread shares the GIL with the API's event loop. Under the unit's `CPUQuota=25%`, a 50 ms `/ping` poll waited up to 0.67 s behind `/actions` and 0.46 s behind `/reliability`, against 4.2 s before.
   - **Where**: `py-spy record --gil` on a child process put the holds in loops over the whole result set that run in compiled code without reaching CPython's 5 ms switch check: asyncpg's `_read_ready__data_received`, SQLAlchemy's `_raw_all_rows` and `_allrows`, and the ORM's `loading.chunks`. Unthrottled the longest single hold was 60 to 78 ms in both phases.

@@ -358,9 +358,26 @@ def describe_reclaimable_forecast(
         ("Reclaimable now", format_mb(forecast.current_reclaimable_mb)),
         ("Junk growth", f"{rate_text}  ({forecast.data_points} scans)"),
     ]
-    for label, date in sorted(forecast.projected_milestones.items()):
+    for label, date in sorted(
+        forecast.projected_milestones.items(), key=_milestone_order
+    ):
         rows.append((f"Reaches {label.upper()}", date))
     return rows
+
+
+def _milestone_order(item: tuple[str, str]) -> tuple[str, float]:
+    """Order milestone rows by date, then by size.
+
+    The labels sort wrongly as text (``"100gb"`` before ``"50gb"``), and
+    two rungs due now share a date, so size breaks the tie.  A label the
+    backend did not shape as ``<n>gb`` sorts last on its date.
+    """
+    label, date = item
+    try:
+        size = float(label.removesuffix("gb"))
+    except ValueError:
+        size = float("inf")
+    return date, size
 
 
 def format_mb(mb: float) -> str:

@@ -359,9 +359,11 @@ class FileOrganiserConfig(BaseModel):
     # disabling this stops the *schedule*, not just the inference.
     weekly_review: bool = True
     # Reclaimable-space milestones (MB) for the /api/files/trends forecast —
-    # the endpoint projects the date each one will be reached
+    # the endpoint projects the date each one will be reached.  Absolute,
+    # never counted from today's total, and a ladder so the rungs above
+    # that total are always some (docs/design/files.md, Session 342).
     reclaimable_milestones_mb: list[int] = Field(
-        default_factory=lambda: [1024, 5120, 10240]
+        default_factory=lambda: [1024, 5120, 10240, 25600, 51200, 102400]
     )
     skip_dirs: list[str] = Field(
         default_factory=lambda: [

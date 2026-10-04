@@ -465,6 +465,24 @@ class TestDescribeReclaimableForecast:
         assert rows["Reaches 5GB"] == "2026-08-01"
         assert rows["Reaches 10GB"] == "2026-10-01"
 
+    def test_milestone_rows_run_by_date_not_by_label(self):
+        # As text "100gb" sorts before "50gb"; two rungs due now share a
+        # date and size breaks the tie.
+        forecast = FileTrendForecast.from_dict(
+            {
+                "growth_rate_mb_per_day": 100.0,
+                "current_reclaimable_mb": 40_000.0,
+                "data_points": 10,
+                "projected_milestones": {
+                    "100gb": "2028-01-01",
+                    "50gb": "2026-10-04",
+                    "25gb": "2026-10-04",
+                },
+            }
+        )
+        labels = [label for label, _ in describe_reclaimable_forecast(forecast)]
+        assert labels[2:] == ["Reaches 25GB", "Reaches 50GB", "Reaches 100GB"]
+
     def test_shrinking_junk_is_labelled(self):
         forecast = FileTrendForecast.from_dict(
             {"growth_rate_mb_per_day": -3.0, "data_points": 4}
