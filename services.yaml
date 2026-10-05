@@ -396,6 +396,18 @@ services:
     systemd: { unit: go-to-market-advance.timer, scope: user }
     controllable: false
 
+  # Its hourly copy of each sent batch's draft check into Proton through
+  # Bridge, declared the day the units were installed (2026-10-05;
+  # go-to-market SNAG-GTM-009). A oneshot, so the timer is watched, the
+  # shape venture-manager-backup-timer has. Bridge closed is no failure;
+  # a batch naming a file that is gone is one.
+  - project: go-to-market
+    name: go-to-market-draft-check-copy-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: go-to-market-draft-check-copy.timer, scope: user }
+    controllable: false
+
   # --- This service ---------------------------------------------------
   # A system unit, unlike almost everything else here.
   - project: sysadmin-assistant
