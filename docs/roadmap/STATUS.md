@@ -1,7 +1,23 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-10-04
+**Last Updated**: 2026-10-05
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **The owner's unit-file deploy is in, and the monitor now runs every
+> fix up to Session 344** (2026-10-05, Session 345). On 4 October at
+> 20:50:40 the owner ran `sudo ./scripts/setup-systemd.sh` and then
+> `sudo systemctl restart sysadmin` from a terminal, which the system
+> journal records with the commands and no session transcript holds.
+> That installed the new service file (`Type=notify`, a one-minute
+> watchdog) and loaded Sessions 336 to 342. Session 343's junk-growth
+> fit was written two minutes later, so it needed one more restart: the
+> daemon restarted at **2026-10-05 06:20:53** <!--check:deploy-->
+> <!--check:daemon_start-->, by Session 345 stopping the main process
+> and letting systemd bring it back (12 s down). The tray's "Reaches
+> N GB" rows now read 50 GB on 2026-12-30 and 100 GB on 2028-03-11.
+> `venture-chat unreachable`, another repository's service, opened and
+> closed three times overnight and is closed now, so the open-alert
+> count below still holds.
 
 > **A prediction's clock must now stand alone in its sentence**
 > (2026-10-04, Session 344). The STATUS checker matches a dated
@@ -50,8 +66,7 @@
 > **The monitor's last restart was the owner's, and is now on record**
 > (2026-10-04, Session 339). This page said the monitor last restarted
 > on 2 October; it has been running since 3 October. The daemon
-> restarted at **2026-10-03 09:55:07** <!--check:deploy-->
-> <!--check:daemon_start-->, by the owner from a venture-manager
+> restarted at 2026-10-03 09:55:07, by the owner from a venture-manager
 > session, so that it would start watching venture-manager's new backup
 > timer. It does: the timer read `ok` from its first check at 10:00.
 > That restart also loaded the faster advice pages (Session 333). The

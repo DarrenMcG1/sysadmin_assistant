@@ -4,9 +4,29 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-04
+> **Last Updated**: 2026-10-05
 
 ---
+
+## Session 345: the owner's deploy recorded, one restart (2026-10-05)
+
+Session 344's next action. No code changed: STATUS.md, the roadmap and
+the handoff, plus one daemon restart.
+
+- [x] **Whose 20:50:41 restart it was.** The owner's, from a terminal
+      (`TTY=pts/19`): the system journal has `sudo ./scripts/setup-systemd.sh`
+      at 20:50:40 and `sudo systemctl restart sysadmin` at 20:50:41, and
+      no session transcript holds either command. Active at 20:50:43,
+      the `READY=1` instant under `Type=notify`.
+- [x] **Restarted once** at 2026-10-05 06:20:53 (`kill -TERM` on the
+      main PID, back in 12 s, `/health` 200) after a green suite (4,540
+      passed, 2 skipped). `/api/files/trends` now reads 117.1 MB/day
+      over 81 scans, 50 GB on 2026-12-30, 100 GB on 2028-03-11.
+- [x] **STATUS.md re-recorded**: a new entry carries the bold restart
+      time and both check markers; Session 339's entry keeps its time
+      unbolded. Every `check-ops-claims.sh` row reads `ok`. The
+      `venture-chat unreachable` row the last block flagged opened and
+      closed three times overnight and is closed, so the count of 2 holds.
 
 ## Session 344: an `expires` clock must stand alone (2026-10-04)
 
@@ -24,7 +44,7 @@ restart is owed by it.
       a substring test. The live-prediction regression test now asks the
       same helper. The live marker (`2026-10-08T03:00+01:00`) still
       reads `match`.
-- [ ] **Record the owner's 2026-10-04 20:50:41 deploy, then restart once
+- [x] **Record the owner's 2026-10-04 20:50:41 deploy, then restart once
       for Session 343's fix.** Found while closing Session 344, and a
       second concern, so not worked there. `systemctl show sysadmin`
       reads `Type=notify`, `WatchdogUSec=1min`, `NRestarts=0`, and the
@@ -40,6 +60,7 @@ restart is owed by it.
       re-record must account for a third open alert, `venture-chat
       unreachable` (opened 2026-10-04 22:00 BST, another repository's
       service), which the block's marked sentence does not name.
+      *(Done 2026-10-05 by Session 345: see that block.)*
 
 ## Session 343: the junk-growth fit spans 30 days (2026-10-04)
 
@@ -677,7 +698,7 @@ installed copy has to be redeployed to match.
       start timeout under `Type=notify`.** 5 × (timeout + 10 s) must stay
       under 600 s. Falsified on a copy of the unit: red at
       `TimeoutStartSec=110`, green at 109 and at the default.
-- [ ] **Owner: redeploy the unit file** — `sudo
+- [x] **Owner: redeploy the unit file** — `sudo
       ./scripts/setup-systemd.sh && sudo systemctl restart sysadmin`.
       The edit is comments only, but `test_every_installed_system_unit_is_the_tracked_one`
       compares bytes and is red until then. The restart is the one
@@ -690,6 +711,8 @@ installed copy has to be redeployed to match.
       carries `RestartMode=direct`, so `OnFailure=` fires only at the
       start limit. After the restart, `systemctl show sysadmin -p
       RestartMode` should read `direct`.)*
+      *(Done 2026-10-04 20:50:40 by the owner; Session 345 read
+      `RestartMode=direct` on the service.)*
 - [x] **README's declared-service count reads 37; `services.yaml`
       declares 38** since venture-manager's cross-repo write `96fa8b8`
       (estate message `a0eec7fa`, announcing its backup timer).
@@ -16677,7 +16700,7 @@ work:
       *(Done 2026-10-01 by Session 320: a failed run discards **every**
       event `_execute` buffered, not only `alert.raised`, and publishes
       `agent.run` alone. See that session's block at the top of this file)*
-- [ ] **`Type=notify` + `WatchdogSec=` on `sysadmin.service`**, with the
+- [x] **`Type=notify` + `WatchdogSec=` on `sysadmin.service`**, with the
       ping issued from the async loop. **Risk to rehearse before enabling**:
       if `READY=1` is never sent, systemd treats startup as failed and kills
       the service — so the rollback must be written down before the unit is
@@ -16697,6 +16720,9 @@ work:
       *(Session 332, 2026-10-02: the unit reads `Type=notify`,
       `WatchdogSec=60`, `TimeoutStartSec=90`. Left unticked until the
       owner's redeploy puts it on the service.)*
+      *(Done 2026-10-04 by the owner's redeploy. Session 345 read
+      `Type=notify`, `WatchdogUSec=1min`, `TimeoutStartUSec=1min 30s`, and
+      `NRestarts=0` after 9 h 30 m up, so the pings arrive.)*
 - [x] **`StartLimitBurst` / `StartLimitIntervalSec`** so a restart loop
       reaches `failed`, then an `OnFailure=` unit that says so — done
       2026-08-11, `StartLimitBurst=5` / `StartLimitIntervalSec=600` plus

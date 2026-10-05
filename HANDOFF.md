@@ -1,6 +1,51 @@
-# Handoff — 2026-10-04 (Session 344)
+# Handoff — 2026-10-05 (Session 345)
 
 ## Next action
+
+Run the dGPU witness once as root overnight with Steam quit, using the command in tasks.md's Session 338 block. *(For: owner, ~3 min, at 2026-10-05 21:00)*
+
+It asked for 2026-10-04 and did not run: `~/.local/state/sysadmin/` holds
+no `-root` log. Set `--on-calendar` to tonight 21:30 and the log name to
+tomorrow's date. It shows whether kwin or a root process keeps the card
+awake; if everything is still quiet, the next step is one night on
+`linux-lts`. No session work is startable meanwhile: tasks.md's other
+open boxes wait on a trigger, the snag list holds no `owed` entry, and
+every idea in ideas.md is gated on an event.
+
+Session 342's tray row-order fix still needs only
+`systemctl --user restart sysadmin-tray`, whenever convenient.
+
+## Session 345: the owner's deploy recorded, one restart
+
+Session 344's next action. No code changed.
+
+The 2026-10-04 20:50:41 restart was the owner's, run by hand from a
+terminal: the system journal records `sudo ./scripts/setup-systemd.sh`
+at 20:50:40 and `sudo systemctl restart sysadmin` at 20:50:41, both
+`TTY=pts/19`, and no session transcript in any repository holds either.
+The service went active at 20:50:43, which is when `READY=1` arrived
+under `Type=notify`. The installed unit reads `Type=notify`,
+`WatchdogUSec=1min`, `RestartMode=direct`, and it ran 9 h 30 m with
+`NRestarts=0`, so the watchdog pings arrive. Ticked the owner's redeploy
+and the `Type=notify` item in tasks.md.
+
+Restarted once at 2026-10-05 06:20:53 (`kill -TERM`, 12 s down,
+`/health` 200) after a green suite, 4,540 passed and 2 skipped.
+`/api/files/trends` now serves Session 343's fit: 117.1 MB/day over 81
+scans, 50 GB on 2026-12-30, 100 GB on 2028-03-11.
+
+STATUS.md: a new entry carries the bold time and both check markers;
+Session 339's entry keeps its time unbolded. Decided against rewriting
+339's sentence, for the reason 339 gave about 323's. Every
+`check-ops-claims.sh` row reads `ok`. The checker's start-time reader
+needs the literal `restarted at **…**`; a first draft reading
+"restarted once more, at" read `??` until reworded.
+
+Not acted on: three open estate messages (pgbackrest-backup's new
+declaration, the `at` time on the `For:` marker, and `publish_errors`).
+Each is its own concern for a later session.
+
+## What Session 344 handed on (done by Session 345)
 
 Record the owner's 20:50:41 deploy in STATUS.md, then restart the daemon once so Session 343's junk-growth fit goes live (tasks.md, Session 344). *(For: session)*
 
@@ -12,7 +57,7 @@ wrote `sysadmin/files/router.py` at 20:52, so its fix is not live, and
 record (2026-10-03 09:55:07) out of date. Whose restart it was is not
 yet recorded; Session 339's block shows how to establish it.
 
-## Owed by the owner
+### Owed by the owner (as Session 344 left it)
 
 Run the dGPU witness once as root, overnight, with Steam quit
 (tasks.md, Session 338 block, has the command) *(For: owner, ~3 min, at
