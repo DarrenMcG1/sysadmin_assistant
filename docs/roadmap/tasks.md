@@ -8,6 +8,19 @@
 
 ---
 
+## Session 346: the root witness is scheduled (2026-10-05)
+
+Session 345's next action, which was the owner's. Roadmap and handoff
+only; no code changed, no restart owed.
+
+- [x] **The owner scheduled the root witness for tonight.**
+      `sysadmin-dgpu-pin-witness-root.timer` fires at 2026-10-05
+      21:30:00 and runs for 43,200 s, writing
+      `~/.local/state/sysadmin/dgpu-pin-witness-root-2026-10-06.jsonl`.
+      Checked with `systemctl list-timers` and `systemctl cat` at
+      07:52. Steam was not running then. The Session 338 item stays
+      open until the log has been read.
+
 ## Session 345: the owner's deploy recorded, one restart (2026-10-05)
 
 Session 344's next action. No code changed: STATUS.md, the roadmap and
@@ -276,6 +289,8 @@ minutes, 2026-10-03 21:31 to 2026-10-04 09:30).
       driver is holding it. Then the next test is one night booted on
       `linux-lts` (6.18.54, still installed), which separates the kernel
       from the firmware and kwin.
+      *(Scheduled by the owner 2026-10-05 for 21:30; read the log after
+      09:30 on 2026-10-06.)*
 
 ## Session 337: only the tray counts as watching (2026-10-04)
 

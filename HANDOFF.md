@@ -1,19 +1,39 @@
-# Handoff — 2026-10-05 (Session 345)
+# Handoff — 2026-10-05 (Session 346)
 
 ## Next action
 
-Run the dGPU witness once as root overnight with Steam quit, using the command in tasks.md's Session 338 block. *(For: owner, ~3 min, at 2026-10-05 21:00)*
+Nothing is startable until the root dGPU witness finishes at 09:30 on 2026-10-06; tasks.md, snag_list.md and ideas.md hold nothing startable. *(For: none, until 2026-10-06)*
 
-It asked for 2026-10-04 and did not run: `~/.local/state/sysadmin/` holds
-no `-root` log. Set `--on-calendar` to tonight 21:30 and the log name to
-tomorrow's date. It shows whether kwin or a root process keeps the card
-awake; if everything is still quiet, the next step is one night on
-`linux-lts`. No session work is startable meanwhile: tasks.md's other
-open boxes wait on a trigger, the snag list holds no `owed` entry, and
-every idea in ideas.md is gated on an event.
+Session 345 checked all three and found every open box gated on a
+trigger, no snag marked `owed` (meaning a session still owes the work),
+and every idea gated on an event. This session changed none of that.
 
-Session 342's tray row-order fix still needs only
+## Scheduled action
+
+After 09:30 on 2026-10-06, read
+`~/.local/state/sysadmin/dgpu-pin-witness-root-2026-10-06.jsonl`
+against tasks.md's Session 338 item. As root the `unreadable` count
+should be near 0. If kwin or a root process submits work while the
+monitors are off, that is what holds the card. If every client is quiet
+for whole minutes and the card stays `active`, the driver holds it, and
+the next test is one night booted on `linux-lts`. *(For: session)*
+
+Session 342's row-order fix in the tray still needs only
 `systemctl --user restart sysadmin-tray`, whenever convenient.
+
+## Session 346: the root witness is scheduled
+
+Session 345's next action, which was the owner's. No code changed.
+
+The owner scheduled the root run. `sysadmin-dgpu-pin-witness-root.timer`
+fires at 2026-10-05 21:30:00 with `--duration 43200` and the log path
+above; `systemctl cat` shows the right command. Steam was not running at
+07:52. The three open estate messages are still not acted on, as
+Session 345 left them.
+
+## What Session 345 handed on (done by Session 346)
+
+Run the dGPU witness once as root overnight with Steam quit, using the command in tasks.md's Session 338 block. *(For: owner, ~3 min)*
 
 ## Session 345: the owner's deploy recorded, one restart
 
@@ -60,8 +80,7 @@ yet recorded; Session 339's block shows how to establish it.
 ### Owed by the owner (as Session 344 left it)
 
 Run the dGPU witness once as root, overnight, with Steam quit
-(tasks.md, Session 338 block, has the command) *(For: owner, ~3 min, at
-2026-10-04 21:00)*. This shows whether kwin or a root process keeps the
+(tasks.md, Session 338 block, has the command) *(For: owner, ~3 min)*. This shows whether kwin or a root process keeps the
 card awake. If everything is still quiet, the next step is one night on
 `linux-lts`.
 
