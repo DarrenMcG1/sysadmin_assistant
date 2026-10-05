@@ -323,6 +323,24 @@ services:
       every drain
     systemd: { unit: venture-chat-large.service, scope: user }
 
+  # Its model-characterisation server, a candidate model on :8084, declared
+  # the day the unit was created (2026-10-05). Started and stopped only by
+  # the estate's arbiter under the venture-model-probe lease profile
+  # (estate-manager ADR-0078), which stops venture-chat for the run; the
+  # same shape as venture-chat-large above, and not monitored for the same
+  # reason.
+  - project: venture-assistant
+    name: venture-model-probe
+    role: inference
+    kind: static
+    monitor: false
+    reason: >-
+      started and stopped by the estate's arbiter around a
+      venture-model-probe lease, a human-paced measurement of under an hour;
+      inactive between runs by design, so a check would alert between
+      every run
+    systemd: { unit: venture-model-probe.service, scope: user }
+
   # --- venture-manager ------------------------------------------------
   # Its API, wired the day the unit was made (venture-manager ADR-0001).
   # /api/health answers 200 while the API is up and reads the service's
