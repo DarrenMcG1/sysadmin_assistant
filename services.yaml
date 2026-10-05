@@ -383,6 +383,19 @@ services:
       between every run
     systemd: { unit: go-to-market-personas.service, scope: user }
 
+  # Its nightly job, at 04:00, declared the day the units were installed
+  # (2026-10-05; go-to-market ADR-0002, Decision 1). A oneshot, so the
+  # timer is watched. A run exits 1 only when a whole step could not run
+  # (its search, its Companies House key or venture-manager not
+  # answering); one site or one company failing is kept in its own
+  # database and is no failure.
+  - project: go-to-market
+    name: go-to-market-advance-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: go-to-market-advance.timer, scope: user }
+    controllable: false
+
   # --- This service ---------------------------------------------------
   # A system unit, unlike almost everything else here.
   - project: sysadmin-assistant
