@@ -1,25 +1,55 @@
-# Handoff — 2026-10-05 (Session 346)
+# Handoff — 2026-10-06 (Session 347)
 
 ## Next action
 
-Nothing is startable until the root dGPU witness finishes at 09:30 on 2026-10-06; tasks.md, snag_list.md and ideas.md hold nothing startable. *(For: none, until 2026-10-06)*
+Owner: tonight, quit Steam, reboot into linux-lts and schedule the root dGPU witness for 21:30 (command in tasks.md, Session 347). *(For: owner, ~5 min, at 2026-10-06 21:00)*
 
-Session 345 checked all three and found every open box gated on a
-trigger, no snag marked `owed` (meaning a session still owes the work),
-and every idea gated on an event. This session changed none of that.
+Last night's root run cleared the compositor: with the monitors off,
+`kwin_wayland` worked only in the minute they went off, and no root
+process used the card. Steam was running again, so the card had a
+visible user all night. Read with the Steam-free night of 2026-10-04,
+what is left is the 7.2 kernel, the firmware, or something holding the
+card without submitting work. One `linux-lts` night separates the
+kernel from the rest. The transient timer must be scheduled after the
+reboot, because it does not survive one.
 
 ## Scheduled action
 
-After 09:30 on 2026-10-06, read
-`~/.local/state/sysadmin/dgpu-pin-witness-root-2026-10-06.jsonl`
-against tasks.md's Session 338 item. As root the `unreadable` count
-should be near 0. If kwin or a root process submits work while the
-monitors are off, that is what holds the card. If every client is quiet
-for whole minutes and the card stays `active`, the driver holds it, and
-the next test is one night booted on `linux-lts`. *(For: session)*
+After 09:30 on the morning after the `linux-lts` night, read
+`~/.local/state/sysadmin/dgpu-pin-witness-lts-<that day>.jsonl` against
+tasks.md's Session 347 item. If the card suspended, the 7.2 kernel is
+the cause. If every client was quiet and it still never slept, the
+kernel is cleared. *(For: session)*
 
 Session 342's row-order fix in the tray still needs only
 `systemctl --user restart sysadmin-tray`, whenever convenient.
+
+## Session 347: as root, kwin goes quiet with the monitors off
+
+Session 346's scheduled action. No code changed.
+
+Read the root log (720 minutes, 21:31 to 09:30). `unreadable` was 0 to
+2 a minute, so root saw nearly every process. The monitors were off from
+21:53 to 05:50, 477 minutes; the card was `active` in every second and
+never suspended. `kwin_wayland` submitted only in the 21:53 minute.
+`steamwebhelper` and `Xwayland` submitted in all but a few seconds of
+the off window, because Steam had been started at 08:41 on 2026-10-05,
+after Session 346's 07:52 check. Ticked the Session 338 item.
+
+Decided: the two nights may be read together. The kwin fact comes from
+a night with Steam running and the all-quiet fact from one without, but
+kwin's idle work should not depend on Steam. Not checked: a reader that
+holds the card's power reference without submitting (sensor reads
+through sysfs, for one) is as invisible to fdinfo as the driver is.
+
+Not acted on, each its own concern: the owner's clean restart at
+2026-10-05 21:33:50 is not yet in STATUS.md (recorded as a task under
+Session 347), and eight open estate messages, five of them new on
+2026-10-05.
+
+## What Session 346 handed on (done by Session 347)
+
+Nothing is startable until the root dGPU witness finishes at 09:30 on 2026-10-06; tasks.md, snag_list.md and ideas.md hold nothing startable. *(For: none, until 2026-10-06)*
 
 ## Session 346: the root witness is scheduled
 

@@ -1,7 +1,20 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-10-05
+**Last Updated**: 2026-10-06
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **The desktop compositor is not what keeps the graphics card awake**
+> (2026-10-06, Session 347). The owner ran last night's measurement with
+> administrator rights, so it could see the compositor and the system
+> processes for the first time. With both monitors off for almost eight
+> hours, the compositor did no work on the card after the minute they
+> switched off, and no system process used it at all. Steam was running
+> again, though, and its web view drew all night, so the card had a
+> visible user throughout and this night alone cannot show more. Put
+> together with the Steam-free night of 4 October, what is left is the
+> driver or the card's firmware, or something that holds the card awake
+> without drawing. Next is one night on the older long-term kernel, with
+> Steam quit, which the owner has to start. Documentation only.
 
 > **The owner's unit-file deploy is in, and the monitor now runs every
 > fix up to Session 344** (2026-10-05, Session 345). On 4 October at

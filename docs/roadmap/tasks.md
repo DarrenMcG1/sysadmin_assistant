@@ -4,9 +4,61 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-05
+> **Last Updated**: 2026-10-06
 
 ---
+
+## Session 347: as root, kwin goes quiet with the monitors off (2026-10-06)
+
+Session 346's scheduled action. Read
+`~/.local/state/sysadmin/dgpu-pin-witness-root-2026-10-06.jsonl` (720
+minutes, 2026-10-05 21:31 to 2026-10-06 09:30). Roadmap, STATUS.md and
+handoff only; no code changed, no restart owed.
+
+- [x] **Root sees nearly everything.** `unreadable` is 0 to 2 a minute
+      all night, against 488 to 527 when run as the user. The card read
+      `active` in all 43,200 seconds and `suspended_ms` totals 0.
+- [x] **kwin is not the holder.** Both DP monitors were `disconnected`
+      from 21:53 to 05:50, 477 minutes. `kwin_wayland` submitted work in
+      one of them, the 21:53 minute the monitors went off (19 s), and in
+      none after. No root process appears among the clients at all.
+- [x] **Steam was running, so this night cannot say more.** Steam was
+      started at 2026-10-05 08:41, after Session 346 checked at 07:52.
+      In the off window `steamwebhelper` submitted in 28,614 and
+      `Xwayland` in 28,616 of 28,620 seconds, so `longest_quiet_s` is 0
+      in all 477 minutes: a visible holder the whole night.
+      `llama-server` worked in 202 minutes (the enrichment job).
+- [x] **What is left, read across both nights.** On 2026-10-04 (Steam
+      quit, as the user) every visible client was quiet for whole minutes
+      and the card still never slept; kwin and root processes were the
+      invisible ones. Tonight shows both quiet with the monitors off. The
+      two facts come from different nights, but nothing about kwin's
+      idle behaviour should depend on Steam. What remains is the driver
+      or firmware, or a process that holds the card's power reference
+      without submitting work (fdinfo counts submitted work only; a
+      frequent sensor read through sysfs is one such reader, not checked).
+- [ ] **Owner: one night on `linux-lts`, Steam quit, witness as root.**
+      *(Needs a reboot and `sudo`.)* Quit Steam, reboot and choose
+      `linux-lts` (6.18.54, installed) at the boot menu, then schedule
+      the witness. A transient timer does not survive a reboot, so
+      schedule it after booting:
+      `sudo systemd-run --unit=sysadmin-dgpu-pin-witness-lts
+      --on-calendar='YYYY-MM-DD 21:30:00' /usr/bin/python3
+      /home/gaddi/projects/sysadmin_assistant/scripts/dgpu-pin-witness.py
+      --log /home/gaddi/.local/state/sysadmin/dgpu-pin-witness-lts-<next day>.jsonl
+      --duration 43200`. If the card suspends, the 7.2 kernel is the
+      cause. If it still never sleeps with every client quiet, the kernel
+      is cleared and the firmware or a non-submitting reader is left.
+      Read the log after 09:30 the next day.
+- [ ] **Record the owner's 2026-10-05 21:33:50 restart in STATUS.md.**
+      Found by Session 347 and not worked, as a second concern:
+      `check-ops-claims.sh` reads the block's daemon start time
+      (06:20:53) as out of date. The system journal has `sudo systemctl
+      restart sysadmin.service` at 21:33:48 from `TTY=pts/19` in this
+      repository's directory, and `NRestarts=0`, so it was a clean manual
+      restart, most likely to take the services.yaml entries other
+      repositories committed that day. Session 345's block shows how to
+      record one.
 
 ## Session 346: the root witness is scheduled (2026-10-05)
 
@@ -274,7 +326,7 @@ minutes, 2026-10-03 21:31 to 2026-10-04 09:30).
       first night since the upgrade with no visible client submitting,
       and it did not sleep either. `amdgpu` reports `Using BACO for
       runtime pm` on both kernels, so the power-down mode did not change.
-- [ ] **Owner: run the witness once as root, to see kwin.** *(Needs
+- [x] **Owner: run the witness once as root, to see kwin.** *(Needs
       `sudo`; quit Steam again first.)* As root, kwin and the root
       processes become visible.
       `sudo systemd-run --unit=sysadmin-dgpu-pin-witness-root
@@ -291,6 +343,8 @@ minutes, 2026-10-03 21:31 to 2026-10-04 09:30).
       from the firmware and kwin.
       *(Scheduled by the owner 2026-10-05 for 21:30; read the log after
       09:30 on 2026-10-06.)*
+      *(Run 2026-10-05 21:31 to 2026-10-06 09:30; read by Session 347,
+      above: kwin is cleared, and Steam was running all night.)*
 
 ## Session 337: only the tray counts as watching (2026-10-04)
 
