@@ -8,6 +8,30 @@
 
 ---
 
+## Session 348: the linux-lts witness is scheduled (2026-10-07)
+
+Session 347's next action, the owner's, done a day late. Roadmap and
+handoff only; no code changed, no restart owed.
+
+- [x] **The owner booted `linux-lts` and scheduled the root witness.**
+      Booted 2026-10-07 21:41:53 into `6.18.55-1-lts` (not the 6.18.54
+      named below; still the LTS line, so the night still separates it
+      from 7.2). Steam was not running at 21:43. The 21:30 start had
+      passed, and a transient `--on-calendar` timer set in the past never
+      fires, so `sysadmin-dgpu-pin-witness-lts.timer` fires at 21:50:00
+      instead, with `--duration 43200`, writing
+      `~/.local/state/sysadmin/dgpu-pin-witness-lts-2026-10-08.jsonl`.
+      Checked with `systemctl list-timers` and `systemctl cat`. The
+      Session 347 item stays open until the log has been read, after
+      09:50 on 2026-10-08.
+- [ ] **Bring HANDOFF.md under estate rule 2's 500-line bound.** Found
+      by Session 348 and not worked, as a second concern. The estate
+      added the bound on 2026-10-07 (their message 0db3617a, which also
+      announced a `bind:lan` marker and other contract changes still to
+      read); HANDOFF.md is 14,316 lines. Move the sections older than the
+      recent few into `HANDOFF-archive.md` beside it, leaving the top
+      blocks the board, hook and audit read.
+
 ## Session 347: as root, kwin goes quiet with the monitors off (2026-10-06)
 
 Session 346's scheduled action. Read

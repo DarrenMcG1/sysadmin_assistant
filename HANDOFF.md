@@ -1,28 +1,51 @@
-# Handoff — 2026-10-06 (Session 347)
+# Handoff — 2026-10-07 (Session 348)
 
 ## Next action
 
-Owner: tonight, quit Steam, reboot into linux-lts and schedule the root dGPU witness for 21:30 (command in tasks.md, Session 347). *(For: owner, ~5 min, at 2026-10-06 21:00)*
+Move HANDOFF.md's sections older than the recent few into HANDOFF-archive.md, bringing it under estate rule 2's 500-line bound (tasks.md, Session 348). *(For: session)*
 
-Last night's root run cleared the compositor: with the monitors off,
-`kwin_wayland` worked only in the minute they went off, and no root
-process used the card. Steam was running again, so the card had a
-visible user all night. Read with the Steam-free night of 2026-10-04,
-what is left is the 7.2 kernel, the firmware, or something holding the
-card without submitting work. One `linux-lts` night separates the
-kernel from the rest. The transient timer must be scheduled after the
-reboot, because it does not survive one.
+The estate's rule 2 gained a 500-line bound on HANDOFF.md on
+2026-10-07 (their message 0db3617a), and this file is 14,316 lines;
+the session-start hook says so every sitting. It is the first startable
+item in tasks.md. The witness below is gated on tomorrow morning, so it
+sits under Scheduled action.
 
 ## Scheduled action
 
-After 09:30 on the morning after the `linux-lts` night, read
-`~/.local/state/sysadmin/dgpu-pin-witness-lts-<that day>.jsonl` against
-tasks.md's Session 347 item. If the card suspended, the 7.2 kernel is
-the cause. If every client was quiet and it still never slept, the
-kernel is cleared. *(For: session)*
+- After 09:50 on 2026-10-08, read
+  `~/.local/state/sysadmin/dgpu-pin-witness-lts-2026-10-08.jsonl`
+  against tasks.md's Session 347 `linux-lts` item. If the card
+  suspended, the 7.2 kernel is the cause. If every client was quiet and
+  it still never slept, the kernel is cleared. *(For: session)*
+- Session 342's row-order fix in the tray still needs only
+  `systemctl --user restart sysadmin-tray`, whenever convenient.
 
-Session 342's row-order fix in the tray still needs only
-`systemctl --user restart sysadmin-tray`, whenever convenient.
+## Session 348: the linux-lts witness is scheduled
+
+Session 347's next action, which was the owner's, done a day late. No
+code changed.
+
+The owner rebooted into `linux-lts` at 2026-10-07 21:41:53. The running
+kernel is `6.18.55-1-lts`, not the 6.18.54 tasks.md named, which still
+separates the LTS line from 7.2. Steam was not running at 21:43. At
+21:43 the planned 21:30 start had passed, and a transient
+`--on-calendar` timer set in the past never fires, so the owner
+scheduled it for 21:50 instead. `sysadmin-dgpu-pin-witness-lts.timer`
+fires at 2026-10-07 21:50:00 with `--duration 43200`, so the run ends
+near 09:50 on 2026-10-08; `systemctl cat` shows the right command and
+log path.
+
+Learnt: `sudo` cannot be run through the prompt's `!` prefix, because
+it has no terminal to read the password from. A command needing `sudo`
+goes to the owner's own terminal.
+
+Not acted on, each its own concern: HANDOFF.md is over the new 500-line
+bound (now the next action), the STATUS.md restart record Session 347
+left, and eleven open estate messages.
+
+## What Session 347 handed on (done by Session 348)
+
+Owner: tonight, quit Steam, reboot into linux-lts and schedule the root dGPU witness for 21:30 (command in tasks.md, Session 347). *(For: owner, ~5 min, at 2026-10-06 21:00)*
 
 ## Session 347: as root, kwin goes quiet with the monitors off
 
