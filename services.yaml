@@ -185,12 +185,21 @@ services:
     controllable: false
 
   # --- SportsAnalyser -------------------------------------------------
-  # Dormant since 2026-08-06, but the services are still running and
-  # still worth alerting on, so they stay monitored.
+  # Dormant since 2026-08-06. Until 2026-10-07 its services still ran
+  # and were watched; that day an estate session stopped and disabled all
+  # three units on the owner's ruling (estate message fd376758), so each
+  # entry is `monitor: false`. The entries stay rather than going, because
+  # `name` keys their service_health history and the reason is what says
+  # the silence is on purpose. Re-enabling the units is the moment to
+  # delete the three `monitor:`/`reason:` pairs.
   - project: sports-analyser
     name: sports_analyser
     role: backend
     kind: http
+    monitor: false
+    reason: >-
+      unit stopped and disabled on the owner's ruling of 2026-10-07 (the
+      project is dormant; estate message fd376758); down on purpose
     url: http://localhost:8200/api/v1/health
     port: 8200
     systemd: { unit: sportsanalyser-backend.service, scope: user }
@@ -200,6 +209,10 @@ services:
     name: sports_analyser-frontend
     role: frontend
     kind: http
+    monitor: false
+    reason: >-
+      unit stopped and disabled on the owner's ruling of 2026-10-07 (the
+      project is dormant; estate message fd376758); down on purpose
     url: http://localhost:3200              # Next.js
     port: 3200
     systemd: { unit: sportsanalyser-frontend.service, scope: user }
@@ -209,6 +222,10 @@ services:
     name: sportsanalyser-pipeline-timer
     role: schedule
     kind: timer
+    monitor: false
+    reason: >-
+      timer stopped and disabled on the owner's ruling of 2026-10-07 (the
+      project is dormant; estate message fd376758); down on purpose
     systemd: { unit: sportsanalyser-pipeline.timer, scope: user }
     controllable: false
 
