@@ -8,6 +8,44 @@
 
 ---
 
+## Session 351: STATUS.md's opening block is current again (2026-10-08)
+
+Session 350's next action. STATUS.md, roadmap and handoff only; no code
+changed, no restart owed.
+
+- [x] **Four starts recorded, not two.** The owner restarted the daemon
+      by hand at 2026-10-05 20:29:16 (`sudo`, `pts/4`) and 21:33:50
+      (`pts/19`); no session transcript holds either. Then the reboot
+      into `linux-lts` (2026-10-07 21:42:10) and the boot after the hard
+      reset (2026-10-08 08:49:11), which the block now claims.
+- [x] **Seven open alerts named, not two.** The three sports analyser
+      rows, Alfred's `Estate port 8100 registry breach` and the
+      recurring `Unmonitored systemd units: 5 findings`, each with its
+      cause in the re-count note.
+- [x] **The 2026-10-08 03:00 prediction measured and replaced.** The
+      2026-09-07 specimen cleared, but 53 newer shared instants keep the
+      test passing. Their clearing is derived from the real
+      `purge_statement` (1 of 53 left on 26 October, 0 on 27 October)
+      and is the block's new `expires` marker.
+- [ ] **Stop polling the sports analyser's stopped units.** Found by
+      Session 351 and not worked, as a second concern. An estate session
+      stopped and disabled `sportsanalyser-backend.service`,
+      `sportsanalyser-frontend.service` and
+      `sportsanalyser-pipeline.timer` on the owner's ruling of
+      2026-10-07 (estate message `fd376758`), and `services.yaml` still
+      declares all three, so three `critical` alerts stay open. Set
+      `monitor: false` on the three entries, with the `reason` that key
+      requires citing the ruling, restart the daemon, and close the
+      message.
+- [ ] **Trace the recurring `Unmonitored systemd units: 5 findings`.**
+      Found by Session 351 and not worked. The same set has opened and
+      resolved four times since 2026-09-09 and is open again since
+      2026-10-08 20:50:11. Two of the five are this repository's own
+      units (`sysadmin-failed.service`,
+      `sysadmin-replay-failures.service`); the others are
+      go-to-market's `go-to-market-watch-replies.service` and two
+      `deadlock-api-ingest` units with no project.
+
 ## Session 350: the handoff is archived (2026-10-08)
 
 Session 349's next action. Handoff and roadmap only; no code changed, no
@@ -140,7 +178,8 @@ handoff only; no code changed, no restart owed.
       cause. If it still never sleeps with every client quiet, the kernel
       is cleared and the firmware or a non-submitting reader is left.
       Read the log after 09:30 the next day.
-- [ ] **Record the owner's 2026-10-05 21:33:50 restart in STATUS.md.**
+- [x] **Record the owner's 2026-10-05 21:33:50 restart in STATUS.md.**
+      *(Done by Session 351, with three more starts it found.)*
       Found by Session 347 and not worked, as a second concern:
       `check-ops-claims.sh` reads the block's daemon start time
       (06:20:53) as out of date. The system journal has `sudo systemctl

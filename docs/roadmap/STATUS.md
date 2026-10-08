@@ -1,7 +1,24 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-10-06
+**Last Updated**: 2026-10-08
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **Four restarts since Session 345's, none of them a fault, and seven
+> open alerts where this page named two** (2026-10-08, Session 351).
+> The owner restarted the monitor twice by hand on 5 October, at
+> 20:29:16 and 21:33:50; the system journal holds both `sudo systemctl
+> restart sysadmin.service` commands and no session transcript holds
+> either. The first resolved the `Unmonitored systemd units` row a
+> minute later, so it most likely loaded other repositories' new
+> `services.yaml` entries. The third start, 21:42:10 on 7 October, was
+> the reboot into `linux-lts`, and the fourth is the boot after
+> Session 349's hard reset: the daemon restarted at
+> **2026-10-08 08:49:11** <!--check:deploy--> <!--check:daemon_start-->
+> and has run since with no restarts. No code changed in between, so
+> nothing new was deployed. The five new open rows are named in the
+> alert count further down. Three are the sports analyser's, whose units
+> the owner had stopped on 7 October; this repository still polls them,
+> which is recorded as a task. Documentation only.
 
 > **The desktop compositor is not what keeps the graphics card awake**
 > (2026-10-06, Session 347). The owner ran last night's measurement with
@@ -24,8 +41,7 @@
 > That installed the new service file (`Type=notify`, a one-minute
 > watchdog) and loaded Sessions 336 to 342. Session 343's junk-growth
 > fit was written two minutes later, so it needed one more restart: the
-> daemon restarted at **2026-10-05 06:20:53** <!--check:deploy-->
-> <!--check:daemon_start-->, by Session 345 stopping the main process
+> daemon restarted at 2026-10-05 06:20:53, by Session 345 stopping the main process
 > and letting systemd bring it back (12 s down). The tray's "Reaches
 > N GB" rows now read 50 GB on 2026-12-30 and 100 GB on 2028-03-11.
 > `venture-chat unreachable`, another repository's service, opened and
@@ -1121,7 +1137,18 @@
 > clears at 03:00 on 2026-10-08, after which
 > `test_a_shared_instant_is_two_records_and_not_one_stored_twice` skips for
 > want of a specimen rather than passing.
-> <!--check:expires 2026-10-08T03:00+01:00 the coincidence the raw-line key discriminates clears at retention-->
+> *(Measured 2026-10-08 by Session 351: the first half came true and
+> the second did not. No shared instant from 2026-09-07 is left, but
+> the test passes rather than skips, because 53 other instants are
+> each shared by two records with different raw lines: 52 from
+> `venture-assistant-backend.service` on 24 to 26 September and one
+> from `sysadmin.service`. The specimen family grew while it waited.
+> The test will skip only if no new shared instant is ingested
+> meanwhile. The newest of the 53 was ingested 2026-09-26 22:52:19.
+> Driven at the real `purge_statement` and rolled back, the 26 October
+> run leaves **1 of 53** and the next leaves **0 of 53**, so today's
+> specimens clear at 03:00 on 2026-10-27, GMT by then.)*
+> <!--check:expires 2026-10-27T03:00+00:00 the 53 shared instants measured on 2026-10-08 clear at retention-->
 >
 > **One falsification passed against deliberately broken code, and the
 > mutation drive's restore failed silently before it.** Inverting the
@@ -7495,11 +7522,30 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **2** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **7** unresolved
 > rows <!--check:alerts-->,
-> `Critical disk usage on /` and
-> `Project ImbaBots next action idle`, **2**
+> `Critical disk usage on /`,
+> `Project ImbaBots next action idle`,
+> `sports_analyser unreachable`,
+> `sports_analyser-frontend unreachable`,
+> `sportsanalyser-pipeline-timer critical`,
+> `Estate port 8100 registry breach` and
+> `Unmonitored systemd units: 5 findings`, **7**
 > named here <!--check:open_titles-->.
+> *(Re-counted 2026-10-08 21:15 BST by Session 351: 2 → 7. The three
+> sports analyser rows opened together at 2026-10-07 19:38:50: an
+> estate session stopped and disabled those units that day on the
+> owner's ruling (estate message `fd376758`), and `services.yaml`
+> still declares them, so they will stay open until it does not; that
+> is a task. The port row opened at 05:43:11: Alfred's uvicorn listens
+> on `0.0.0.0:8100`, and the estate's contract gained a `bind:lan`
+> marker on 2026-10-07 (their message `0db3617a`) that Alfred's row
+> does not carry. That is Alfred's to settle; this repository only
+> reports it. The units row opened at 20:50:11, the fourth episode of
+> one finding set since 2026-09-09: two of this repository's own units
+> (`sysadmin-failed.service`, `sysadmin-replay-failures.service`), one
+> of go-to-market's and two `deadlock-api-ingest` units with no
+> project. Not traced here.)*
 > *(Re-counted 2026-10-02 13:47 BST by Session 326: 3 → 2. The
 > `venture-chat unreachable` row opened at 09:04:27 resolved at
 > 09:32:02, when the arbiter's lease ended. `Estate queue starved`

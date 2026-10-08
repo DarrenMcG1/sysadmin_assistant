@@ -1,6 +1,56 @@
-# Handoff — 2026-10-08 (Session 350)
+# Handoff — 2026-10-08 (Session 351)
 
 ## Next action
+
+Set `monitor: false` with a reason on services.yaml's three sports analyser entries, restart, and close estate message fd376758 (tasks.md, Session 351). *(For: session)*
+
+An estate session stopped those units on the owner's ruling of
+2026-10-07, so three `critical` alerts stay open for units that are
+down on purpose. The key and its required `reason` are documented at
+the top of `services.yaml`; six entries already use it.
+
+## Scheduled action
+
+- Session 342's row-order fix in the tray still needs only
+  `systemctl --user restart sysadmin-tray`, whenever convenient.
+
+## Session 351: STATUS.md's opening block is current again
+
+Session 350's next action. No code changed, no restart owed.
+
+The daemon started four times since the block's 2026-10-05 06:20:53,
+not twice: the owner restarted it by hand at 20:29:16 (`sudo`, `pts/4`,
+home directory) and 21:33:50 (`pts/19`, this repository) on 5 October,
+and no session transcript holds either; then the reboot into
+`linux-lts` at 2026-10-07 21:42:10 and the boot after the hard reset at
+2026-10-08 08:49:11. The new STATUS entry carries the last one in bold
+with both check markers; Session 345's time is unbolded.
+
+Open alerts are 7, not 6 as Session 350 measured: `Unmonitored systemd
+units: 5 findings` reopened at 20:50:11 while this sitting worked. All
+seven are named in the marked sentence with a re-count note.
+
+The checker also read the 2026-10-08 03:00 prediction as passed. The
+2026-09-07 row did clear, but
+`test_a_shared_instant_is_two_records_and_not_one_stored_twice` still
+passes on 53 newer shared instants. Removing the spent marker turned
+`test_the_block_states_at_least_one_prediction` red, as it did for the
+sitting before, so a new prediction was derived the same way: the real
+`purge_statement`, run inside a rolled-back transaction, leaves 1 of 53
+after the 2026-10-26 run and 0 after the 2026-10-27 one. Its marker
+first failed the clock pin because a caveat sat between the 03:00
+sentence and the marker; reordered.
+
+Checked: every `check-ops-claims.sh` row `ok`, exit 0; the five test
+files that read STATUS.md or the specimen, 709 passed. The full suite
+was not run: nothing outside documents changed.
+
+Decided: three of the seven alerts are a second concern (the stopped
+sports analyser units), recorded in tasks.md and made the next action
+rather than worked here. The recurring unit-sweep row is recorded and
+not traced.
+
+## What Session 350 handed on (done by Session 351)
 
 Bring STATUS.md's opening block up to date: two daemon restarts (2026-10-05 21:33:50, the 2026-10-08 08:49 boot) and 6 open alerts against 2 (tasks.md, Session 347). *(For: session)*
 
@@ -9,11 +59,6 @@ waited: Session 350's postflight measured the daemon active since
 2026-10-08 08:49:11, the boot after Session 349's hard reset, and 6
 unresolved alerts where the block names 2. Session 345's block shows how
 to record a restart.
-
-## Scheduled action
-
-- Session 342's row-order fix in the tray still needs only
-  `systemctl --user restart sysadmin-tray`, whenever convenient.
 
 ## Session 350: the handoff is archived
 
