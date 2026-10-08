@@ -425,6 +425,18 @@ services:
     systemd: { unit: go-to-market-draft-check-copy.timer, scope: user }
     controllable: false
 
+  # Its two-hourly watch for a firm's reply to a sent batch, which sends a
+  # desktop notification, declared at go-to-market's request (estate
+  # message b00baf51) the day the units were installed (2026-10-08). A
+  # oneshot, so the timer is watched, the shape the copy above has.
+  # Bridge closed logs NOT CHECKED and exits 0, so it is no failure.
+  - project: go-to-market
+    name: go-to-market-watch-replies-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: go-to-market-watch-replies.timer, scope: user }
+    controllable: false
+
   # --- This service ---------------------------------------------------
   # A system unit, unlike almost everything else here.
   - project: sysadmin-assistant
