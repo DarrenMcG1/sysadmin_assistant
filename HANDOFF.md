@@ -43,6 +43,11 @@ alert count went 7 → 4 with a re-count note; `check-ops-claims.sh`
 all `ok`. Full suite 4,540 passed, 2 skipped. The message is closed
 with a note naming the commit.
 
+Found and left: the postflight's vacuous-guard gate flags
+`tests/test_off_loop.py:99`, a set built from route dependencies that
+are empty on both routes it reads since Session 333. Unrelated to
+`services.yaml`; recorded as `SNAG-TEST-016` in snag_list.md.
+
 ## What Session 351 handed on (done by Session 352)
 
 Set `monitor: false` with a reason on services.yaml's three sports analyser entries, restart, and close estate message fd376758 (tasks.md, Session 351). *(For: session)*
