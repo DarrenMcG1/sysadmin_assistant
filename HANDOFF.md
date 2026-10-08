@@ -2,16 +2,12 @@
 
 ## Next action
 
-Owner: rule whether a sleeping dGPU is still wanted; recommended, close the hunt and keep 7.2's always-active card (tasks.md, Session 349). *(For: owner, ~5 min)*
+Move HANDOFF.md's sections older than the recent few into HANDOFF-archive.md, bringing it under estate rule 2's 500-line bound (tasks.md, Session 348). *(For: session)*
 
-On `linux-lts` the card slept within a minute of the monitors going
-off and stayed asleep most of the night, so the 7.2 kernel is what
-keeps it awake. But when it woke at 08:00 and 08:20 the DP monitors
-never reconnected, and the owner hard-reset the box at 08:47, which
-they reported as a crash. Until the owner rules, the box stays on 7.2,
-where the card never sleeps and the screens always wake. If the hunt is
-closed, the next startable item is HANDOFF.md's archive move (tasks.md,
-Session 348).
+The dGPU hunt is closed on the owner's ruling of 2026-10-08, so the
+first startable item in tasks.md is the archive move. HANDOFF.md is
+over 14,000 lines against the estate's 500-line bound, and the
+session-start hook says so every sitting.
 
 ## Scheduled action
 
@@ -32,8 +28,13 @@ no shutdown sequence, so it was a hard reset, not a crash. The box came
 back on `7.2.9-arch1-1`.
 
 Decided: the kernel question is answered, and the result changes what
-is being asked, so the next step is the owner's ruling, not more
-measurement. Not settled: whether the 27 to 28 September LTS night
+is being asked, so it went to the owner rather than to more measurement.
+The owner saw the monitors wake to their logo and go black, and ruled
+to close the hunt: the box stays on 7.2, where the card never sleeps
+and the screens always wake. Rejected: chasing it as a kernel
+display-wake bug, which would be upstream work, not this repository's.
+`scripts/dgpu-pin-witness.py` stays as an instrument; nothing schedules
+it. Not settled: whether the 27 to 28 September LTS night
 failed the same way; it shows the same resumes, but that boot ended in
 a clean shutdown three hours later.
 

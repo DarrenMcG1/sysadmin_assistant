@@ -8101,6 +8101,15 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 349 — the dGPU hunt is closed: 7.2 keeps the card awake (2026-10-08)
+
+- One `linux-lts` night (6.18.55) with Steam quit: the card was
+  suspended in 551 of 657 minutes, so the 7.2 kernel is what holds it
+  awake. But at its two morning resumes no DP monitor reconnected (they
+  woke to their logo, then black) and the owner hard-reset the box. The
+  owner ruled on 2026-10-08 to close the hunt: the box stays on 7.2,
+  where the card never sleeps and the screens always wake.
+
 ### Session 344 — an `expires` clock must stand alone (2026-10-04)
 
 - `check_expiry` pins through `states_clock`, which matches `HH:MM`

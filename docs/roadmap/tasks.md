@@ -43,7 +43,8 @@ minutes, 2026-10-07 21:51 to 2026-10-08 08:47) and the journal of boot
       last one at 08:56:40. Not settled: that boot ended in a clean
       shutdown at 11:48:34, so the screens may have come back then; the
       journal holds nothing saying either way.
-- [ ] **Owner ruling: is a sleeping dGPU still wanted?** The hunt began
+- [x] **Owner ruling: is a sleeping dGPU still wanted?** *(Ruled 2026-10-08:
+      no. The hunt is closed; the box stays on 7.2.)* The hunt began
       with the card never sleeping (Session 324). The answer is now that
       7.2 keeps it awake, and the one night it slept, the screens it
       drives did not wake. Recommended: close the hunt and treat 7.2's
