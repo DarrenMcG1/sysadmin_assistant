@@ -1,24 +1,45 @@
-# Handoff — 2026-10-07 (Session 348)
+# Handoff — 2026-10-08 (Session 349)
 
 ## Next action
 
-Move HANDOFF.md's sections older than the recent few into HANDOFF-archive.md, bringing it under estate rule 2's 500-line bound (tasks.md, Session 348). *(For: session)*
+Owner: rule whether a sleeping dGPU is still wanted; recommended, close the hunt and keep 7.2's always-active card (tasks.md, Session 349). *(For: owner, ~5 min)*
 
-The estate's rule 2 gained a 500-line bound on HANDOFF.md on
-2026-10-07 (their message 0db3617a), and this file is 14,316 lines;
-the session-start hook says so every sitting. It is the first startable
-item in tasks.md. The witness below is gated on tomorrow morning, so it
-sits under Scheduled action.
+On `linux-lts` the card slept within a minute of the monitors going
+off and stayed asleep most of the night, so the 7.2 kernel is what
+keeps it awake. But when it woke at 08:00 and 08:20 the DP monitors
+never reconnected, and the owner hard-reset the box at 08:47, which
+they reported as a crash. Until the owner rules, the box stays on 7.2,
+where the card never sleeps and the screens always wake. If the hunt is
+closed, the next startable item is HANDOFF.md's archive move (tasks.md,
+Session 348).
 
 ## Scheduled action
 
-- After 09:50 on 2026-10-08, read
-  `~/.local/state/sysadmin/dgpu-pin-witness-lts-2026-10-08.jsonl`
-  against tasks.md's Session 347 `linux-lts` item. If the card
-  suspended, the 7.2 kernel is the cause. If every client was quiet and
-  it still never slept, the kernel is cleared. *(For: session)*
 - Session 342's row-order fix in the tray still needs only
   `systemctl --user restart sysadmin-tray`, whenever convenient.
+
+## Session 349: on linux-lts the card sleeps, and the screens do not come back
+
+Session 348's scheduled action, brought forward by the owner reporting
+an overnight crash. No code changed.
+
+Read the witness log (657 minutes) and the journal of the boot that
+ended at 08:47:50. The card was `suspended` in 551 minutes; it woke
+only for the hourly `llama-server` work. At 08:00:01 and 08:20:27 it
+resumed cleanly but every connector stayed `disconnected` and nothing
+drew. Services logged normally to the end, and the journal stops with
+no shutdown sequence, so it was a hard reset, not a crash. The box came
+back on `7.2.9-arch1-1`.
+
+Decided: the kernel question is answered, and the result changes what
+is being asked, so the next step is the owner's ruling, not more
+measurement. Not settled: whether the 27 to 28 September LTS night
+failed the same way; it shows the same resumes, but that boot ended in
+a clean shutdown three hours later.
+
+## What Session 348 handed on (done by Session 349: the witness read; the archive move was not reached)
+
+Move HANDOFF.md's sections older than the recent few into HANDOFF-archive.md, bringing it under estate rule 2's 500-line bound (tasks.md, Session 348). *(For: session)*
 
 ## Session 348: the linux-lts witness is scheduled
 

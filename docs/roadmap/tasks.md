@@ -8,6 +8,47 @@
 
 ---
 
+## Session 349: on linux-lts the card sleeps, and the screens do not come back (2026-10-08)
+
+Session 348's scheduled action, brought forward by the owner reporting
+an overnight "crash". Read
+`~/.local/state/sysadmin/dgpu-pin-witness-lts-2026-10-08.jsonl` (657
+minutes, 2026-10-07 21:51 to 2026-10-08 08:47) and the journal of boot
+`f616db54`. Roadmap and handoff only; no code changed, no restart owed.
+
+- [x] **The 7.2 kernel is what keeps the card awake.** On
+      `6.18.55-1-lts` with Steam quit, both DP monitors went off at
+      21:53 and the card reached `suspended` 21 s later. It was
+      suspended in 551 of 657 minutes, waking only for `llama-server`
+      (the enrichment job, about hourly) and dropping back within a
+      minute each time. `kwin_wayland` submitted nothing after 21:53.
+      Every other night measured on 7.2 had it `active` in every second.
+- [x] **On this kernel the screens did not come back after the card
+      slept.** The card resumed at 08:00:01 and 08:20:27, almost
+      certainly the owner's input: PSP, SMU and DMUB came back cleanly
+      and powerdevil saw a `drm` change on `card1` with
+      `prop_connector: (null)`, but every connector stayed
+      `disconnected` in the witness and no client drew. The card went
+      back to `suspended`.
+- [x] **It was not a crash.** Services, the tray, Postgres archiving
+      and the witness itself logged normally up to 08:47:50, when the
+      journal stops mid-stream with no shutdown sequence: a hard reset.
+      The reset left the witness's last line as 281 NUL bytes; the 656
+      lines before it are whole. The box came back on `7.2.9-arch1-1`.
+- [x] **The one earlier suspending night may have gone the same way.**
+      27 to 28 September (6.18 LTS, 283 resumes) shows the same
+      `prop_connector: (null)` resumes at 08:30:36 and 08:31:39 and a
+      last one at 08:56:40. Not settled: that boot ended in a clean
+      shutdown at 11:48:34, so the screens may have come back then; the
+      journal holds nothing saying either way.
+- [ ] **Owner ruling: is a sleeping dGPU still wanted?** The hunt began
+      with the card never sleeping (Session 324). The answer is now that
+      7.2 keeps it awake, and the one night it slept, the screens it
+      drives did not wake. Recommended: close the hunt and treat 7.2's
+      always-active card as the working state, because a lower idle draw
+      is not worth a reset. The alternative is to keep chasing it as a
+      kernel display-wake bug, which belongs upstream rather than here.
+
 ## Session 348: the linux-lts witness is scheduled (2026-10-07)
 
 Session 347's next action, the owner's, done a day late. Roadmap and
@@ -61,7 +102,9 @@ handoff only; no code changed, no restart owed.
       or firmware, or a process that holds the card's power reference
       without submitting work (fdinfo counts submitted work only; a
       frequent sensor read through sysfs is one such reader, not checked).
-- [ ] **Owner: one night on `linux-lts`, Steam quit, witness as root.**
+- [x] **Owner: one night on `linux-lts`, Steam quit, witness as root.**
+      *(Run 2026-10-07 21:50 on `6.18.55-1-lts`, cut short by a reset
+      at 08:47; read by Session 349, which records the result.)*
       *(Needs a reboot and `sudo`.)* Quit Steam, reboot and choose
       `linux-lts` (6.18.54, installed) at the boot menu, then schedule
       the witness. A transient timer does not survive a reboot, so
