@@ -8,6 +8,24 @@
 
 ---
 
+## Session 353: go-to-market's reply watcher is watched (2026-10-08)
+
+Session 352's next action. `services.yaml` changed (`f3e7ffe`); applied
+by reload, no restart.
+
+- [x] **`go-to-market-watch-replies-timer` declared**, `kind: timer`
+      beside `go-to-market-draft-check-copy-timer`, as estate message
+      `b00baf51` asked. The reload reported that one entry added, and
+      the 21:04:11 UTC poll stored it `ok`. The sweep folds the oneshot
+      service under its timer, so the service leaves the unmonitored
+      findings too.
+- [x] **The units roll-up resolved, not re-raised.** A sweep run by
+      hand at 21:05:52 UTC found four findings, under
+      `alert_threshold: 5`, so `Unmonitored systemd units: 5 findings`
+      resolved. STATUS.md re-counted 4 → 3.
+- [x] **Estate message `b00baf51` closed**, with a note naming the
+      commit.
+
 ## Session 352: the sports analyser's stopped units are no longer polled (2026-10-08)
 
 Session 351's next action, and the task it recorded below. `services.yaml`
@@ -53,12 +71,14 @@ changed, no restart owed.
       message.
 - [ ] **Trace the recurring `Unmonitored systemd units: 5 findings`.**
       Found by Session 351 and not worked. The same set has opened and
-      resolved four times since 2026-09-09 and is open again since
-      2026-10-08 20:50:11. Two of the five are this repository's own
-      units (`sysadmin-failed.service`,
-      `sysadmin-replay-failures.service`); the others are
-      go-to-market's `go-to-market-watch-replies.service` and two
-      `deadlock-api-ingest` units with no project.
+      resolved four times since 2026-09-09. Two of the five are this
+      repository's own units (`sysadmin-failed.service`,
+      `sysadmin-replay-failures.service`); two are the system-scope
+      `deadlock-api-ingest` units, filed `host`. The fifth,
+      go-to-market's `go-to-market-watch-replies.service`, was declared
+      by Session 353, and the row resolved at four findings, under the
+      threshold of five. The four remain findings, and one more new
+      unit re-raises it.
 
 ## Session 350: the handoff is archived (2026-10-08)
 

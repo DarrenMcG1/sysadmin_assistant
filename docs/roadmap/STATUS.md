@@ -7522,13 +7522,19 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
 > rows <!--check:alerts-->,
 > `Critical disk usage on /`,
-> `Project ImbaBots next action idle`,
-> `Estate port 8100 registry breach` and
-> `Unmonitored systemd units: 5 findings`, **4**
+> `Project ImbaBots next action idle` and
+> `Estate port 8100 registry breach`, **3**
 > named here <!--check:open_titles-->.
+> *(Re-counted 2026-10-08 22:06 BST by Session 353: 4 → 3. The units
+> row resolved at 22:05:52, on a sweep run by hand after
+> `go-to-market-watch-replies-timer` was declared: four findings are
+> under the alert threshold of five. The four left are this
+> repository's `sysadmin-failed.service` and
+> `sysadmin-replay-failures.service`, and the two system-scope
+> `deadlock-api-ingest` units, which the sweep files as `host`.)*
 > *(Re-counted 2026-10-08 21:40 BST by Session 352: 7 → 4. The three
 > sports analyser rows resolved at 21:39:14, on the first poll after
 > their `services.yaml` entries became `monitor: false`; a reload
