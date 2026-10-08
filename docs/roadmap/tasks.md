@@ -29,7 +29,9 @@ minutes, 2026-10-07 21:51 to 2026-10-08 08:47) and the journal of boot
       and powerdevil saw a `drm` change on `card1` with
       `prop_connector: (null)`, but every connector stayed
       `disconnected` in the witness and no client drew. The card went
-      back to `suspended`.
+      back to `suspended`. The owner saw the monitors power up to their
+      logo and then go black: they woke and found no signal, so the
+      card never trained the DP links.
 - [x] **It was not a crash.** Services, the tray, Postgres archiving
       and the witness itself logged normally up to 08:47:50, when the
       journal stops mid-stream with no shutdown sequence: a hard reset.
