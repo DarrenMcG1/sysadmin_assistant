@@ -17,8 +17,8 @@
 > and has run since with no restarts. No code changed in between, so
 > nothing new was deployed. The five new open rows are named in the
 > alert count further down. Three are the sports analyser's, whose units
-> the owner had stopped on 7 October; this repository still polls them,
-> which is recorded as a task. Documentation only.
+> the owner had stopped on 7 October; Session 352 set their entries
+> `monitor: false` and the three rows resolved. Documentation only.
 
 > **The desktop compositor is not what keeps the graphics card awake**
 > (2026-10-06, Session 347). The owner ran last night's measurement with
@@ -7522,16 +7522,17 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **7** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
 > rows <!--check:alerts-->,
 > `Critical disk usage on /`,
 > `Project ImbaBots next action idle`,
-> `sports_analyser unreachable`,
-> `sports_analyser-frontend unreachable`,
-> `sportsanalyser-pipeline-timer critical`,
 > `Estate port 8100 registry breach` and
-> `Unmonitored systemd units: 5 findings`, **7**
+> `Unmonitored systemd units: 5 findings`, **4**
 > named here <!--check:open_titles-->.
+> *(Re-counted 2026-10-08 21:40 BST by Session 352: 7 → 4. The three
+> sports analyser rows resolved at 21:39:14, on the first poll after
+> their `services.yaml` entries became `monitor: false`; a reload
+> applied it, so the daemon start above still holds.)*
 > *(Re-counted 2026-10-08 21:15 BST by Session 351: 2 → 7. The three
 > sports analyser rows opened together at 2026-10-07 19:38:50: an
 > estate session stopped and disabled those units that day on the

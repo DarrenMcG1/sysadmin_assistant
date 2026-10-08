@@ -1,6 +1,49 @@
-# Handoff — 2026-10-08 (Session 351)
+# Handoff — 2026-10-08 (Session 352)
 
 ## Next action
+
+Declare go-to-market-watch-replies-timer in services.yaml as estate message b00baf51 asks; it is one of five unmonitored units (tasks.md, Session 351). *(For: session)*
+
+go-to-market installed the timer on 2026-10-08 and names the entry it
+wants (`kind: timer`, beside `go-to-market-draft-check-copy-timer`). Its
+service, `go-to-market-watch-replies.service`, is one of the five units
+in the open `Unmonitored systemd units: 5 findings` alert; the other
+four are the rest of the tasks.md item.
+
+## Scheduled action
+
+- Session 342's row-order fix in the tray still needs only
+  `systemctl --user restart sysadmin-tray`, whenever convenient.
+
+## Session 352: the sports analyser's stopped units are no longer polled
+
+Session 351's next action. `services.yaml` changed; no restart owed.
+
+The three entries (`sports_analyser`, `sports_analyser-frontend`,
+`sportsanalyser-pipeline-timer`) are `monitor: false`, each with a
+reason citing the owner's 2026-10-07 ruling and estate message
+`fd376758`. The section comment that said the services "are still
+running … so they stay monitored" now says when and why that stopped,
+and that re-enabling the units is when to delete the pairs.
+
+Decided: applied with `POST /api/sysadmin/reload`, not the restart the
+next action named. The reload exists for exactly this file, it needs no
+`sudo` for the system unit, and a restart would have falsified
+STATUS.md's marked daemon start for no gain. The reload reported only
+those three entries as changed.
+
+Decided: the entries stay rather than being deleted, because `name`
+keys their `service_health` history and reliability scores. The `log:`
+blocks stay too, since a disabled unit writes nothing to read.
+
+Checked: the 21:39:11 poll stored all three `skipped` with the reason in
+`details`, and their three critical alerts resolved at 21:39:14
+(`_resolve_recovered` treats `skipped` as healthy). STATUS.md's marked
+alert count went 7 → 4 with a re-count note; `check-ops-claims.sh`
+all `ok`. Full suite 4,540 passed, 2 skipped. The message is closed
+with a note naming the commit.
+
+## What Session 351 handed on (done by Session 352)
 
 Set `monitor: false` with a reason on services.yaml's three sports analyser entries, restart, and close estate message fd376758 (tasks.md, Session 351). *(For: session)*
 
@@ -8,11 +51,6 @@ An estate session stopped those units on the owner's ruling of
 2026-10-07, so three `critical` alerts stay open for units that are
 down on purpose. The key and its required `reason` are documented at
 the top of `services.yaml`; six entries already use it.
-
-## Scheduled action
-
-- Session 342's row-order fix in the tray still needs only
-  `systemctl --user restart sysadmin-tray`, whenever convenient.
 
 ## Session 351: STATUS.md's opening block is current again
 

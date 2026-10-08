@@ -8,6 +8,20 @@
 
 ---
 
+## Session 352: the sports analyser's stopped units are no longer polled (2026-10-08)
+
+Session 351's next action, and the task it recorded below. `services.yaml`
+changed (`069174b`); applied by reload, no restart.
+
+- [x] **Three entries `monitor: false`, each with the ruling as its
+      reason.** `sports_analyser`, `sports_analyser-frontend` and
+      `sportsanalyser-pipeline-timer`. Applied with
+      `POST /api/sysadmin/reload` rather than a restart, so STATUS.md's
+      claimed daemon start stays true; the reload reported exactly those
+      three as changed. The 21:39:11 poll stored all three `skipped`
+      with the reason, and their alerts resolved at 21:39:14.
+- [x] **Estate message `fd376758` closed.**
+
 ## Session 351: STATUS.md's opening block is current again (2026-10-08)
 
 Session 350's next action. STATUS.md, roadmap and handoff only; no code
@@ -27,7 +41,7 @@ changed, no restart owed.
       test passing. Their clearing is derived from the real
       `purge_statement` (1 of 53 left on 26 October, 0 on 27 October)
       and is the block's new `expires` marker.
-- [ ] **Stop polling the sports analyser's stopped units.** Found by
+- [x] **Stop polling the sports analyser's stopped units.** Found by
       Session 351 and not worked, as a second concern. An estate session
       stopped and disabled `sportsanalyser-backend.service`,
       `sportsanalyser-frontend.service` and
