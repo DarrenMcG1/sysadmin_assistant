@@ -4,9 +4,28 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-06
+> **Last Updated**: 2026-10-08
 
 ---
+
+## Session 350: the handoff is archived (2026-10-08)
+
+Session 349's next action. Handoff and roadmap only; no code changed, no
+restart owed.
+
+- [x] **HANDOFF.md is under estate rule 2's 500-line bound.** Sessions
+      343 and older (lines 188 to 14,361) moved unedited, newest first,
+      to `HANDOFF-archive.md`, whose header follows the one `dotfiles`
+      wrote the same day. HANDOFF.md keeps Sessions 344 to 349 and is
+      221 lines. The kept top plus the archive body reconstructs the
+      original byte for byte.
+- [x] **Found: 10 live tests red, not caused here.**
+      `tests/test_arbitrated_stops_live.py` and
+      `tests/test_estate_surface_payloads.py` fail because 8400's
+      `/api/queue/invariants` answers `503`, `queue not ready: database
+      unavailable`; the same 10 fail with the original handoff restored.
+      The estate's queue is theirs; the next sitting reruns them before
+      reading a red as its own.
 
 ## Session 349: on linux-lts the card sleeps, and the screens do not come back (2026-10-08)
 
@@ -68,7 +87,8 @@ handoff only; no code changed, no restart owed.
       Checked with `systemctl list-timers` and `systemctl cat`. The
       Session 347 item stays open until the log has been read, after
       09:50 on 2026-10-08.
-- [ ] **Bring HANDOFF.md under estate rule 2's 500-line bound.** Found
+- [x] **Bring HANDOFF.md under estate rule 2's 500-line bound.** *(Done
+      by Session 350.)* Found
       by Session 348 and not worked, as a second concern. The estate
       added the bound on 2026-10-07 (their message 0db3617a, which also
       announced a `bind:lan` marker and other contract changes still to
