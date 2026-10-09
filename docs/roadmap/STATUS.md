@@ -1,6 +1,6 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-10-08
+**Last Updated**: 2026-10-09
 **Current Phase:** Feature-complete — maintenance & future features
 
 > **Four restarts since Session 345's, none of them a fault, and seven
@@ -7522,12 +7522,20 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
 > rows <!--check:alerts-->,
 > `Critical disk usage on /`,
-> `Project ImbaBots next action idle` and
-> `Estate port 8100 registry breach`, **3**
+> `Project ImbaBots next action idle`,
+> `Project InvestingAssistant next action idle` and
+> `Estate port 8100 registry breach`, **4**
 > named here <!--check:open_titles-->.
+> *(Re-counted 2026-10-09 14:35 BST by Session 354: 3 → 4. The
+> InvestingAssistant row opened at 2026-10-08 22:50:11, an `info` from
+> `estate_judge` on that project's idle next action, and is
+> InvestingAssistant's to move. Session 354 declared
+> `sysadmin-failed.service` and `sysadmin-replay-failures.service`, so
+> the unit sweep's findings fall from four to the two `host`
+> `deadlock-api-ingest` units.)*
 > *(Re-counted 2026-10-08 22:06 BST by Session 353: 4 → 3. The units
 > row resolved at 22:05:52, on a sweep run by hand after
 > `go-to-market-watch-replies-timer` was declared: four findings are

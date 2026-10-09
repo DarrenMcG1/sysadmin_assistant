@@ -4,9 +4,30 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-08
+> **Last Updated**: 2026-10-09
 
 ---
+
+## Session 354: this repository's two failure units are declared (2026-10-09)
+
+Session 353's next action. `services.yaml` changed; applied by reload,
+no restart.
+
+- [x] **Why they were unmonitored.** Both units are this repository's
+      (`systemd/`), and neither ever had an entry. Each is a oneshot that
+      an event starts: `sysadmin-failed.service` by `sysadmin.service`'s
+      `OnFailure=`, and `sysadmin-replay-failures.service` by each
+      login's `graphical-session.target`. No kind polls such a unit, and
+      the sweep offers no snippet for one, so nothing suggested an entry.
+- [x] **Declared as `kind: static`, `monitor: false`**, each with its
+      reason, the shape of the arbiter-started units. Both are
+      `controllable: false`: starting the first by hand announces a
+      failure of `sysadmin.service` that has not happened. The reload
+      reported exactly the two added; a sweep run by hand at 13:34:16 UTC
+      reads 0 unmonitored and 2 `host`.
+- [x] **STATUS.md re-counted 3 → 4.** The new row is
+      `Project InvestingAssistant next action idle` (opened 2026-10-08
+      22:50:11), which is InvestingAssistant's to move.
 
 ## Session 353: go-to-market's reply watcher is watched (2026-10-08)
 
@@ -69,7 +90,7 @@ changed, no restart owed.
       `monitor: false` on the three entries, with the `reason` that key
       requires citing the ruling, restart the daemon, and close the
       message.
-- [ ] **Trace the recurring `Unmonitored systemd units: 5 findings`.**
+- [x] **Trace the recurring `Unmonitored systemd units: 5 findings`.**
       Found by Session 351 and not worked. The same set has opened and
       resolved four times since 2026-09-09. Two of the five are this
       repository's own units (`sysadmin-failed.service`,
@@ -79,6 +100,11 @@ changed, no restart owed.
       by Session 353, and the row resolved at four findings, under the
       threshold of five. The four remain findings, and one more new
       unit re-raises it.
+      *Done by Session 354 (2026-10-09):* this repository's two units are
+      declared. The two `deadlock-api-ingest` system units stay `host`
+      findings: they are disabled, and whether to enable or remove them
+      has been recorded as the owner's decision in `services.yaml` since
+      Session 48 (2026-08-15).
 
 ## Session 350: the handoff is archived (2026-10-08)
 

@@ -1,18 +1,51 @@
-# Handoff — 2026-10-08 (Session 353)
+# Handoff — 2026-10-09 (Session 354)
 
 ## Next action
 
-Find why our own sysadmin-failed.service and sysadmin-replay-failures.service are unmonitored, and declare them or say why not (tasks.md, Session 351). *(For: session)*
+Read estate message dca21976, the October design review's five defects in this tree, and record each as a snag or a task with its file and line. *(For: session)*
 
-They are two of the four findings left in the unit sweep; the other two
-are the system-scope `deadlock-api-ingest` units, filed `host`. Four is
-under the roll-up's `alert_threshold: 5`, so no alert is open, and the
-next new undeclared unit anywhere on the box re-raises it.
+It is the largest of the eleven open messages in this repository's
+inbox. Recording them is one sitting; fixing any of them is its own.
 
 ## Scheduled action
 
 - Session 342's row-order fix in the tray still needs only
   `systemctl --user restart sysadmin-tray`, whenever convenient.
+
+## Session 354: this repository's two failure units are declared
+
+Session 353's next action. `services.yaml` changed; no restart owed.
+
+Why they were unmonitored: both units live in this repository's
+`systemd/` and never had an entry. Each is a oneshot started by an
+event, not a timer: `sysadmin-failed.service` by `sysadmin.service`'s
+`OnFailure=`, `sysadmin-replay-failures.service` by each login. No kind
+in `services.yaml` polls such a unit, and the sweep offers no snippet
+for one, so nothing ever proposed an entry.
+
+Decided: `kind: static`, `monitor: false`, each with its reason, the
+shape the arbiter-started inference units use. Both
+`controllable: false`, because starting `sysadmin-failed` by hand sends
+a "sysadmin.service has failed" notice when it has not.
+
+Rejected: a polled check. `kind: systemd` asserts `active`, so it would
+alert all the time on both, and no kind asserts "not `failed`". A
+failed handler would still show in `systemctl --failed`; nothing here
+reads that box-wide, and that was not this sitting's question.
+
+Applied with `POST /api/sysadmin/reload` (reported exactly the two
+added). A sweep run by hand at 13:34:16 UTC reads 0 unmonitored and the
+two `host` `deadlock-api-ingest` system units, which are disabled and
+have been the owner's enable-or-remove decision in `services.yaml`
+since Session 48. Full suite 4,540 passed, 2 skipped; ruff clean.
+
+Found: STATUS.md's block was one alert behind
+(`Project InvestingAssistant next action idle`, opened 2026-10-08
+22:50:11). Re-counted 3 → 4; `check-ops-claims.sh` all `ok`.
+
+## What Session 353 handed on (done by Session 354)
+
+Find why our own sysadmin-failed.service and sysadmin-replay-failures.service are unmonitored, and declare them or say why not (tasks.md, Session 351). *(For: session)*
 
 ## Session 353: go-to-market's reply watcher is watched
 
