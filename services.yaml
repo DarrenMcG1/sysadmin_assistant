@@ -494,6 +494,43 @@ services:
     systemd: { unit: sysadmin-tray.service, scope: user }
     controllable: false
 
+  # The two failure-announcement units (systemd/ in this repository),
+  # declared on 2026-10-09 by Session 354. Each was an `unmonitored`
+  # finding from the day it was installed, because no entry existed and
+  # no kind polls a unit that an event starts: sysadmin-failed is
+  # started by sysadmin.service's OnFailure=, and sysadmin-replay-failures
+  # by each login's graphical-session.target. Both are oneshots, inactive
+  # between firings, so `kind: static` with `monitor: false` is the
+  # declaration, the shape of the arbiter-started units above.
+  #
+  # `controllable: false` because a start by hand is not harmless for the
+  # first: it announces that sysadmin.service has failed whether or not
+  # it has. The second only replays failures still open, but neither is
+  # something the tray's service controls are for.
+  - project: sysadmin-assistant
+    name: sysadmin-failed
+    role: failure-hook
+    kind: static
+    monitor: false
+    reason: >-
+      OnFailure= handler for sysadmin.service, started only when that unit
+      fails; inactive the rest of the time by design, and while it runs
+      the daemon that would check it is the unit that has failed
+    systemd: { unit: sysadmin-failed.service, scope: system }
+    controllable: false
+
+  - project: sysadmin-assistant
+    name: sysadmin-replay-failures
+    role: failure-replay
+    kind: static
+    monitor: false
+    reason: >-
+      oneshot started at each login by graphical-session.target to replay
+      unit failures still open; inactive between logins by design, so a
+      check would alert all day
+    systemd: { unit: sysadmin-replay-failures.service, scope: user }
+    controllable: false
+
   # --- estate-manager -------------------------------------------------
   # The estate's first runtime artefact (its Session 2, 2026-08-11): a
   # boot oneshot that asserts the broker's dynsec schema (roles, ACLs,
