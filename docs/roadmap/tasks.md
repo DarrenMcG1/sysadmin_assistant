@@ -8,6 +8,26 @@
 
 ---
 
+## Session 356: a foreign Origin is refused on every mutating route (2026-10-10)
+
+Session 355's next action: the half of `SNAG-API-005` that needs no
+secret. Code in `381cfdb`. The owner restarted the daemon at 16:52:34.
+
+- [x] **`require_auth` refuses a foreign `Origin` with 403**, before the
+      token check and with or without a token. The allowed list is the
+      one `CORSMiddleware` holds, kept on `app.state.cors_origins`.
+- [x] **A test per route**: `TestCrossSiteRefused` refuses all 13, and
+      `TestRouteCensus` keeps that list equal to the routes that carry
+      `require_auth` on `create_app()`. Falsified: 16 red with the check
+      disabled.
+- [x] **Probed live** after the restart: 403 for a foreign origin and
+      for `Origin: null`, 200 for a read with a foreign origin.
+- [x] **Recorded, not worked: `SNAG-TEST-017`.** Postflight flagged
+      `test_arbitrated_stops_live.py:205`, an idle-queue-only assert with
+      no `may-not-evaluate` declaration, while lease 161 was held.
+
+---
+
 ## Session 355: the October design review's five defects are recorded (2026-10-10)
 
 Session 354's next action: estate message `dca21976`, in which

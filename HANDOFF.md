@@ -1,17 +1,56 @@
-# Handoff — 2026-10-10 (Session 355)
+# Handoff — 2026-10-10 (Session 356)
 
 ## Next action
 
-Close the cross-site half of SNAG-API-005: refuse a mutating request whose Origin header is set and not in cors_origins, with a test per route. *(For: session)*
+Fix SNAG-TRAY-012: one status-colour map in sysadmin_tray/styles.py, read by all three sites, with a test pinning its keys to chk_health_status. *(For: session)*
 
-This needs no secret and no unit edit, and it does not prevent adding
-the token later. The token half (`LoadCredential=`, shared with the
-tray) is a separate sitting.
+It is the other P2 from the October design review. A critical service
+shows the same grey as an unchecked one.
 
 ## Scheduled action
 
 - Session 342's row-order fix in the tray still needs only
   `systemctl --user restart sysadmin-tray`, whenever convenient.
+
+## Session 356: a web page can no longer fire the monitor's actions
+
+Session 355's next action. Code in `381cfdb`. The owner restarted
+`sysadmin.service` at 16:52:34, and the probes passed live.
+
+`require_auth` now refuses with 403 a request whose `Origin` is set and
+not in `service.cors_origins`. It applies to all 13 mutating routes,
+before the token is checked, whether or not a token is set.
+`SNAG-API-005` stays open at P3 for the token half: another local
+process sends no `Origin` and still gets through.
+
+Decided:
+
+- **The check is in `require_auth`, not in a middleware.** That gives it
+  exactly the routes already guarded, and the census test holds that set
+  equal to every non-`GET` route.
+- **The allowed list is read from `app.state`, not `get_config()`.**
+  `CORSMiddleware` captures it once and `service` is restart-only, so a
+  reload must not let the two readers disagree.
+- **A foreign origin is refused even with the right token.** That is
+  simpler than ordering the two checks around each other, and a page
+  cannot hold the token anyway.
+- **The match is exact, as `CORSMiddleware`'s is**, and `"*"` allows
+  everything. `Origin: null` is refused.
+
+What went wrong: the first live probe ran before the restart, because
+the restart was aimed at `--user`, where no `sysadmin.service` exists:
+it is a system unit. That probe's `POST /api/sysadmin/scan-all` started
+all four agents' scans once, out of schedule. Harmless, but recorded.
+`sudo` does not work through the `!` prefix, so the owner restarts from
+a terminal.
+
+Second concern, recorded: `SNAG-TEST-017`. Postflight flagged an
+idle-queue-only live assert while the GPU queue held a lease.
+`SNAG-TEST-016` was flagged again too, as before.
+
+## What Session 355 handed on (done by Session 356)
+
+Close the cross-site half of SNAG-API-005: refuse a mutating request whose Origin header is set and not in cors_origins, with a test per route. *(For: session)*
 
 ## Session 355: the October design review's five defects are recorded
 
