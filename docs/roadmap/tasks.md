@@ -4,9 +4,55 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-09
+> **Last Updated**: 2026-10-10
 
 ---
+
+## Session 355: the October design review's five defects are recorded (2026-10-10)
+
+Session 354's next action: estate message `dca21976`, in which
+estate-manager passed on five defects that the owner's October design
+review read in this tree. Roadmap and handoff only; no code changed, no
+restart owed. Each claim was re-read at its file and line, and measured
+where the box could answer.
+
+- [x] **R4, the empty API token: `SNAG-API-005` (P2).** Confirmed at
+      `config.yaml:21` and `core/auth.py:32`. All 13 mutating routes
+      are open when the token is empty, and 9 of them take no body, so a
+      browser can send them cross-site without a preflight. The old task
+      "Set a real `api.auth_token` in the local config.yaml" cannot be
+      done as written, because that file is public.
+- [x] **R5, the tray palette: `SNAG-TRAY-012` (P2).** Confirmed: two
+      maps (`sysadmin_tray/styles.py:50-59`,
+      `widgets/service_grid.py:21-26`) and three readers, none mapping
+      `critical`, `warning` or `skipped`. 311 `critical` rows in the last
+      7 days showed as grey dots.
+- [x] **R35, duplicate open alerts: `SNAG-DB-007` (P3).** Confirmed in
+      the schema (`core/models/alert.py:30-76`), and empty on the live
+      table: 0 duplicate open `(agent, title)` pairs and 0 flags that
+      disagree with their timestamps.
+- [x] **R36, a unit that never applies migrations: no entry, because
+      this is the design `SNAG-DB-005` chose.** That entry, about the
+      23-hour outage of 2026-08-23, rejected applying migrations at
+      start-up, because it would run an unreviewed migration with nobody
+      watching. It chose to block the commit instead:
+      `scripts/claude-precommit.sh:95` still runs
+      `check-migrations.sh`, which refuses a commit while the database is
+      behind the checkout. The review itself noted it was by design.
+- [ ] **R43, two stale lines in `CLAUDE.md`.** Found by Session 355 and
+      not worked. `CLAUDE.md:8` still holds the template placeholder
+      `_Update this as your project evolves_`, and `CLAUDE.md:104` says
+      "~360 tests" where Session 354's run counted 4,540. Remove the
+      placeholder line, or replace it with a real phase if the owner has
+      one, and drop the count (`pytest` prints it) instead of updating it.
+- [x] **Not recorded: the review's two closing remarks.** The 24 direct
+      `select`/`execute` calls in `sysadmin/files/router.py`, and the
+      package being 48% docstrings and comments. The message lists them
+      outside the five and calls neither a defect.
+- [x] **README's line counts re-measured.** This block's own prose took
+      the tree's Markdown total to 61,824, 15.2% beyond the README's
+      "52,400", and `test_readme_claims` turned red at postflight. Now
+      36,300 roadmap lines of 61,800, measured 2026-10-10.
 
 ## Session 354: this repository's two failure units are declared (2026-10-09)
 
@@ -17282,7 +17328,10 @@ Backend:
 
 Config / ops:
 - Set a real `api.auth_token` in the local config.yaml — auth ships
-  disabled because config.yaml is committed
+  disabled because config.yaml is committed. *Superseded by
+  `SNAG-API-005` (2026-10-10): this repository is public now, so a token
+  in that file is a published token. The entry describes two routes that
+  do not need one.*
 - PA-auto's 224 branches will take 12 confirmed calls at the current
   `max_deletions: 20`; raising it for a one-off sweep is a config change,
   deliberately not a request parameter

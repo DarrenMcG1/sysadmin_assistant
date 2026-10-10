@@ -1,16 +1,62 @@
-# Handoff — 2026-10-09 (Session 354)
+# Handoff — 2026-10-10 (Session 355)
 
 ## Next action
 
-Read estate message dca21976, the October design review's five defects in this tree, and record each as a snag or a task with its file and line. *(For: session)*
+Close the cross-site half of SNAG-API-005: refuse a mutating request whose Origin header is set and not in cors_origins, with a test per route. *(For: session)*
 
-It is the largest of the eleven open messages in this repository's
-inbox. Recording them is one sitting; fixing any of them is its own.
+This needs no secret and no unit edit, and it does not prevent adding
+the token later. The token half (`LoadCredential=`, shared with the
+tray) is a separate sitting.
 
 ## Scheduled action
 
 - Session 342's row-order fix in the tray still needs only
   `systemctl --user restart sysadmin-tray`, whenever convenient.
+
+## Session 355: the October design review's five defects are recorded
+
+Session 354's next action. Roadmap and handoff only; no code changed,
+no restart owed.
+
+Estate message `dca21976` carried five readings from the owner's
+October design review (run 2026-10-07 from an estate-manager session).
+Each was re-read at its file and line, and measured where the box could
+answer:
+
+- R4, the empty API token: **`SNAG-API-005`, P2.** All 13 mutating
+  routes are open, as quoted. Added by measurement: 9 of them take no
+  body, so a browser can send them cross-site without a preflight. The
+  old task "set a real token in config.yaml" is marked superseded,
+  because the repository is public and a token in that file would be
+  published.
+- R5, the tray palette: **`SNAG-TRAY-012`, P2.** Confirmed, and there
+  are three readers, not two. 311 `critical` rows in the last 7 days
+  showed as grey dots.
+- R35, duplicate open alerts: **`SNAG-DB-007`, P3.** The schema allows
+  it, and the live table has none: 0 duplicate open pairs and 0 flags
+  that disagree with their timestamps.
+- R36, a unit that never applies migrations: **no entry.** This is the
+  design `SNAG-DB-005` chose, and the commit-time check still runs
+  (`scripts/claude-precommit.sh:95`). Recorded as a ticked item in
+  tasks.md.
+- R43, the placeholder and "~360 tests" in `CLAUDE.md`: **a `- [ ]`
+  task** in Session 355's block in tasks.md.
+
+Decided: the next action is SNAG-API-005's Origin check rather than the
+tray colours, because it is the only finding that lets something outside
+the box act on it. Rejected: fixing any of them here, which would be a
+second concern.
+
+Not recorded: the review's two closing remarks (direct database calls in
+`files/router.py`, and the 48% docstring and comment share), which the
+message lists outside the five and calls neither a defect.
+
+## What Session 354 handed on (done by Session 355)
+
+Read estate message dca21976, the October design review's five defects in this tree, and record each as a snag or a task with its file and line. *(For: session)*
+
+It is the largest of the eleven open messages in this repository's
+inbox. Recording them is one sitting; fixing any of them is its own.
 
 ## Session 354: this repository's two failure units are declared
 

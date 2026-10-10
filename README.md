@@ -17,8 +17,8 @@ carry out) tidy-up actions.
 
 It is built for exactly one box and does not try to be Prometheus, so the code
 is unlikely to be useful to you directly. **The written record might be.** The
-roadmap alone runs to about 31,700 lines — of roughly 52,400 lines of Markdown
-in the repository altogether, measured 2026-09-22 — and it exists because most
+roadmap alone runs to about 36,300 lines — of roughly 61,800 lines of Markdown
+in the repository altogether, measured 2026-10-10 — and it exists because most
 repositories keep their reasoning in someone's head and ship only the result.
 This one keeps the reasoning: what each change was measured against, which
 options were rejected and why, which guards were deliberately falsified, which
