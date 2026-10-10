@@ -437,9 +437,12 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
     )
 
     # --- Middleware ---
+    # One list for both readers: require_auth refuses a mutating request
+    # from any other origin (SNAG-API-005), and `service` is restart-only.
+    app.state.cors_origins = list(get_config().service.cors_origins)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=get_config().service.cors_origins,
+        allow_origins=app.state.cors_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )

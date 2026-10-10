@@ -13,6 +13,23 @@ Callers of mutating endpoints (tray client, PA backend) must send:
 
 Rationale: binding to localhost does not stop CSRF-style POSTs from
 browser pages or other local processes.
+
+**The origin half needs no secret** (``SNAG-API-005``). A body-less
+``POST`` is a CORS *simple request*: the browser sends it without a
+preflight, and CORS hides only the response, so the handler has already
+acted. A browser stamps ``Origin`` on every cross-site ``POST`` and a
+page cannot remove it, while the tray and server-side callers send none.
+So a mutating request whose ``Origin`` is present and not in
+``service.cors_origins`` is refused with 403 **before** the token is
+checked, whether or not a token is set. An absent ``Origin`` passes, which
+is why this stops a web page and never another local process: that half
+is the token's.
+
+The allowed list is the one ``create_app`` handed ``CORSMiddleware``,
+read off ``app.state.cors_origins`` rather than ``get_config()``.
+``service`` is restart-only (``reload.RESTART_ONLY``), so a reload that
+installed a new list would otherwise leave the middleware and this check
+disagreeing about which pages may call the API.
 """
 
 import secrets
@@ -23,11 +40,19 @@ from sysadmin.core.config import get_config
 
 
 async def require_auth(request: Request) -> None:
-    """FastAPI dependency enforcing the shared bearer token.
+    """FastAPI dependency guarding every mutating route.
 
-    No-op when ``api.auth_token`` is unset/empty.  Raises 401 with a
+    Raises 403 when ``Origin`` is set and not an allowed origin (see the
+    module docstring), then enforces the bearer token: a no-op when
+    ``api.auth_token`` is unset/empty, and 401 with a
     ``WWW-Authenticate: Bearer`` header on a missing or wrong token.
     """
+    origin = request.headers.get("Origin")
+    if origin is not None and not origin_allowed(
+        origin, request.app.state.cors_origins
+    ):
+        raise HTTPException(status_code=403, detail="Cross-site request refused")
+
     token = get_config().api.auth_token
     if not token:
         return  # Auth disabled — backwards compatible
@@ -42,3 +67,13 @@ async def require_auth(request: Request) -> None:
             detail="Invalid or missing bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def origin_allowed(origin: str, allowed: list[str]) -> bool:
+    """Whether ``origin`` may call a mutating route.
+
+    Mirrors ``CORSMiddleware``'s own test: an exact string match, or
+    ``"*"`` in the list. ``Origin: null`` (a sandboxed frame, a
+    ``file://`` page) matches nothing short of ``"*"``.
+    """
+    return "*" in allowed or origin in allowed
