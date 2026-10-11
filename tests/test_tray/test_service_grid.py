@@ -4,8 +4,8 @@ import pytest
 from PyQt6.QtWidgets import QApplication
 
 from sysadmin_tray.models import ServiceStatus
+from sysadmin_tray.styles import GREY, STATUS_COLOURS
 from sysadmin_tray.widgets.service_grid import (
-    _STATUS_COLOURS,
     ServiceStatusGrid,
     ServiceStatusRow,
 )
@@ -33,7 +33,7 @@ class TestServiceStatusRow:
         row.update_status(svc)
         assert row._status_label.text() == "ok"
         assert row._time_label.text() == "12ms"
-        assert _STATUS_COLOURS["ok"] in row._dot.styleSheet()
+        assert STATUS_COLOURS["ok"] in row._dot.styleSheet()
 
     def test_update_unreachable_status(self, qapp):
         row = ServiceStatusRow("redis")
@@ -41,7 +41,7 @@ class TestServiceStatusRow:
         row.update_status(svc)
         assert row._status_label.text() == "unreachable"
         assert row._time_label.text() == "—"
-        assert _STATUS_COLOURS["unreachable"] in row._dot.styleSheet()
+        assert STATUS_COLOURS["unreachable"] in row._dot.styleSheet()
 
     def test_update_degraded_status(self, qapp):
         row = ServiceStatusRow("ollama")
@@ -49,22 +49,21 @@ class TestServiceStatusRow:
         row.update_status(svc)
         assert row._status_label.text() == "degraded"
         assert row._time_label.text() == "450ms"
-        assert _STATUS_COLOURS["degraded"] in row._dot.styleSheet()
+        assert STATUS_COLOURS["degraded"] in row._dot.styleSheet()
 
     def test_update_error_status(self, qapp):
         row = ServiceStatusRow("pg")
         svc = ServiceStatus(name="pg", status="error")
         row.update_status(svc)
         assert row._status_label.text() == "error"
-        assert _STATUS_COLOURS["error"] in row._dot.styleSheet()
+        assert STATUS_COLOURS["error"] in row._dot.styleSheet()
 
     def test_unknown_status_uses_default_colour(self, qapp):
         row = ServiceStatusRow("mystery")
         svc = ServiceStatus(name="mystery", status="banana")
         row.update_status(svc)
         assert row._status_label.text() == "banana"
-        # Default grey colour
-        assert "#95a5a6" in row._dot.styleSheet()
+        assert GREY in row._dot.styleSheet()
 
 
 class TestServiceStatusGrid:

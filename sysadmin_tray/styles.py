@@ -46,17 +46,32 @@ SEVERITY_COLOURS: dict[str, str] = {
     "abandoned": GREY,
 }
 
-# Status mapping (service health)
+# Status mapping (service health). The one map every status dot reads
+# (SNAG-TRAY-012): its keys are exactly the values ``chk_health_status``
+# admits on ``sysadmin.service_health``, and
+# ``tests/test_tray/test_status_colours.py`` pins them to the constraint,
+# so a status a migration adds turns the suite red rather than the dot grey.
 STATUS_COLOURS: dict[str, str] = {
     "ok": GREEN,
     "degraded": AMBER,
+    "warning": AMBER,
+    "critical": RED,
     "unreachable": RED,
+    # The *check* failed, so the service's state is unknown: a fault.
     "error": RED,
-    "active": GREEN,
-    "inactive": RED,
-    "failed": RED,
-    "unknown": GREY,
+    # Nobody looked, by declaration (services.yaml says not to check it).
+    # Grey on purpose: neither well nor a fault.
+    "skipped": GREY,
 }
+
+
+def status_colour(status: str) -> str:
+    """The dot colour for a ``service_health.status`` value.
+
+    Grey for anything outside the vocabulary — ``unknown`` (a managed
+    service with no health row yet, and the contract's default) included.
+    """
+    return STATUS_COLOURS.get(status, GREY)
 
 
 # ── Stylesheet fragments ────────────────────────────────────────────

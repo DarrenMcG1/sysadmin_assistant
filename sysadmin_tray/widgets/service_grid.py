@@ -16,16 +16,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QMenu, QVBoxLayout, QWidget
 
 from sysadmin_tray.models import ServiceStatus
-
-# Status → colour mapping (reuses project palette)
-_STATUS_COLOURS: dict[str, str] = {
-    "ok": "#27ae60",
-    "degraded": "#f39c12",
-    "unreachable": "#e74c3c",
-    "error": "#e74c3c",
-}
-
-_DEFAULT_COLOUR = "#95a5a6"  # grey for unknown statuses
+from sysadmin_tray.styles import status_colour
 
 
 class ServiceStatusRow(QWidget):
@@ -74,7 +65,7 @@ class ServiceStatusRow(QWidget):
         self._controllable = svc.controllable
         self._current_status = svc.status
 
-        colour = _STATUS_COLOURS.get(svc.status, _DEFAULT_COLOUR)
+        colour = status_colour(svc.status)
         self._dot.setStyleSheet(f"color: {colour}; font-size: 10px;")
         self._status_label.setText(svc.status)
 
