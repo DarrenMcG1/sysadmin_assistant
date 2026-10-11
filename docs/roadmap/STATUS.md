@@ -3,6 +3,13 @@
 **Last Updated**: 2026-10-11
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **Alfred's Telegram bot is watched** (2026-10-11, Session 358). The
+> new `alfred-telegram` entry reads the `telegram` field of Alfred's
+> `/api/health` and goes down when it is anything but `ok`: Telegram
+> unreachable, a rejected token, or a second poller on the token. It is
+> its own entry, like `alfred-bus`, so a bot fault never lowers the
+> backend's reliability score. Reloaded live; no restart owed.
+
 > **A critical service now draws a red dot in the tray** (2026-10-11,
 > Session 357). Until now it drew the same grey as a service nobody
 > checks, because neither of the tray's two colour maps held

@@ -23,8 +23,13 @@ The owner asked for estate message `d01b0798`: Alfred's `GET
 and whether to watch it was left to this repository. Session 357's next
 action stays open, unchanged.
 
-Code in `ba81bb2`, one test file; `services.yaml` is
-unchanged and nothing needs a restart.
+Code in `ba81bb2` (the gated test) and `c056ee9` (the entry).
+
+**The gate fired the same evening.** The owner installed
+`~/.config/alfred/telegram.env` at 20:58 BST and said the bot was live; the
+test went red, `alfred-telegram` was declared beside `alfred-bus`, and
+`POST /api/sysadmin/reload` added it without a restart. Its first poll,
+at 21:17:34 BST, read `ok`.
 
 Decided:
 

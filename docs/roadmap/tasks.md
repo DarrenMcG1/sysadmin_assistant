@@ -10,8 +10,8 @@
 
 ## Session 358: Alfred's Telegram health is watched from the day the bot exists (2026-10-11)
 
-Estate message `d01b0798`, at the owner's request. Test only (`ba81bb2`);
-`services.yaml` unchanged, no restart owed.
+Estate message `d01b0798`, at the owner's request. Test in `ba81bb2`,
+the entry in `c056ee9`; reloaded live, no restart owed.
 
 - [x] **The decision**: watch Alfred's new `telegram` health field on
       its own `alfred-telegram` entry, `expect: { path: telegram,
@@ -21,9 +21,10 @@ Estate message `d01b0798`, at the owner's request. Test only (`ba81bb2`);
       while `~/.config/alfred/telegram.env` is absent and fails from
       the day it exists until the entry is declared. Its gate is
       driven against a temporary path, so it runs in CI too.
-- **Owed later, and not a box**: declare `alfred-telegram` in
-  `services.yaml` when that test goes red. The test is the reminder;
-  a `- [ ]` here would publish as this repository's next action.
+- [x] **Declared the same evening** (`c056ee9`). The owner installed the
+      token file at 20:58 BST, the test went red, and `alfred-telegram` was
+      added beside `alfred-bus` and reloaded in without a restart. First
+      poll at 21:17:34 BST read `ok`.
 
 ---
 
