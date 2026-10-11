@@ -28,10 +28,10 @@ from sysadmin_tray.styles import (
     GREEN,
     GREY,
     RED,
-    STATUS_COLOURS,
     TEXT_MUTED,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
+    status_colour,
 )
 
 if TYPE_CHECKING:
@@ -142,7 +142,7 @@ class ServiceCard(QFrame):
     def update_status(self, service: ServiceStatus) -> None:
         """Update from a StatusResponse service entry."""
         self._service = service
-        colour = STATUS_COLOURS.get(service.status, GREY)
+        colour = status_colour(service.status)
         self._dot.setStyleSheet(f"font-size: 12px; color: {colour};")
 
         has_unit = bool(service.systemd_unit)

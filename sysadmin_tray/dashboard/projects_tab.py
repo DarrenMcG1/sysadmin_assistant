@@ -40,12 +40,11 @@ from sysadmin_tray.styles import (
     BUTTON_STYLE,
     COMBOBOX_STYLE,
     GREEN,
-    GREY,
     RED,
-    STATUS_COLOURS,
     TEXT_MUTED,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
+    status_colour,
 )
 from sysadmin_tray.widgets.trend_chart import TrendChart
 
@@ -260,7 +259,7 @@ class ProjectCard(QFrame):
         if proj.services:
             svc_parts = []
             for svc in proj.services:
-                dot_colour = STATUS_COLOURS.get(svc.status, GREY)
+                dot_colour = status_colour(svc.status)
                 svc_parts.append(
                     f'<span style="color:{dot_colour}">\u2b24</span> {svc.name}: {svc.status}'
                 )
