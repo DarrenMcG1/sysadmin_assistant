@@ -78,6 +78,23 @@ services:
     url: http://localhost:8100/api/health
     expect: { path: bus, equals: ok }
 
+  # Alfred's in-process Telegram bot, read out of the same 200 (their
+  # ADR-0139 §8; announced in estate message d01b0798). `ok` means a
+  # getUpdates poll succeeded in the last five minutes; `degraded` is
+  # Telegram unreachable, a rejected token, or a second poller on the
+  # token (HTTP 409). `equals: ok` is strict: with prod's token file in
+  # place, `disabled` means the unit is not reading it. Its own entry, by
+  # the reasoning the owner ruled for `alfred-bus`: the bot is
+  # non-critical, so its faults must not charge the backend's score.
+  # tests/test_alfred_telegram_wiring.py keeps this entry in place while
+  # ~/.config/alfred/telegram.env exists.
+  - project: alfred
+    name: alfred-telegram
+    role: telegram
+    kind: http
+    url: http://localhost:8100/api/health
+    expect: { path: telegram, equals: ok }
+
   - project: alfred
     name: alfred-frontend
     role: frontend

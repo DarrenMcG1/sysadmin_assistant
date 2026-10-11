@@ -6,7 +6,12 @@ Estate message ``d01b0798`` (alfred, 2026-10-11) announced that Alfred's
 repository. **Watched, but not yet**, and this file is what makes "not
 yet" end on its own.
 
-**Why no entry today.** The field reads ``disabled`` until the owner
+**The gate fired the same evening**: the owner installed the token at
+20:58 on 2026-10-11, the gated test went red, and `alfred-telegram` was
+declared and reloaded in; its first poll read ``ok``. The gate now
+separates this box from CI, where no token file exists.
+
+**Why there was no entry at first.** The field reads ``disabled`` until the owner
 creates the bot, and was absent from the live body when this was written
 (their commit follows the announcement). ``expect: {path: telegram,
 equals: ok}`` would therefore be ``unevaluable`` and then ``unmet`` from
