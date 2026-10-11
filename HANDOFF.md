@@ -1,16 +1,56 @@
-# Handoff — 2026-10-10 (Session 356)
+# Handoff — 2026-10-11 (Session 357)
 
 ## Next action
 
-Fix SNAG-TRAY-012: one status-colour map in sysadmin_tray/styles.py, read by all three sites, with a test pinning its keys to chk_health_status. *(For: session)*
+Fix SNAG-DB-007: settle the open-alert identity from docs/design/alerts.md, then add its partial unique index and the flag/timestamp CHECKs in one migration. *(For: session)*
 
-It is the other P2 from the October design review. A critical service
-shows the same grey as an unchecked one.
+It is the October design review's last owed defect with code. Nothing
+is wrong on the live table today (0 duplicates, 0 disagreeing flags),
+so the constraints cost nothing to add. The columns of the index are the
+measurement to make first: `core/unit_failure.py` also matches open rows
+on `details['source']`, not only on `title`.
 
 ## Scheduled action
 
-- Session 342's row-order fix in the tray still needs only
-  `systemctl --user restart sysadmin-tray`, whenever convenient.
+- `systemctl --user restart sysadmin-tray`, whenever convenient. It
+  deploys Session 342's row-order fix and Session 357's status colours.
+  The monitor needs no restart.
+
+## Session 357: a critical service draws a red dot
+
+Session 356's next action, `SNAG-TRAY-012`. Code in `902176a` (the map
+and its tests) and `8fb5564` (the two tabs call the helper). Full suite
+4,599 passed and 2 skipped; ruff and mypy are clean.
+
+`STATUS_COLOURS` in `sysadmin_tray/styles.py` holds exactly the seven
+`chk_health_status` values, and `status_colour()` is the one grey
+fallback the three dot sites call. `tests/test_tray/test_status_colours.py`
+pins the keys to the constraint in both directions and drives every
+site through every value. Against the pre-fix map, 13 of its 25 tests
+turn red.
+
+Decided:
+
+- **The keys equal the constraint; they do not merely include it.**
+  `active`, `inactive`, `failed` and `unknown` went: no producer sends
+  any of them to these sites. `/api/projects/managed` does send
+  `unknown`, for a service with no health row, and it still draws grey
+  through the fallback. A superset test would have let dead keys
+  accumulate, as these four had since February.
+- **`skipped` is grey, and the map now says so.** It means nobody
+  looked, by declaration. It is neither well nor a fault, and a new
+  colour would be a design decision this fix had no grounds for.
+- **The colours are not derived from `STATUS_READINGS`.** That map
+  sits in a SQLAlchemy model module the tray does not import. Its three
+  readings also cannot give `degraded` amber and `critical` red, since
+  both are `fault`.
+- **Split into two code commits** at a green point, because the
+  pre-commit hook blocks five or more code files without docs, and code
+  and prose go in separate commits.
+
+## What Session 356 handed on (done by Session 357)
+
+Fix SNAG-TRAY-012: one status-colour map in sysadmin_tray/styles.py, read by all three sites, with a test pinning its keys to chk_health_status. *(For: session)*
 
 ## Session 356: a web page can no longer fire the monitor's actions
 
@@ -380,86 +420,6 @@ above; `systemctl cat` shows the right command. Steam was not running at
 07:52. The three open estate messages are still not acted on, as
 Session 345 left them.
 
-## What Session 345 handed on (done by Session 346)
-
-Run the dGPU witness once as root overnight with Steam quit, using the command in tasks.md's Session 338 block. *(For: owner, ~3 min)*
-
-## Session 345: the owner's deploy recorded, one restart
-
-Session 344's next action. No code changed.
-
-The 2026-10-04 20:50:41 restart was the owner's, run by hand from a
-terminal: the system journal records `sudo ./scripts/setup-systemd.sh`
-at 20:50:40 and `sudo systemctl restart sysadmin` at 20:50:41, both
-`TTY=pts/19`, and no session transcript in any repository holds either.
-The service went active at 20:50:43, which is when `READY=1` arrived
-under `Type=notify`. The installed unit reads `Type=notify`,
-`WatchdogUSec=1min`, `RestartMode=direct`, and it ran 9 h 30 m with
-`NRestarts=0`, so the watchdog pings arrive. Ticked the owner's redeploy
-and the `Type=notify` item in tasks.md.
-
-Restarted once at 2026-10-05 06:20:53 (`kill -TERM`, 12 s down,
-`/health` 200) after a green suite, 4,540 passed and 2 skipped.
-`/api/files/trends` now serves Session 343's fit: 117.1 MB/day over 81
-scans, 50 GB on 2026-12-30, 100 GB on 2028-03-11.
-
-STATUS.md: a new entry carries the bold time and both check markers;
-Session 339's entry keeps its time unbolded. Decided against rewriting
-339's sentence, for the reason 339 gave about 323's. Every
-`check-ops-claims.sh` row reads `ok`. The checker's start-time reader
-needs the literal `restarted at **…**`; a first draft reading
-"restarted once more, at" read `??` until reworded.
-
-Not acted on: three open estate messages (pgbackrest-backup's new
-declaration, the `at` time on the `For:` marker, and `publish_errors`).
-Each is its own concern for a later session.
-
-## What Session 344 handed on (done by Session 345)
-
-Record the owner's 20:50:41 deploy in STATUS.md, then restart the daemon once so Session 343's junk-growth fit goes live (tasks.md, Session 344). *(For: session)*
-
-The owner's owed deploy has already happened: `systemctl show sysadmin`
-reads `Type=notify`, `WatchdogUSec=1min`, and the journal has a clean
-stop and start at 2026-10-04 20:50:41 with `NRestarts=0`. Session 343
-wrote `sysadmin/files/router.py` at 20:52, so its fix is not live, and
-`check-ops-claims.sh` reports the daemon stale and the block's restart
-record (2026-10-03 09:55:07) out of date. Whose restart it was is not
-yet recorded; Session 339's block shows how to establish it.
-
-### Owed by the owner (as Session 344 left it)
-
-Run the dGPU witness once as root, overnight, with Steam quit
-(tasks.md, Session 338 block, has the command) *(For: owner, ~3 min)*. This shows whether kwin or a root process keeps the
-card awake. If everything is still quiet, the next step is one night on
-`linux-lts`.
-
-The unit-file deploy (`setup-systemd.sh` and a restart), owed since
-Session 327, is done as of 20:50:41 and is no longer asked for.
-Session 342's row-order fix in the tray needs only
-`systemctl --user restart sysadmin-tray`.
-
-## Session 344: an `expires` clock must stand alone
-
-Session 343's next action, `SNAG-DOCS-032`, closed. `check_expiry`
-pins a prediction through `states_clock`, which matches `HH:MM` only
-with no digit or colon before it and no digit after. It is used for
-both the pin and the different-zone note (SNAG-ESTATE-013's diagnostic),
-which had the same substring test.
-
-Decided: a colon *after* the clock is admitted. `15:03:00` names the
-minute `15:03`, so a prediction stated to the second still pins; the
-`03:00` inside it does not. Rejected: also refusing `+` or `-` before
-the clock, which would stop the `01:00` in an offset `+01:00` from
-pinning but would also refuse the second end of a range like
-`10:00-11:00`. No sentence carries an offset today, so it was left.
-
-Verified: 11 tests in `TestTheClockStandsAlone`; six red with the helper
-reverted to `clock in prose`, the five correct-case ones green either
-way. Full suite 4,540 passed and 2 skipped, ruff and mypy clean. The live
-prediction still reads `match`. `ops_claims.py` is not imported by the
-daemon, so no restart is owed by this change.
-
-
 ## Older sessions
 
-Sessions 343 and earlier are in [HANDOFF-archive.md](HANDOFF-archive.md).
+Sessions 345 and earlier are in [HANDOFF-archive.md](HANDOFF-archive.md).

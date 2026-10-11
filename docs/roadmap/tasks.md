@@ -4,7 +4,28 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-10
+> **Last Updated**: 2026-10-11
+
+---
+
+## Session 357: a critical service draws a red dot (2026-10-11)
+
+Session 356's next action: `SNAG-TRAY-012`. Code in `902176a` and
+`8fb5564`. Nothing is deployed until the tray restarts.
+
+- [x] **One map**: `STATUS_COLOURS` in `sysadmin_tray/styles.py` holds
+      exactly the seven `chk_health_status` values, and `status_colour()`
+      is the one grey fallback. The overview row, the services-tab card
+      and the projects-tab card all read it. The private map in
+      `widgets/service_grid.py` is gone.
+- [x] **The check**: `tests/test_tray/test_status_colours.py` pins the
+      keys to the constraint's `sqltext` in both directions and drives
+      all three sites through every value. Falsified: 13 of its 25 tests
+      turn red against the pre-fix map.
+- [x] **Two code commits, not one.** The pre-commit hook blocks five or
+      more code files without docs, and code and prose go in separate
+      commits, so the change split at a green point: map and tests
+      first, then the two tabs' switch to the helper.
 
 ---
 
