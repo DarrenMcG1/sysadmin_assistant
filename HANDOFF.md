@@ -1,4 +1,4 @@
-# Handoff — 2026-10-11 (Session 357)
+# Handoff — 2026-10-11 (Session 358)
 
 ## Next action
 
@@ -15,6 +15,37 @@ on `details['source']`, not only on `title`.
 - `systemctl --user restart sysadmin-tray`, whenever convenient. It
   deploys Session 342's row-order fix and Session 357's status colours.
   The monitor needs no restart.
+
+## Session 358: Alfred's Telegram health is watched from the day the bot exists
+
+The owner asked for estate message `d01b0798`: Alfred's `GET
+/api/health` gains a `telegram` field (`ok`, `degraded` or `disabled`),
+and whether to watch it was left to this repository. Session 357's next
+action stays open, unchanged.
+
+Code in `ba81bb2`, one test file; `services.yaml` is
+unchanged and nothing needs a restart.
+
+Decided:
+
+- **Watched, but not today.** The field reads `disabled` until the
+  owner creates the bot, and was absent from the live body this
+  evening. An `equals: ok` entry would alert from its first poll about
+  a state the owner chose.
+- **A test fires the day it is time, rather than a task waiting to be
+  read.** It skips while `~/.config/alfred/telegram.env` is absent
+  (the prod token file, Alfred ADR-0139's amendment) and fails from
+  the moment it exists until `services.yaml` has a monitored
+  `alfred-telegram` entry. Gated on the file, not the body, because the
+  body's value is what flips when the bot is in trouble. Falsified with
+  the gate forced open: red against today's file, green against a copy
+  holding the recommended entry, and the loader accepts that entry.
+- **Its own entry, `alfred-bus`'s shape**, by the owner's 2026-09-25
+  ruling for `bus`: the bot is non-critical, so its faults must not
+  charge the `alfred` entry's reliability score. `equals: ok` is
+  strict, because with the token file present `disabled` is a fault.
+- **Rejected: an entry with `mute: true` now.** It ends only when
+  someone remembers to unmute it, the same weakness as a note.
 
 ## Session 357: a critical service draws a red dot
 
