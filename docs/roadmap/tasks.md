@@ -4,7 +4,28 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-11
+> **Last Updated**: 2026-10-13
+
+---
+
+## Session 359: one open alert per (agent, title), held by the schema (2026-10-13)
+
+Session 358's next action, `SNAG-DB-007`. Code in `b7568bf` (a test
+stand-in) and `861f742` (migration 019, the model, the tests); applied
+to the live database the same day, no restart owed.
+
+- [x] **The identity**: `(agent, title)`, the pair every insert site
+      deduplicates on. `details['source']` narrows one resolve and no
+      raise; `title` alone would refuse a raise the code allows.
+- [x] **Migration 019**: the partial unique index and the two
+      flag/timestamp CHECKs, falsified red against the old schema and
+      green after, in `tests/test_open_alert_constraints_live.py`.
+- [ ] **Drop `idx_alerts_open_by_agent`**, found by Session 359 and not
+      worked. Migration 019's index leads on `agent` under the same
+      predicate, and the planner already takes it for "this agent's open
+      rows" (`Index Only Scan using uq_alerts_open_agent_title`). Its
+      own migration, and a dropped object leaves a pointer: a note in
+      migration 017's docstring is enough, since the index is ours alone.
 
 ---
 

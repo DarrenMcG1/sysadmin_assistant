@@ -220,7 +220,7 @@ sysadmin/            backend package
   estate/            reads and judges the estate manager's surfaces
   briefing/          morning briefing envelope
 sysadmin_tray/       PyQt6 tray icon + dashboard
-alembic/             18 migrations (version_table_schema="sysadmin")
+alembic/             19 migrations (version_table_schema="sysadmin")
 tests/               pytest suites, incl. tests/test_tray/
 scripts/             install, run, lint, systemd, session pre/postflight, checks
 systemd/             unit and desktop files

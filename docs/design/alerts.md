@@ -384,3 +384,32 @@ both orderings. Three stand-ins again modelled a database this code no
 longer talks to: `FakeAlert` with no `severity` (the column is `NOT NULL`
 behind `chk_alert_severity`), `_FakeSession` answering the open check
 with titles alone, and a fail-closed test breaking one reader out of two.
+
+**The identity is held by the schema since 2026-10-13** (Session 359,
+`SNAG-DB-007`, migration 019). `uq_alerts_open_agent_title` is unique on
+`(agent, title) WHERE resolved = FALSE`, and two CHECKs hold `resolved`
+and `acknowledged` equal to their timestamps being set. Three rules:
+
+1. **`(agent, title)`, because that is what every insert site asks
+   before it writes.** The title is the identity, as above, and every
+   family composes `Alert.agent == self.name` on `unresolved()`.
+   `details['source']` appears only in `resolve_unit_failures`, which
+   narrows a *resolve* so a restart cannot close another agent's row; an
+   index including it would admit the second open row that
+   `record_unit_failure` refuses. `title` alone would refuse a write the
+   code allows, since two agents may raise one title.
+2. **The ladder fits a non-deferrable index by flush order.** A partial
+   unique index cannot be `DEFERRABLE`, and `step_for`'s escalation
+   resolves the quiet row and inserts the loud one in one flush.
+   SQLAlchemy's `save_obj` emits a mapper's `UPDATE`s before its
+   `INSERT`s, so the old row leaves the index first.
+   `tests/test_open_alert_constraints_live.py` drives that order at the
+   real index.
+3. **An equivalence, not an implication.** `resolved = (resolved_at IS
+   NOT NULL)` refuses both a resolve nobody can date and a dated row
+   `unresolved()` still counts as open. Both flags are `NOT NULL`, so
+   the comparison cannot yield `NULL` and pass by default.
+
+The cost is `SNAG-AGENT-014`: a manual run and a scheduled run of one
+agent that both raise a new fault now fail the second run, where before
+they wrote a duplicate.

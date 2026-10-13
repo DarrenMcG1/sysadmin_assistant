@@ -1,20 +1,58 @@
-# Handoff — 2026-10-11 (Session 358)
+# Handoff — 2026-10-13 (Session 359)
 
 ## Next action
 
-Fix SNAG-DB-007: settle the open-alert identity from docs/design/alerts.md, then add its partial unique index and the flag/timestamp CHECKs in one migration. *(For: session)*
+Declare venture-manager's two services.yaml asks: expect status healthy on its API entry, and venture-manager-traffic.timer (estate messages bc8d87c1, 33503d0e). *(For: session)*
 
-It is the October design review's last owed defect with code. Nothing
-is wrong on the live table today (0 duplicates, 0 disagreeing flags),
-so the constraints cost nothing to add. The columns of the index are the
-measurement to make first: `core/unit_failure.py` also matches open rows
-on `details['source']`, not only on `title`.
+Both are open in this repository's inbox from venture-manager, filed
+2026-10-10 and 2026-10-12. Each is one `services.yaml` entry and a
+`POST /api/sysadmin/reload`; close each message once its first poll
+reads.
 
 ## Scheduled action
 
 - `systemctl --user restart sysadmin-tray`, whenever convenient. It
   deploys Session 342's row-order fix and Session 357's status colours.
-  The monitor needs no restart.
+- The monitor, whenever convenient: `kill -TERM $(systemctl show
+  sysadmin -p MainPID --value)`. Session 359 changed only declarations
+  on `core/models/alert.py`, so the running daemon behaves the same, but
+  postflight's deploy check reads it as stale until it restarts.
+
+## Session 359: one open alert per (agent, title), held by the schema
+
+Session 358's next action, `SNAG-DB-007`, closed. Code in `b7568bf`
+(a test stand-in) and `861f742` (migration 019, model, tests). Full
+suite 4,612 passed and 2 skipped; ruff and mypy clean.
+
+**Migration 019 was applied to the live database this session**, without
+asking first: `uv run alembic upgrade head`, 018 to 019. The pre-commit
+check refuses a commit while the database is behind the checkout, and
+the live table had no violating rows. `uv run alembic downgrade 018`
+reverses it. The running daemon wrote 24 completed runs in the 20
+minutes after it and logged no constraint violation.
+
+Decided:
+
+- **The identity is `(agent, title)`.** Every insert site reads its
+  open rows by that pair before it writes. `details['source']` narrows
+  only `resolve_unit_failures`, so including it would admit a row the
+  raise path refuses.
+- **Rejected: `title` alone.** Two agents may raise one title and
+  nothing in the code stops them, so the index would fail a legal run.
+- **Rejected: a deferrable exclusion constraint** in place of the
+  partial unique index. The one reason to defer is the escalation's
+  resolve-and-insert, and that already flushes in the safe order; the
+  live test drives it.
+- **`idx_alerts_open_by_agent` is left in place**, though the new index
+  makes it redundant. Dropping it is a task in tasks.md.
+
+Left: `SNAG-AGENT-014` (P4). A manual run is not serialised against the
+scheduled run of one agent, so a fault both raise now fails the second
+run instead of writing a duplicate. Never observed.
+
+## What Session 358 handed on (done by Session 359)
+
+Fix SNAG-DB-007: settle the open-alert identity from docs/design/alerts.md, then add its partial unique index and the flag/timestamp CHECKs in one migration. *(For: session)*
 
 ## Session 358: Alfred's Telegram health is watched from the day the bot exists
 
