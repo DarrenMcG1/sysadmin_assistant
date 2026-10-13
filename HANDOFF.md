@@ -1,13 +1,12 @@
-# Handoff — 2026-10-13 (Session 359)
+# Handoff — 2026-10-13 (Session 360)
 
 ## Next action
 
-Declare venture-manager's two services.yaml asks: expect status healthy on its API entry, and venture-manager-traffic.timer (estate messages bc8d87c1, 33503d0e). *(For: session)*
+Backfill estate Rule 7: declare the pytest suite at pre-push in a new .pre-commit-config.yaml (verbose), time it, record it in CLAUDE.md (message 732a62cb). *(For: session)*
 
-Both are open in this repository's inbox from venture-manager, filed
-2026-10-10 and 2026-10-12. Each is one `services.yaml` entry and a
-`POST /api/sysadmin/reload`; close each message once its first poll
-reads.
+The message's detail gives the install line the owner must run, which
+the agent's own hooks refuse to run. The session writes the config,
+measures the stage, and asks the owner for that one command.
 
 ## Scheduled action
 
@@ -17,6 +16,32 @@ reads.
   sysadmin -p MainPID --value)`. Session 359 changed only declarations
   on `core/models/alert.py`, so the running daemon behaves the same, but
   postflight's deploy check reads it as stale until it restarts.
+
+## Session 360: venture-manager's two services.yaml asks are declared
+
+Session 359's next action, done. Config in `e765164`. Reloaded at
+20:35 UTC; both entries read `ok` at the first poll after it.
+
+- `venture-manager` carries `expect: { path: status, equals: healthy }`
+  (estate message `bc8d87c1`). Its health route answers 200 with
+  `degraded` in the body when its database is down, and that now reads
+  down. Checked both ways: the loaded entry evaluates the healthy body
+  `met` and `{"status": "degraded"}` `unmet`.
+- `venture-manager-traffic-timer` watches `venture-manager-traffic.timer`
+  (estate message `33503d0e`), the entry venture-manager proposed, word
+  for word except the comment. The timer fires 01:30 UTC. Until the
+  owner makes the Cloudflare token every run logs NOT FETCHED and
+  succeeds, which is by venture-manager's design and no failure.
+- Both messages closed.
+
+## What Session 359 handed on (done by Session 360)
+
+Declare venture-manager's two services.yaml asks: expect status healthy on its API entry, and venture-manager-traffic.timer (estate messages bc8d87c1, 33503d0e). *(For: session)*
+
+Both are open in this repository's inbox from venture-manager, filed
+2026-10-10 and 2026-10-12. Each is one `services.yaml` entry and a
+`POST /api/sysadmin/reload`; close each message once its first poll
+reads.
 
 ## Session 359: one open alert per (agent, title), held by the schema
 

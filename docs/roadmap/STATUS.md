@@ -3,6 +3,14 @@
 **Last Updated**: 2026-10-13
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **venture-manager's API goes down when its database does** (2026-10-13,
+> Session 360). Its `/api/health` answers 200 even when it cannot read
+> its own database, and says `degraded` in the body. The entry now
+> carries `expect: { path: status, equals: healthy }`, so that body
+> reads down. Its new daily Cloudflare fetch is watched too, as
+> `venture-manager-traffic-timer`. Both asked for by venture-manager;
+> reloaded live, no restart owed.
+
 > **The database now refuses a duplicate open alert** (2026-10-13,
 > Session 359). Until now only the agents' own checks stopped two open
 > rows for one alert, or a row marked resolved with no time of

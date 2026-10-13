@@ -8,6 +8,26 @@
 
 ---
 
+## Session 360: venture-manager's two services.yaml asks are declared (2026-10-13)
+
+Session 359's next action. Config in `e765164`; reloaded live, no
+restart owed. Suite 4,612 passed, 2 skipped.
+
+- [x] **`expect: { path: status, equals: healthy }` on `venture-manager`**
+      (estate message `bc8d87c1`). First poll after the reload read `ok`;
+      the loaded entry, driven at `{"status": "degraded"}`, reads `unmet`.
+- [x] **`venture-manager-traffic-timer` declared** (estate message
+      `33503d0e`), venture-manager's proposed entry. First poll read
+      `ok`, last run `success`.
+- [x] **Both messages closed.**
+- [ ] **Estate Rule 7's backfill** (estate message `732a62cb`), named
+      by Session 360 and not worked: declare the suite at the pre-push
+      stage of a new `.pre-commit-config.yaml` with `verbose: true`,
+      state the stage's measured time in CLAUDE.md, and ask the owner to
+      run the install line the message gives.
+
+---
+
 ## Session 359: one open alert per (agent, title), held by the schema (2026-10-13)
 
 Session 358's next action, `SNAG-DB-007`. Code in `b7568bf` (a test
