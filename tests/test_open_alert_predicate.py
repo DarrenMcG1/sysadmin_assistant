@@ -132,7 +132,9 @@ class TestThePredicateAndTheIndexAgree:
             for index in Alert.__table__.indexes
             if index.dialect_options["postgresql"].get("where") is not None
         ]
-        assert len(partials) == 2, f"expected two partial indexes, got {partials}"
+        # Three since migration 019 added ``uq_alerts_open_agent_title``
+        # (``SNAG-DB-007``) under the same predicate.
+        assert len(partials) == 3, f"expected three partial indexes, got {partials}"
         assert {p.lower() for p in partials} == {INDEX_PREDICATE.lower()}
 
         rendered = _sql(select(Alert.title).where(unresolved())).lower()
@@ -321,4 +323,9 @@ class TestThePlanOnTheLiveTable:
     def test_the_predicate_in_use_reaches_a_partial_index(self):
         plan = self._plan(_sql(select(Alert.title).where(unresolved())).split("WHERE")[1])
         assert "Seq Scan" not in plan, plan
-        assert "idx_alerts_active" in plan or "idx_alerts_open_by_agent" in plan, plan
+        partials = {
+            index.name
+            for index in Alert.__table__.indexes
+            if index.dialect_options["postgresql"].get("where") is not None
+        }
+        assert any(name in plan for name in partials), plan

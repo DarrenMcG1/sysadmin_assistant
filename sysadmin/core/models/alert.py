@@ -54,6 +54,30 @@ class Alert(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             " 'log_aggregator', 'service_discovery', 'estate_judge')",
             name="chk_alert_agent",
         ),
+        # A flag and its timestamp say one thing twice, so the schema
+        # holds them to it in both directions (migration 019,
+        # ``SNAG-DB-007``): a ``resolved_at`` on a row ``unresolved()``
+        # still counts as open is as wrong as a resolve nobody can date.
+        CheckConstraint(
+            "resolved = (resolved_at IS NOT NULL)",
+            name="chk_alert_resolved_stamped",
+        ),
+        CheckConstraint(
+            "acknowledged = (acknowledged_at IS NOT NULL)",
+            name="chk_alert_acknowledged_stamped",
+        ),
+        # One open row per alert.  ``(agent, title)`` is the pair every
+        # insert site deduplicates on before it writes; ``title`` alone
+        # would refuse a raise the code considers legal, and
+        # ``details['source']`` narrows one resolve, never a raise.  The
+        # measurement is in migration 019's docstring.
+        Index(
+            "uq_alerts_open_agent_title",
+            "agent",
+            "title",
+            unique=True,
+            postgresql_where=text("resolved = FALSE"),
+        ),
         # Serves "the open rows, newest first" — the alerts route's
         # ordering.  Its predicate is the reason :func:`unresolved` exists
         # and is spelled the way it is; see there.
