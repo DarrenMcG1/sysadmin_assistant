@@ -378,13 +378,16 @@ services:
   # --- venture-manager ------------------------------------------------
   # Its API, wired the day the unit was made (venture-manager ADR-0001).
   # /api/health answers 200 while the API is up and reads the service's
-  # own database, saying "degraded" in the body when that is gone.
+  # own database, saying "degraded" in the body when that is gone, so
+  # `expect:` judges that 200 down, at venture-manager's request (estate
+  # message bc8d87c1; the contract's §2.2).
   - project: venture-manager
     name: venture-manager
     role: backend
     kind: http
     url: http://localhost:8900/api/health
     port: 8900
+    expect: { path: status, equals: healthy }
     systemd: { unit: venture-manager-api.service, scope: user }
     log: { type: journalctl, severity_filter: warning }
 
@@ -397,6 +400,19 @@ services:
     role: schedule
     kind: timer
     systemd: { unit: venture-manager-backup.timer, scope: user }
+    controllable: false
+
+  # The site's visit counts from Cloudflare, daily at 01:30 UTC, declared
+  # at venture-manager's request (estate message 33503d0e) the day after
+  # the units were made (venture-manager ADR-0015, Decision 2). A oneshot,
+  # so the timer is watched. No token, or Cloudflare not answering, logs
+  # NOT FETCHED and exits 0, so it is no failure; an error Cloudflare
+  # states, such as a refused token, exits 1.
+  - project: venture-manager
+    name: venture-manager-traffic-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: venture-manager-traffic.timer, scope: user }
     controllable: false
 
   # --- go-to-market ---------------------------------------------------
