@@ -6511,6 +6511,9 @@ class TestTheStaleRungCheck:
                 return False
             if severity is not None and severity != standing.severity:
                 standing.resolved = True
+                # Dated, or ``chk_alert_resolved_stamped`` refuses the
+                # flush before the verdict is asked (migration 019).
+                standing.resolved_at = datetime.now(UTC)
                 session.add(
                     Alert(
                         agent=self.name,
