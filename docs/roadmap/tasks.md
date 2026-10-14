@@ -111,7 +111,7 @@ so they stay open until then.
       de-authorised no longer describe the box. Re-measure first: `ls /usr/lib/firmware/updates/mediatek/mt7927/`
       and `journalctl -k -b | grep -E 'hci0|Failed to load firmware'`,
       then add a dated amendment rather than rewriting the history.
-- [ ] **Decide whether contract §2.7's empty-database test applies
+- [x] **Decide whether contract §2.7's empty-database test applies
       here** (estate message `0db3617a`, closed). monitorable-project.md
       §2.7 now says a service with a database carries one test that
       builds an empty database to head on real PostgreSQL by the startup
@@ -119,6 +119,37 @@ so they stay open until then.
       test (`tests/test_schema_guard.py` reads the head, it builds
       nothing). The estate named only itself as backfill and nothing
       checks it, so this is a choice, not a breach.
+      **Decided by Session 367: it applies, to the `sysadmin` schema.**
+      §2.7 names sysadmin_assistant among the services that adopt it in
+      their own sequence; the shared `projects` database being
+      grandfathered is a different rule (where a schema lives, not who
+      builds it), so it is no exemption. The scope is our schema, never
+      the whole `projects` database, whose other schemas are not ours.
+      *The one-owner half is met*, measured: the Alembic chain is the
+      only mechanism (no `create_all` or `CREATE TABLE` anywhere in
+      `sysadmin/`, `sysadmin_tray/`, `scripts/` or `tests/`). *The test
+      half is owed*, and the chain already passes it: a scratch database
+      built by `alembic upgrade head` through `alembic/env.py` reached
+      `019` (the packaged head) in 0.1 s with 13 tables, autogenerate
+      against `Base.metadata` read 0 differences, and the empty-metadata
+      witness read 13 `remove_table` and 13 `remove_index`, identical to
+      the live `projects` database. Scratch database dropped after.
+      "The startup path" is read as: the service never migrates at
+      startup, it refuses unless at head (`verify_schema_revision`), so
+      the build is the operator's `alembic upgrade head` and the
+      startup's half is that check. Rejected: *not applicable because the
+      database is shared* (above); *`test_schema_drift.py` already covers
+      it* (it diffs the live schema, so it cannot see a chain that fails
+      from empty, which is the estate's `gpu_leases` defect exactly).
+- [ ] **Write the §2.7 test**: create a scratch database, run `alembic
+      upgrade head` through `alembic/env.py` with
+      `sysadmin.core.config.get_config` patched to the scratch URL (env.py
+      reads no other source), then assert `packaged_head()`, 0 drift
+      against `Base.metadata` with the empty-metadata witness, and drop
+      the database. Skips without PostgreSQL as `test_schema_drift.py`
+      does, so CI (no PostgreSQL service) will not run it; adding one to
+      `ci.yml` is a separate choice. The probe Session 367 drove is this
+      test's body.
 - [x] **`Critical disk usage on /` is open and STATUS.md's ops block is
       stale** (done by Session 364: Steam, not pgBackRest; block
       refreshed). Found by Session 362's postflight and not worked, as a

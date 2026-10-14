@@ -1,17 +1,38 @@
-# Handoff — 2026-10-14 (Session 366)
+# Handoff — 2026-10-14 (Session 367)
 
 ## Next action
 
-Decide whether contract §2.7's empty-database test applies to this repository's sysadmin schema, and record the ruling (tasks.md, Session 362 block). *(For: session)*
+Write the §2.7 test: build a scratch database to head with alembic upgrade head, assert the head and zero drift, drop it (tasks.md, Session 362 block). *(For: session)*
 
-The next decision that is ours alone and small. Alfred's gaming-spans
-endpoint (`4dc2b8bc`) is bigger and wants an ADR drafted with the owner.
+Session 367's probe is the test's body, so this is small. Alfred's
+gaming-spans endpoint (`4dc2b8bc`) is bigger and wants an ADR drafted
+with the owner.
 
 ## Scheduled action
 
 - Uninstall Steam games until `/` is under 90 %, which closes the
   critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
   (151 GB) arrived 2026-09-22 and was the biggest single step.
+
+## Session 367: contract §2.7 applies to the sysadmin schema
+
+Session 366's next action. Docs only: the ruling is the ticked item in
+tasks.md's Session 362 block.
+
+- Decided: §2.7 (one schema owner, and a test building an empty
+  database to head on real PostgreSQL) applies, scoped to the `sysadmin`
+  schema. The contract names this repository; the shared `projects`
+  database is grandfathered on where a schema lives, not on who builds it.
+- One owner is met: the Alembic chain, nothing else creates tables.
+- The test is owed and the chain would pass it: a scratch database
+  reached `019` from empty in 0.1 s, 0 drift against the models, the
+  witness identical to live. Scratch database dropped.
+- Rejected: counting `test_schema_drift.py` as the test, because it
+  diffs the live schema and cannot see a chain that fails from empty.
+
+## What Session 366 handed on (done by Session 367)
+
+Decide whether contract §2.7's empty-database test applies to this repository's sysadmin schema, and record the ruling (tasks.md, Session 362 block). *(For: session)*
 
 ## Session 366: the MT7927 host fault is gone
 
