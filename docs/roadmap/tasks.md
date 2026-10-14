@@ -70,6 +70,16 @@ so they stay open until then.
       test (`tests/test_schema_guard.py` reads the head, it builds
       nothing). The estate named only itself as backfill and nothing
       checks it, so this is a choice, not a breach.
+- [ ] **`Critical disk usage on /` is open and STATUS.md's ops block is
+      stale.** Found by Session 362's postflight and not worked, as a
+      second concern. `/` read 91 % (146 GB free) on 2026-10-14, the
+      alert opened 05:12 UTC, and the block still says 3 open rows and a
+      daemon start of 2026-10-10 16:52 (measured 4 and 2026-10-14 05:42).
+      One lead, unchecked: pgbackrest's 02:03 run today logged `expire`
+      in 0 ms, though the estate's `1ed64da3` expected the March chain
+      (about 120 GB) to go a week after the 2026-10-03 install. If it
+      did not, that is the estate's to know, by filing. Find what filled
+      the disk, then refresh the block.
 - [x] **`SNAG-DOCS-033` opened** for portfolio's `a56e0bc4` (closed):
       "unread for eight days" is said of the alert, which was open one
       day.
