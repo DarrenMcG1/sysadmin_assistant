@@ -1,23 +1,39 @@
-# Handoff — 2026-10-14 (Session 363)
+# Handoff — 2026-10-14 (Session 364)
 
 ## Next action
 
-Find what filled / (91 %, critical alert open since 05:12 UTC on 2026-10-14), starting with pgbackrest's 0 ms expire, then refresh STATUS.md's ops block. *(For: session)*
+Decide whether to judge publish_errors on :8400's messages-invariants surface: add it to SURFACE_PATHS or record why not (tasks.md, Session 362 block). *(For: session)*
 
-The open alert is the one item in tasks.md that is a live fault rather
-than a decision, and Session 362 found it and left it as a second
-concern. The lead is in that task: the estate expected pgbackrest to
-expire the March chain (about 120 GB) a week after the 2026-10-03
-install, and today's expire took 0 ms.
+The smallest open decision that is ours alone. Alfred's gaming-spans
+endpoint (`4dc2b8bc`) is bigger and wants an ADR drafted with the owner.
 
 ## Scheduled action
 
-- `systemctl --user restart sysadmin-tray`, whenever convenient. It
-  deploys Session 342's row-order fix and Session 357's status colours.
-- The monitor, whenever convenient: `kill -TERM $(systemctl show
-  sysadmin -p MainPID --value)`. Session 359 changed only declarations
-  on `core/models/alert.py`, so the running daemon behaves the same, but
-  postflight's deploy check reads it as stale until it restarts.
+- Uninstall Steam games until `/` is under 90 %, which closes the
+  critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
+  (151 GB) arrived 2026-09-22 and was the biggest single step.
+
+## Session 364: Steam filled /, not the backups
+
+Session 363's next action. Docs only: STATUS.md's ops block, now 12 of
+12 `ok` under `check-ops-claims.sh`.
+
+- pgBackRest ruled out: its 2026-10-11 run expired the March chain and
+  `/` fell 116 GB that morning. The 0 ms expires since had nothing to
+  remove, so nothing is filed to the estate.
+- Found in `resource_snapshots`: +142 GB on 2026-09-22 17:00–19:00 BST
+  (Path of Exile 2 installed) and +21.5 GB today 06:07–06:17 (Steam
+  updating Last Epoch), which opened the critical row at 06:12:46.
+- Decided: name Steam and leave the alert open. Rejected deleting
+  anything: what to uninstall is the owner's, and the alert is true.
+- The tray and monitor restarts the handoff scheduled happened with
+  that boot, so both items are gone from it.
+- Stacked and recorded, not worked: the box was powered off by its key
+  at 05:40:48 with no clean shutdown (tasks.md, Session 364 block).
+
+## What Session 363 handed on (done by Session 364)
+
+Find what filled / (91 %, critical alert open since 05:12 UTC on 2026-10-14), starting with pgbackrest's 0 ms expire, then refresh STATUS.md's ops block. *(For: session)*
 
 ## Session 363: clydeautomation.co.uk is watched
 

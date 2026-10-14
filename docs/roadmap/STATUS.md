@@ -3,6 +3,19 @@
 **Last Updated**: 2026-10-14
 **Current Phase:** Feature-complete — maintenance & future features
 
+> **/ is 91 % full because of Steam, not the database backups**
+> (2026-10-14, Session 364). The critical alert opened at 06:12 BST when
+> a Steam update to Last Epoch wrote 21.5 GB in ten minutes. The bigger
+> step was Path of Exile 2's install on 2026-09-22, 142 GB in one
+> evening. Steam's library is 891 GB of the 1.4 TB used. pgBackRest is
+> working as the estate planned: its 2026-10-11 run expired the March
+> backup chain and freed 116 GB, and today's 0 ms expire had nothing
+> left to remove. Freeing space means uninstalling games, which is the
+> owner's call. Separately, the box was powered off by its power key at
+> 05:40:48 with no clean shutdown, so the daemon restarted at
+> **2026-10-14 05:42:46** <!--check:deploy--> <!--check:daemon_start-->,
+> with the boot.
+
 > **clydeautomation.co.uk is watched** (2026-10-14, Session 363). The
 > public site of Clyde Automation, served by Cloudflare with nothing on
 > this box, is polled every 5 minutes as `clyde-automation-site`. Asked
@@ -48,7 +61,7 @@
 > The tray sends no `Origin` and is unaffected. Another local program
 > still can act, and closing that needs the token. To deploy it, the
 > owner's restart from a terminal meant the daemon restarted at
-> **2026-10-10 16:52:34** <!--check:deploy--> <!--check:daemon_start-->. Probed live: a foreign origin
+> 2026-10-10 16:52:34. Probed live: a foreign origin
 > and `Origin: null` both get 403, and a read with a foreign origin
 > still gets 200.
 
@@ -7570,12 +7583,20 @@
 > four hooks are wired, not because nothing looked.
 > `/health` answers
 > **200** <!--check:health-->, `alembic current` reads 018 at the
-> packaged head <!--check:schema-->, and `alerts` holds **3** unresolved
+> packaged head <!--check:schema-->, and `alerts` holds **4** unresolved
 > rows <!--check:alerts-->,
-> `High disk usage on /`,
+> `Critical disk usage on /`,
+> `Estate port 3400 registry breach`,
 > `Project InvestingAssistant next action idle` and
-> `Estate port 8100 registry breach`, **3**
+> `Estate port 8100 registry breach`, **4**
 > named here <!--check:open_titles-->.
+> *(Re-named 2026-10-14 by Session 364: 3 → 4. `High disk usage on /`
+> stepped up a band: it resolved at 06:12:50 BST and `Critical disk
+> usage on /` opened four seconds before it, when a Steam update took
+> 21.5 GB (see the block's first paragraph). `Estate port 3400 registry
+> breach` opened at 05:43:46, the judge's first run after the reboot; an
+> `info` from the estate's `ports` audit, and nothing held 3400 when
+> measured at 20:40, so it was a transient holder.)*
 > *(Re-named 2026-10-11 by Session 357: 4 → 3. `venture-chat
 > unreachable` resolved at 01:17:36, the unit back after the arbiter's
 > lease. `Critical disk usage on /` resolved at 02:07:36 and

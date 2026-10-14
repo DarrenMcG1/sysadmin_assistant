@@ -8,6 +8,37 @@
 
 ---
 
+## Session 364: Steam filled /, not the backups (2026-10-14)
+
+Session 363's next action. Docs only: STATUS.md's ops block.
+
+- [x] **pgBackRest's lead ruled out.** The 2026-10-11 02:05 run took the
+      second full and expired the March chain (`20260307-141905F` and
+      its 33 incrementals), and `/` fell from 1,490 to 1,374 GB that
+      morning: 116 GB, as the estate's `1ed64da3` expected. The 0 ms
+      expires since have nothing to remove. Nothing to file.
+- [x] **What filled `/`, read from `resource_snapshots`.** Two steps:
+      +142 GB on 2026-09-22 between 17:00 and 19:00 BST, which is Path
+      of Exile 2's install (its directory was born 17:53); and +21.5 GB
+      today between 06:07 and 06:17 BST, which is Steam updating Last
+      Epoch (manifest `LastUpdated` 06:14). The alert opened at 06:12:46
+      on that step. Steam's library is 891 GB of the 1.4 TB used.
+- [x] **Ops block refreshed**: 4 open rows named, and the daemon start
+      moved to 2026-10-14 05:42:46. That start was a boot: the power key
+      was pressed at 05:40:48 and the previous boot's journal ends at
+      05:41:15 with no shutdown sequence. `check-ops-claims.sh` reads
+      12 of 12 `ok`.
+- [ ] **Why the box was powered off uncleanly at 05:40:48** on
+      2026-10-14. A second concern, not worked: the journal shows the
+      key press and then nothing, so whether the box had hung first is
+      unread. Start at `journalctl -b -1 --since 05:30`.
+- Left for the owner: the alert stays open until `/` is under 90 %,
+  and only uninstalling games gets it there. Not tried: reading each
+  game's last-played date, because Steam's `localconfig.vdf` nests its
+  app blocks and a flat regex found none.
+
+---
+
 ## Session 363: clydeautomation.co.uk is watched (2026-10-14)
 
 Session 362's next action. One declaration in `services.yaml`.
@@ -86,8 +117,9 @@ so they stay open until then.
       test (`tests/test_schema_guard.py` reads the head, it builds
       nothing). The estate named only itself as backfill and nothing
       checks it, so this is a choice, not a breach.
-- [ ] **`Critical disk usage on /` is open and STATUS.md's ops block is
-      stale.** Found by Session 362's postflight and not worked, as a
+- [x] **`Critical disk usage on /` is open and STATUS.md's ops block is
+      stale** (done by Session 364: Steam, not pgBackRest; block
+      refreshed). Found by Session 362's postflight and not worked, as a
       second concern. `/` read 91 % (146 GB free) on 2026-10-14, the
       alert opened 05:12 UTC, and the block still says 3 open rows and a
       daemon start of 2026-10-10 16:52 (measured 4 and 2026-10-14 05:42).
