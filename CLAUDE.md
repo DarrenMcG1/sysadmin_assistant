@@ -112,6 +112,15 @@ mypy and PyQt6 all go, and `uv run pytest` then falls through to
 `/usr/bin/pytest`, which fails on `import estate`. The command is
 `uv sync --all-extras`.
 
+**The same three gates run at push** (estate Rule 7), declared at the
+`pre-push` stage of [`.pre-commit-config.yaml`](.pre-commit-config.yaml),
+each `verbose`. **The stage took 149.6 s** when measured 2026-10-14 with
+`pre-commit run --hook-stage pre-push --all-files`, 149.32 s of it
+pytest (the full suite, `box` tests included); ruff and mypy take under
+0.3 s together. Installed 2026-10-14; on a fresh clone installing it
+is the owner's step, because the agent's hooks refuse the line:
+`GIT_CONFIG_GLOBAL=/dev/null pre-commit install --hook-type pre-push`.
+
 ### Step 5: Commit & Document
 Before committing, update ALL relevant docs:
 - [ ] **STATUS.md** - Add to "Recently Completed" if feature done

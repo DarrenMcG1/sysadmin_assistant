@@ -4,7 +4,21 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-13
+> **Last Updated**: 2026-10-14
+
+---
+
+## Session 361: the suite runs at push, once installed (2026-10-14)
+
+Session 360's next action. Config in `1848546`.
+
+- [x] **`.pre-commit-config.yaml`**: pytest, ruff check and mypy at
+      `pre-push`, each `verbose: true`, run from `.venv/bin`. Measured
+      149.6 s, all passed, pytest 149.32 s of it.
+- [x] **CLAUDE.md states the time** under "Step 4: Test".
+- [x] **The owner installed the stage** (2026-10-14 13:11); the
+      installed hook, driven with a simulated push, ran all three green.
+      Estate message `732a62cb` closed.
 
 ---
 
@@ -20,8 +34,8 @@ restart owed. Suite 4,612 passed, 2 skipped.
       `33503d0e`), venture-manager's proposed entry. First poll read
       `ok`, last run `success`.
 - [x] **Both messages closed.**
-- [ ] **Estate Rule 7's backfill** (estate message `732a62cb`), named
-      by Session 360 and not worked: declare the suite at the pre-push
+- [x] **Estate Rule 7's backfill** (estate message `732a62cb`), named
+      by Session 360 and done by Session 361: declare the suite at the pre-push
       stage of a new `.pre-commit-config.yaml` with `verbose: true`,
       state the stage's measured time in CLAUDE.md, and ask the owner to
       run the install line the message gives.
