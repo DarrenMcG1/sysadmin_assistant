@@ -1,12 +1,14 @@
-# Handoff — 2026-10-14 (Session 362)
+# Handoff — 2026-10-14 (Session 363)
 
 ## Next action
 
-Add clyde-automation-site's kind: http entry for https://clydeautomation.co.uk/ to services.yaml, reload, and close estate message 6db6bf4c. *(For: session)*
+Find what filled / (91 %, critical alert open since 05:12 UTC on 2026-10-14), starting with pgbackrest's 0 ms expire, then refresh STATUS.md's ops block. *(For: session)*
 
-It is the cheapest of the five items Session 362 recorded in tasks.md,
-and the only one that is a declaration: the entry is written out in the
-message and in the task.
+The open alert is the one item in tasks.md that is a live fault rather
+than a decision, and Session 362 found it and left it as a second
+concern. The lead is in that task: the estate expected pgbackrest to
+expire the March chain (about 120 GB) a week after the 2026-10-03
+install, and today's expire took 0 ms.
 
 ## Scheduled action
 
@@ -16,6 +18,22 @@ message and in the task.
   sysadmin -p MainPID --value)`. Session 359 changed only declarations
   on `core/models/alert.py`, so the running daemon behaves the same, but
   postflight's deploy check reads it as stale until it restarts.
+
+## Session 363: clydeautomation.co.uk is watched
+
+Session 362's next action. One `services.yaml` entry, commit `3331312`.
+
+- Declared `clyde-automation-site` as `kind: http` on the https root,
+  no unit, exactly as the message suggested. Reloaded live; the first
+  poll read `ok` in 170 ms. Message `6db6bf4c` closed saying so.
+- Accepted rather than built: losing this box's connection opens two
+  rows (`internet` and the site) for one fault. Rejected adding a
+  dependency key to suppress the second: nothing here has one, and one
+  extra row in a rare outage does not earn a new mechanism.
+
+## What Session 362 handed on (done by Session 363)
+
+Add clyde-automation-site's kind: http entry for https://clydeautomation.co.uk/ to services.yaml, reload, and close estate message 6db6bf4c. *(For: session)*
 
 ## Session 362: the thirteen estate messages triaged
 

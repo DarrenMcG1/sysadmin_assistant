@@ -1,7 +1,13 @@
 # Project Status Dashboard
 
-**Last Updated**: 2026-10-13
+**Last Updated**: 2026-10-14
 **Current Phase:** Feature-complete — maintenance & future features
+
+> **clydeautomation.co.uk is watched** (2026-10-14, Session 363). The
+> public site of Clyde Automation, served by Cloudflare with nothing on
+> this box, is polled every 5 minutes as `clyde-automation-site`. Asked
+> for by its repository; reloaded live, no restart owed. Its first
+> reading was `ok`.
 
 > **venture-manager's API goes down when its database does** (2026-10-13,
 > Session 360). Its `/api/health` answers 200 even when it cannot read

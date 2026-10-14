@@ -8,6 +8,22 @@
 
 ---
 
+## Session 363: clydeautomation.co.uk is watched (2026-10-14)
+
+Session 362's next action. One declaration in `services.yaml`.
+
+- [x] **`clyde-automation-site` declared** as `kind: http` on
+      `https://clydeautomation.co.uk/`, no unit, the `internet` entry's
+      shape. Reloaded live (`services_added` named it, 47 services); the
+      first poll at 16:57:46 UTC read `ok` in 170 ms. Estate message
+      `6db6bf4c` closed with that note.
+- Known and accepted: when this box loses its connection the site reads
+  down beside `internet`, two alert rows for one fault. Nothing here
+  suppresses one check on another's failure; the entry's comment says
+  `internet` is the one that names the cause.
+
+---
+
 ## Session 362: the thirteen open estate messages triaged (2026-10-14)
 
 Session 361's next action. Docs only. Eight messages were already acted
@@ -27,8 +43,8 @@ so they stay open until then.
       unit carries the estate's Description and ExecStart, the timer
       entry reads `ok`), `99f11c1f` (`_FOR_MARKER` already matches the
       timed marker).
-- [ ] **Watch `https://clydeautomation.co.uk/` with a `kind: http`
-      entry** (estate message `6db6bf4c`, open). clyde-automation-site's
+- [x] **Watch `https://clydeautomation.co.uk/` with a `kind: http`
+      entry** (estate message `6db6bf4c`, closed by Session 363). clyde-automation-site's
       suggested entry follows the `internet` precedent: project and name
       `clyde-automation-site`, role `frontend`, the https root, since
       http:// and www. answer 301. About 288 requests a day at no cost to
