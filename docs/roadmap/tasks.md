@@ -8,6 +8,74 @@
 
 ---
 
+## Session 362: the thirteen open estate messages triaged (2026-10-14)
+
+Session 361's next action. Docs only. Eight messages were already acted
+on or asked nothing and are closed. Three asked nothing but leave a
+decision of ours: each is recorded here or in the snag list and closed.
+Two are requests whose senders want a close note when the work is done,
+so they stay open until then.
+
+- [x] **Closed, already acted on or nothing asked**: `6aa1fbc7`
+      (`healthy` and `ok` are one status), `0db3617a` (handoff bound
+      done by Session 350, the sports analyser entries by Session 351's
+      task, Alfred's `bind:lan` row is Alfred's; §2.7 is the item
+      below), `8e1e23bb` and `8c5d026c` (both go-to-market timers
+      declared, reading `ok`), `5faf8e47` (`venture-model-probe`
+      declared, reading `skipped`), `9c40b495` (the `owners` check is not
+      in `JUDGED_AUDIT_CHECKS`), `1ed64da3` (pgbackrest installed: the
+      unit carries the estate's Description and ExecStart, the timer
+      entry reads `ok`), `99f11c1f` (`_FOR_MARKER` already matches the
+      timed marker).
+- [ ] **Watch `https://clydeautomation.co.uk/` with a `kind: http`
+      entry** (estate message `6db6bf4c`, open). clyde-automation-site's
+      suggested entry follows the `internet` precedent: project and name
+      `clyde-automation-site`, role `frontend`, the https root, since
+      http:// and www. answer 301. About 288 requests a day at no cost to
+      the owner. Add it, reload, and close the message saying it was
+      added.
+- [ ] **A read-only endpoint for the spans a game was running, for a
+      date range** (estate message `4dc2b8bc` from Alfred, open; the
+      owner's ruling of 2026-10-11 routed it here). A feature that wants
+      its own session and an ADR: nothing here records processes today.
+      Detection by full `/proc/<pid>/cmdline` (`SteamLaunch AppId=<n>`)
+      or an owner-kept executable list, Discord never; focus via KWin
+      if it can be had, else say presence only; 7 days of history; say
+      whether spans arrive merged or raw. estate-manager's gaming
+      ladder rung 2 waits on the same detector. Close the message once
+      the endpoint exists.
+- [ ] **Decide whether to judge `publish_errors`** on
+      `GET :8400/api/estate/messages-invariants` (estate message
+      `653e9ae9`, closed). The count only ever rises, so a judge would
+      alert on an increase between two reads, never on the level; the
+      retained MQTT copy is stale exactly when the broker is the cause,
+      so read the HTTP surface. It is not in `SURFACE_PATHS`
+      (`sysadmin/estate/client.py`). Either add it as a surface or
+      record why not.
+- [ ] **Amend `SNAG-ESTATE-001`'s host-fault paragraphs** (estate
+      message `c86f83f9`, closed). An estate session installed the
+      MT7927 Bluetooth firmware into `/usr/lib/firmware/updates/` on
+      2026-10-10 and parked the `0489:e13a` udev rule as `.disabled`, so
+      the paragraphs saying the blob is unpublished and the device is
+      de-authorised no longer describe the box. The message names
+      `SNAG-AGENT-005`; the paragraphs are under `SNAG-ESTATE-001`.
+      Re-measure first: `ls /usr/lib/firmware/updates/mediatek/mt7927/`
+      and `journalctl -k -b | grep -E 'hci0|Failed to load firmware'`,
+      then add a dated amendment rather than rewriting the history.
+- [ ] **Decide whether contract §2.7's empty-database test applies
+      here** (estate message `0db3617a`, closed). monitorable-project.md
+      §2.7 now says a service with a database carries one test that
+      builds an empty database to head on real PostgreSQL by the startup
+      path. This repository owns the `sysadmin` schema and has no such
+      test (`tests/test_schema_guard.py` reads the head, it builds
+      nothing). The estate named only itself as backfill and nothing
+      checks it, so this is a choice, not a breach.
+- [x] **`SNAG-DOCS-033` opened** for portfolio's `a56e0bc4` (closed):
+      "unread for eight days" is said of the alert, which was open one
+      day.
+
+---
+
 ## Session 361: the suite runs at push, once installed (2026-10-14)
 
 Session 360's next action. Config in `1848546`.

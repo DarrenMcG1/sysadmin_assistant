@@ -10,6 +10,12 @@
 
 ## Open Issues
 
+- [P4] SNAG-DOCS-033: **"open and unread for eight days" is said of the roll-up alert, which was open for one day; the eight days were the restart loop's** (2026-10-14, opened by Session 362 from portfolio's estate message `a56e0bc4`)
+  - **Symptom**: `SNAG-ESTATE-001` dates the alert `Unmonitored systemd units: 17 findings` to 2026-08-11 and the loop's end to 2026-08-12. The loop ran from 2026-08-04 21:13, which is the eight days. The compression then spread, and portfolio copied it into their overview before their 2026-09-22 fact-check caught it.
+  - **Where**, swept 2026-10-14 for the alert-shaped claim: `sysadmin/units/agent.py:25` and `:111`, `sysadmin/monitor/log_review.py:372`, `sysadmin/monitor/log_actions.py:306`, `sysadmin/core/failure_replay.py:233`, `sysadmin/estate/judgements.py:1280`, `sysadmin/units/scan.py:1162` (quoting the snag), `tests/test_estate_judgements.py:1463`, `tests/test_unit_arming.py:444`, and this file's `SNAG-ESTATE-001` bullet "eight days old". `scan.py:947` and `agent.py:839` say the *snag* ran eight days, which is true, and stay.
+  - **Why P4**: the argument every site makes, that the diagnosis sat on a surface nobody opened, holds at one day as at eight. Only the figure is wrong.
+  - **Fix**: say the loop ran eight days and the alert had been open a day when it was read, in each site above. Docstrings and comments only; no behaviour moves.
+
 - [P3] SNAG-API-005: **with `api.auth_token` empty, all 13 mutating routes are open, and 9 of them take no body, so any web page in a browser on this box can fire them** (2026-10-10, opened by Session 355 from estate message `dca21976`, the October design review's R4; **cross-site half closed 2026-10-10 by Session 356**, the token half open)
   - **Symptom**: `config.yaml:21` holds `auth_token: ""`, and `sysadmin/core/auth.py:32` returns before checking anything when the token is empty. So every route behind `require_auth` answers anyone who can reach 127.0.0.1:8500.
   - **Where**: the 13 routes are measured off `create_app()`, not counted from source. 4 are in `sysadmin/monitor/routers/sysadmin.py` (service action at `:177`, alert ack `:341`, DND `:371`, review generate `:482`). 6 are in `sysadmin/files/router.py` (`:278`, `:434`, `:447`, `:617`, `:639`, `:663`). 1 is in `sysadmin/monitor/routers/logs.py:352`, and 2 are in `sysadmin/main.py` (`scan-all` at `:471`, `reload` at `:490`). No mutating route lacks the dependency.

@@ -1,13 +1,12 @@
-# Handoff — 2026-10-14 (Session 361)
+# Handoff — 2026-10-14 (Session 362)
 
 ## Next action
 
-Triage the 13 open estate messages: close those already acted on, and record each remaining ask as a task or snag citing its message id. *(For: session)*
+Add clyde-automation-site's kind: http entry for https://clydeautomation.co.uk/ to services.yaml, reload, and close estate message 6db6bf4c. *(For: session)*
 
-The oldest is from 2026-10-02 and several are `services.yaml` asks from
-go-to-market, venture-assistant and clyde-automation-site (2026-10-05);
-some may already be declared. Alfred's gaming-time endpoint (`4dc2b8bc`)
-is a feature, not a declaration, and wants its own session.
+It is the cheapest of the five items Session 362 recorded in tasks.md,
+and the only one that is a declaration: the entry is written out in the
+message and in the task.
 
 ## Scheduled action
 
@@ -17,6 +16,32 @@ is a feature, not a declaration, and wants its own session.
   sysadmin -p MainPID --value)`. Session 359 changed only declarations
   on `core/models/alert.py`, so the running daemon behaves the same, but
   postflight's deploy check reads it as stale until it restarts.
+
+## Session 362: the thirteen estate messages triaged
+
+Session 361's next action. Docs only; recorded in tasks.md's Session
+362 block and `SNAG-DOCS-033`.
+
+- Closed 11. Eight were done or asked nothing: `6aa1fbc7`, `0db3617a`,
+  `8e1e23bb`, `8c5d026c`, `5faf8e47`, `9c40b495`, `1ed64da3`,
+  `99f11c1f` (`0db3617a` also left the §2.7 task). Each was
+  checked against the tree or the live status, not taken on trust.
+  Three left a decision of ours, recorded, then closed: `653e9ae9`
+  (judge `publish_errors`), `c86f83f9` (amend `SNAG-ESTATE-001`'s
+  Bluetooth paragraphs), `a56e0bc4` (`SNAG-DOCS-033`).
+- Kept open 2: `6db6bf4c` (clyde's site) and `4dc2b8bc` (Alfred's
+  gaming spans). Both senders asked for a close note when the work is
+  done, so closing now would tell them it was.
+- Decided: an announcement whose leftover is our own choice is closed
+  once the task carries its id. Rejected keeping it open as a reminder:
+  the inbox is the sender's channel, and tasks.md is where this
+  repository keeps its work.
+- One slip: `a56e0bc4`'s close note says nine sites; the snag lists
+  ten. A close cannot be edited; the snag is the record.
+
+## What Session 361 handed on (done by Session 362)
+
+Triage the 13 open estate messages: close those already acted on, and record each remaining ask as a task or snag citing its message id. *(For: session)*
 
 ## Session 361: the suite runs at push
 
