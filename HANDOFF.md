@@ -1,8 +1,8 @@
-# Handoff — 2026-10-14 (Session 365)
+# Handoff — 2026-10-14 (Session 366)
 
 ## Next action
 
-Re-measure the MT7927 Bluetooth firmware and amend SNAG-ESTATE-001's host-fault paragraphs with a dated note (tasks.md, Session 362 block). *(For: session)*
+Decide whether contract §2.7's empty-database test applies to this repository's sysadmin schema, and record the ruling (tasks.md, Session 362 block). *(For: session)*
 
 The next decision that is ours alone and small. Alfred's gaming-spans
 endpoint (`4dc2b8bc`) is bigger and wants an ADR drafted with the owner.
@@ -12,6 +12,25 @@ endpoint (`4dc2b8bc`) is bigger and wants an ADR drafted with the owner.
 - Uninstall Steam games until `/` is under 90 %, which closes the
   critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
   (151 GB) arrived 2026-09-22 and was the biggest single step.
+
+## Session 366: the MT7927 host fault is gone
+
+Session 365's next action. Docs only: a dated amendment under
+`SNAG-AGENT-005` in snag_list.md, the tick in tasks.md.
+
+- Re-measured, not copied from the message: firmware hash matches,
+  0 firmware errors in each of the last three boots, `hci0` up, rule
+  parked as `.disabled`.
+- Found two things the message did not say: the Wi-Fi half is now
+  bound to `mt7925e`, and the adapter is on USB port `8-11`, not `1-11`.
+- The task line named the wrong entry (`SNAG-ESTATE-001`); the
+  paragraphs are `SNAG-AGENT-005`'s, as the message said. Corrected.
+- Amended rather than rewritten: the August paragraphs stay as history,
+  with an italic pointer to the amendment.
+
+## What Session 365 handed on (done by Session 366)
+
+Re-measure the MT7927 Bluetooth firmware and amend SNAG-ESTATE-001's host-fault paragraphs with a dated note (tasks.md, Session 362 block). *(For: session)*
 
 ## Session 365: publish_errors is not judged
 

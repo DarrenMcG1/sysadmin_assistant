@@ -99,14 +99,16 @@ so they stay open until then.
       failed, a failure costs a phone buzz and not a message, a broker
       outage is already the `mosquitto` entry's, and a counter that never
       falls cannot close a row.
-- [ ] **Amend `SNAG-ESTATE-001`'s host-fault paragraphs** (estate
-      message `c86f83f9`, closed). An estate session installed the
+- [x] **Amend `SNAG-AGENT-005`'s host-fault paragraphs** (estate
+      message `c86f83f9`, closed). Done by Session 366: a dated
+      amendment under `SNAG-AGENT-005`, which the message named
+      correctly (this line used to say `SNAG-ESTATE-001`). It also found
+      the Wi-Fi half now bound to `mt7925e` and the adapter on USB port
+      `8-11`. An estate session installed the
       MT7927 Bluetooth firmware into `/usr/lib/firmware/updates/` on
       2026-10-10 and parked the `0489:e13a` udev rule as `.disabled`, so
       the paragraphs saying the blob is unpublished and the device is
-      de-authorised no longer describe the box. The message names
-      `SNAG-AGENT-005`; the paragraphs are under `SNAG-ESTATE-001`.
-      Re-measure first: `ls /usr/lib/firmware/updates/mediatek/mt7927/`
+      de-authorised no longer describe the box. Re-measure first: `ls /usr/lib/firmware/updates/mediatek/mt7927/`
       and `journalctl -k -b | grep -E 'hci0|Failed to load firmware'`,
       then add a dated amendment rather than rewriting the history.
 - [ ] **Decide whether contract §2.7's empty-database test applies
