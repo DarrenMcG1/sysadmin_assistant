@@ -1,6 +1,34 @@
-# Handoff — 2026-10-14 (Session 368)
+# Handoff — 2026-10-14 (Session 369)
 
 ## Next action
+
+Build ADR-0016's first half: the game_spans and game_focus migration and the 60 s game detector job, with tests and no route yet. *(For: session)*
+
+## Scheduled action
+
+- Uninstall Steam games until `/` is under 90 %, which closes the
+  critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
+  (151 GB) arrived 2026-09-22 and was the biggest single step.
+
+## Session 369: ADR-0016, game spans
+
+Session 368's next action. Docs only, plus a reply to Alfred.
+
+- Decided with the owner (ADR-0016): Steam `AppId=` plus a `games:`
+  list in config.yaml; focus by a one-shot KWin script, only while a
+  game runs; 30 days kept; raw spans, Alfred merges.
+- Measured: KWin 6.7.5 has no D-Bus call for the active window. A KWin
+  script reads it and prints it to the user journal.
+- Rejected: a resident KWin script (this repository would own something
+  inside the compositor); probing focus on every poll (1,440 journal
+  lines a day into the log aggregator's own input).
+- Open, at Alfred: whether Alfred keeps the spans it reads. Asked in
+  message `4f851ae8-01c9-4656-bffa-3bc1547ab10e`. Until it answers, the
+  30 days here are the only record (ADR-0016 §4).
+- Second concern recorded in tasks.md, not worked: a game-start event
+  for the estate's gaming ladder.
+
+## What Session 368 handed on (done by Session 369)
 
 Draft the ADR for Alfred's game-spans endpoint (message 4dc2b8bc) with the owner: detector, focus, retention, merged or raw spans. *(For: owner, ~20 min)*
 
@@ -8,12 +36,6 @@ The ADR is drafted with the owner because the detector choice (Steam's
 `AppId=` in `/proc/<pid>/cmdline` against an owner-kept list) and
 whether focus can be had from KWin are theirs. Constraints are in
 tasks.md's Session 362 block.
-
-## Scheduled action
-
-- Uninstall Steam games until `/` is under 90 %, which closes the
-  critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
-  (151 GB) arrived 2026-09-22 and was the biggest single step.
 
 ## Session 368: the §2.7 test exists
 

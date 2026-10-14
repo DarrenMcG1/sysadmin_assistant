@@ -8,6 +8,36 @@
 
 ---
 
+## Session 369: the game-spans ADR (2026-10-14)
+
+Session 368's next action. Docs only: `docs/adr/0016-game-spans-are-raw-and-alfred-reads-them.md`.
+
+- [x] **ADR-0016 drafted with the owner.** Four rulings: detect by
+      Steam `SteamLaunch AppId=<n>` plus an owner-kept `games:` list in
+      `config.yaml`; focus by a one-shot KWin script, run only on polls
+      that found a game; 30 days kept; spans served raw, Alfred merges.
+- [x] **Focus measured, not assumed.** KWin 6.7.5 has no D-Bus call
+      for the active window. A loaded, run and unloaded KWin script
+      printed the active window's PID and class to the user journal.
+- [x] **Replied to Alfred** (message
+      `4f851ae8-01c9-4656-bffa-3bc1547ab10e`, in reply to `4dc2b8bc`)
+      with the shape. It asks whether Alfred keeps the spans it reads,
+      which the owner left for Alfred to answer. `4dc2b8bc` stays open
+      until the endpoint exists.
+- [ ] **Build ADR-0016, first half**: the `game_spans` and `game_focus`
+      migration and the 60 s detector job (a new agent: the four places
+      in CLAUDE.md "Adding an agent", plus `JobSpec` and `JOB_TARGETS`),
+      with tests. No route yet.
+- [ ] **Build ADR-0016, second half**: `GET /api/games/spans`, its
+      `contracts.py` model, the registry row and the KWin focus probe.
+      Then close `4dc2b8bc`.
+- [ ] **A game-start event for the estate's gaming ladder** (rung 2:
+      evict models when a game starts). Recorded as a second concern,
+      not worked: whether the detector publishes under `estate/…` or the
+      estate polls the route is open (ADR-0016 §6).
+
+---
+
 ## Session 368: the §2.7 test exists (2026-10-14)
 
 Session 367's next action. One new test file.
@@ -116,6 +146,8 @@ so they stay open until then.
       whether spans arrive merged or raw. estate-manager's gaming
       ladder rung 2 waits on the same detector. Close the message once
       the endpoint exists.
+      *(2026-10-14: decided in ADR-0016 by Session 369; the build is
+      that session's two open items.)*
 - [x] **Decide whether to judge `publish_errors`** on
       `GET :8400/api/estate/messages-invariants` (estate message
       `653e9ae9`, closed). Decided by Session 365: not judged, and not
