@@ -27,7 +27,7 @@ and read the bullets beneath it.
 
 ## Architecture decision records — `adr/`
 
-Fifteen records. They are the highest-value documents here for a reader who is not
+16 records. They are the highest-value documents here for a reader who is not
 going to read the code, because each one states the alternatives that were
 measured and refused, not only the option taken.
 
@@ -48,6 +48,7 @@ measured and refused, not only the option taken.
 | [ADR-0013](adr/0013-a-published-key-is-necessary-and-was-never-sufficient.md) | why the session's audit reader stays on `docs` though `ports` publishes the key |
 | [ADR-0014](adr/0014-a-sample-cannot-be-both-pinnable-and-real.md) | why the briefing sample is not published, though two documents ask for it |
 | [ADR-0015](adr/0015-pointers-has-an-owner-and-the-cause-is-here.md) | why the estate's `pointers` check is not judged here, and the test that speaks for it instead |
+| [ADR-0016](adr/0016-game-spans-are-raw-and-alfred-reads-them.md) | how a running game is detected and its focus read, and why spans are served raw for Alfred to merge |
 
 ADR-0009 and ADR-0010 together are the record of the publication decision: the
 secrets audit over all 348 commits, what was found, and why two of the three
