@@ -91,14 +91,14 @@ so they stay open until then.
       whether spans arrive merged or raw. estate-manager's gaming
       ladder rung 2 waits on the same detector. Close the message once
       the endpoint exists.
-- [ ] **Decide whether to judge `publish_errors`** on
+- [x] **Decide whether to judge `publish_errors`** on
       `GET :8400/api/estate/messages-invariants` (estate message
-      `653e9ae9`, closed). The count only ever rises, so a judge would
-      alert on an increase between two reads, never on the level; the
-      retained MQTT copy is stale exactly when the broker is the cause,
-      so read the HTTP surface. It is not in `SURFACE_PATHS`
-      (`sysadmin/estate/client.py`). Either add it as a surface or
-      record why not.
+      `653e9ae9`, closed). Decided by Session 365: not judged, and not
+      added to `SURFACE_PATHS`. Why, with the reopen trigger, is the
+      last paragraph of `docs/design/estate.md`: 0 of 750 messages ever
+      failed, a failure costs a phone buzz and not a message, a broker
+      outage is already the `mosquitto` entry's, and a counter that never
+      falls cannot close a row.
 - [ ] **Amend `SNAG-ESTATE-001`'s host-fault paragraphs** (estate
       message `c86f83f9`, closed). An estate session installed the
       MT7927 Bluetooth firmware into `/usr/lib/firmware/updates/` on

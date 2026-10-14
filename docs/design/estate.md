@@ -499,3 +499,34 @@ against today's producer and are kept anyway** — the scan's
 `finished_at is None` (the row is written once, after the scan) and the
 audit's `error` (`_record` builds `AuditRun` without one) — named in the
 docstrings so their silence is not read as health.
+
+**`publish_errors` is not judged, and `GET :8400/api/estate/messages-invariants`
+is not a sixth surface in `SURFACE_PATHS`** (Session 365, on estate message
+`653e9ae9`, which recorded no recommendation either way). The field counts
+register rows whose MQTT announcement on `estate/messages/…` failed. Four
+reasons, measured 2026-10-14:
+
+1. **The population is empty.** 0 of 750 messages since the register opened
+   on 2026-08-25, and 0 of the 21,590 stored `estate-manager-api.service`
+   rows since 2026-09-22 carry the estate's `register_publish_degraded`
+   warning.
+2. **A failure loses a buzz, not a message.** The register stores first and
+   publishes second (estate ADR-0046 §5), and every reader a session
+   depends on reads HTTP: `inbox-notice.sh` curls `/api/estate/messages`.
+   The MQTT copy feeds alfred-glance's phone notifications, so the cost is
+   a missed buzz for a message that still reaches its receiver at the next
+   session start.
+3. **The likely cause already has an owner.** A broker that is down is the
+   `mosquitto` entry in `services.yaml`; judging the counter too would give
+   that fault a second owner, which `client.py`'s module docstring refuses
+   for 8400's own reachability.
+4. **The counter cannot close a row.** It never falls, so a level judgement
+   opens a row for ever, and an increase between reads needs per-run state
+   the judge does not keep. Closing on "no increase since" would announce a
+   recovery nobody observed.
+
+The residual cause the broker check cannot see (the register's credential
+or ACL) is still recorded here: the warning lands in `log_entries` at
+`warning`, below `FAULT_SEVERITIES`, so it is stored and raises nothing.
+**Reopen this** when `publish_errors` is first seen above 0, or when an
+MQTT consumer becomes something a session depends on rather than a phone.

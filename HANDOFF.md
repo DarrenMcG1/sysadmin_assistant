@@ -1,10 +1,10 @@
-# Handoff — 2026-10-14 (Session 364)
+# Handoff — 2026-10-14 (Session 365)
 
 ## Next action
 
-Decide whether to judge publish_errors on :8400's messages-invariants surface: add it to SURFACE_PATHS or record why not (tasks.md, Session 362 block). *(For: session)*
+Re-measure the MT7927 Bluetooth firmware and amend SNAG-ESTATE-001's host-fault paragraphs with a dated note (tasks.md, Session 362 block). *(For: session)*
 
-The smallest open decision that is ours alone. Alfred's gaming-spans
+The next decision that is ours alone and small. Alfred's gaming-spans
 endpoint (`4dc2b8bc`) is bigger and wants an ADR drafted with the owner.
 
 ## Scheduled action
@@ -12,6 +12,25 @@ endpoint (`4dc2b8bc`) is bigger and wants an ADR drafted with the owner.
 - Uninstall Steam games until `/` is under 90 %, which closes the
   critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
   (151 GB) arrived 2026-09-22 and was the biggest single step.
+
+## Session 365: publish_errors is not judged
+
+Session 364's next action. Docs only: the reasoning is the last
+paragraph of `docs/design/estate.md`, the tick is in tasks.md.
+
+- Decided: no sixth surface in `SURFACE_PATHS`. 0 of 750 register
+  messages have ever failed to publish, a failure costs a phone buzz
+  and not a message (sessions read the register over HTTP), and a
+  broker outage is already the `mosquitto` entry's.
+- Rejected judging an increase between reads: it needs per-run state
+  the judge does not keep, and a counter that never falls gives a row
+  no honest way to close.
+- Reopen when the count is first seen above 0, or when an MQTT
+  consumer becomes something a session depends on.
+
+## What Session 364 handed on (done by Session 365)
+
+Decide whether to judge publish_errors on :8400's messages-invariants surface: add it to SURFACE_PATHS or record why not (tasks.md, Session 362 block). *(For: session)*
 
 ## Session 364: Steam filled /, not the backups
 
