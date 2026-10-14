@@ -470,6 +470,20 @@ services:
     systemd: { unit: go-to-market-watch-replies.timer, scope: user }
     controllable: false
 
+  # --- clyde-automation-site ------------------------------------------
+  # The public site, live since 2026-10-05 and declared at its request
+  # (estate message 6db6bf4c). Served by Cloudflare Workers static assets
+  # with nothing running on this machine, so it is the `internet` entry's
+  # shape: an off-box URL with no unit, checked by status alone. Poll the
+  # https root as written; http:// and www. answer 301. When this box
+  # loses its connection the site reads down beside `internet`, two rows
+  # for one fault, and `internet` is the one that names it.
+  - project: clyde-automation-site
+    name: clyde-automation-site
+    role: frontend
+    kind: http
+    url: https://clydeautomation.co.uk/
+
   # --- This service ---------------------------------------------------
   # A system unit, unlike almost everything else here.
   - project: sysadmin-assistant
