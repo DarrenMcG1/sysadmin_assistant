@@ -8,6 +8,31 @@
 
 ---
 
+## Session 368: the §2.7 test exists (2026-10-14)
+
+Session 367's next action. One new test file.
+
+- [x] **`tests/test_schema_build.py`**: an empty scratch database is
+      built by `alembic upgrade head` through `alembic/env.py`
+      (`get_config` patched to its URL), read by `schema_status`, diffed
+      against `Base.metadata`, and dropped `WITH (FORCE)`. Two premises:
+      it started with no revision, and the comparison reaches every
+      mapped table. 4 tests, 0.3 s.
+- [x] **Falsified at migration 019**, file restored after each: a read
+      of a table no migration created errors all 4 tests; an upgrade
+      that skips its index fails the drift test while the head test
+      still passes, which is why both are asserted. 0 scratch databases
+      left behind either time.
+- Chosen: an Alembic `Config` with no ini file, because `env.py` then
+  skips `fileConfig`, which would disable every logger already created
+  in the pytest run. Rejected: running Alembic in a subprocess, which
+  would make the `get_config` patch impossible.
+- [ ] **Decide whether `ci.yml` gets a PostgreSQL service**, so this
+      test and `test_schema_drift.py` run in CI instead of skipping.
+      Recorded, not worked: a choice about CI, not about this test.
+
+---
+
 ## Session 364: Steam filled /, not the backups (2026-10-14)
 
 Session 363's next action. Docs only: STATUS.md's ops block.
@@ -141,7 +166,8 @@ so they stay open until then.
       database is shared* (above); *`test_schema_drift.py` already covers
       it* (it diffs the live schema, so it cannot see a chain that fails
       from empty, which is the estate's `gpu_leases` defect exactly).
-- [ ] **Write the §2.7 test**: create a scratch database, run `alembic
+- [x] **Write the §2.7 test** (done by Session 368,
+      `tests/test_schema_build.py`): create a scratch database, run `alembic
       upgrade head` through `alembic/env.py` with
       `sysadmin.core.config.get_config` patched to the scratch URL (env.py
       reads no other source), then assert `packaged_head()`, 0 drift

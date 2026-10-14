@@ -8242,6 +8242,13 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 368 — an empty database reaches head by the chain (2026-10-14)
+
+- `tests/test_schema_build.py` is contract §2.7's test: a scratch
+  database built from empty by `alembic upgrade head`, at the packaged
+  head by `schema_status`, 0 drift against the models, then dropped.
+  Skips without PostgreSQL, so CI does not run it yet.
+
 ### Session 356 — a web page can no longer fire the monitor's actions (2026-10-10)
 
 - `require_auth` refuses with 403 a request whose `Origin` is set and

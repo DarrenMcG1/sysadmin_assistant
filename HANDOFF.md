@@ -1,18 +1,39 @@
-# Handoff — 2026-10-14 (Session 367)
+# Handoff — 2026-10-14 (Session 368)
 
 ## Next action
 
-Write the §2.7 test: build a scratch database to head with alembic upgrade head, assert the head and zero drift, drop it (tasks.md, Session 362 block). *(For: session)*
+Draft the ADR for Alfred's game-spans endpoint (message 4dc2b8bc) with the owner: detector, focus, retention, merged or raw spans. *(For: owner, ~20 min)*
 
-Session 367's probe is the test's body, so this is small. Alfred's
-gaming-spans endpoint (`4dc2b8bc`) is bigger and wants an ADR drafted
-with the owner.
+The ADR is drafted with the owner because the detector choice (Steam's
+`AppId=` in `/proc/<pid>/cmdline` against an owner-kept list) and
+whether focus can be had from KWin are theirs. Constraints are in
+tasks.md's Session 362 block.
 
 ## Scheduled action
 
 - Uninstall Steam games until `/` is under 90 %, which closes the
   critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
   (151 GB) arrived 2026-09-22 and was the biggest single step.
+
+## Session 368: the §2.7 test exists
+
+Session 367's next action. One new test file, `tests/test_schema_build.py`.
+
+- Done: an empty scratch database is built by `alembic upgrade head`
+  through `alembic/env.py`, checked at head by `schema_status` (the
+  startup's own check), diffed against the models, then dropped.
+- Falsified twice at migration 019 and restored: a chain that cannot
+  run from empty errors every test; a migration that skips its index
+  fails the drift test while the head test passes.
+- Decided: the Alembic `Config` carries no ini file, so `env.py` skips
+  `fileConfig`, which would disable every logger already made in the run.
+- Rejected: a subprocess, because `get_config` could not be patched in it.
+- Open, recorded in tasks.md: CI has no PostgreSQL, so the test skips
+  there. Whether to add one is its own choice.
+
+## What Session 367 handed on (done by Session 368)
+
+Write the §2.7 test: build a scratch database to head with alembic upgrade head, assert the head and zero drift, drop it (tasks.md, Session 362 block). *(For: session)*
 
 ## Session 367: contract §2.7 applies to the sysadmin schema
 
