@@ -1,8 +1,8 @@
-# Handoff — 2026-10-15 (Session 371)
+# Handoff — 2026-10-15 (Session 372)
 
 ## Next action
 
-Drop idx_alerts_open_by_agent in its own migration, filing at the estate first and leaving a pointer in migration 017's docstring. *(For: session)*
+Fix R43 in CLAUDE.md: remove the template placeholder at line 8 and drop the stale "~360 tests" count at line 104. *(For: session)*
 
 ## Scheduled action
 
@@ -13,6 +13,40 @@ Drop idx_alerts_open_by_agent in its own migration, filing at the estate first a
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
   game has been seen yet.
+
+## Session 372: idx_alerts_open_by_agent dropped
+
+Session 371's next action. Code in `6f151e4`. Migration 021 drops the index, which
+migration 019's `uq_alerts_open_agent_title` made redundant, and
+migration 017's docstring now says where it went. Applied to the live
+database the same day; no restart is owed, because the daemon checks
+the schema head only at startup.
+
+- **Measured first:** 100,000 open `log_aggregator` rows inserted and
+  the index dropped, in one rolled-back transaction. `sysadmin`'s
+  open-row read took `uq_alerts_open_agent_title` at 4 buffers,
+  0.013 ms. Live state was checked unchanged afterwards.
+- **Not filed at the estate**, though the handoff said to. Estate
+  rule 5 (a dropped database object leaves a pointer) covers a schema
+  or table holding data, and its filing names where the content lands.
+  An index has no content, and the estate's inventory lists no indexes.
+  Rejected: filing anyway, which hands the estate a message with
+  nothing to record.
+- **New test:** `test_an_open_index_leads_on_agent` asserts that some
+  open-row index leads on `agent`, which is what made the drop safe.
+  Reordering the unique index's columns turns it red.
+- Moved Sessions 355 to 358 to `HANDOFF-archive.md`, to bring this
+  file back under the estate's 500-line bound.
+- **`check-ops-claims.sh` reads one `no` until the next restart**:
+  the daemon started at 11:37:25, before this session's edits. Not
+  restarted, because the change it lacks is the model no longer
+  declaring the dropped index, which the running process never reads.
+  STATUS.md's route and test counts were stale from Session 371 and
+  are refreshed (53 routes, 4,670 tests).
+
+## What Session 371 handed on (done by Session 372)
+
+Drop idx_alerts_open_by_agent in its own migration, filing at the estate first and leaving a pointer in migration 017's docstring. *(For: session)*
 
 ## Session 371: ADR-0016's second half, live
 
@@ -345,160 +379,6 @@ Left: `SNAG-AGENT-014` (P4). A manual run is not serialised against the
 scheduled run of one agent, so a fault both raise now fails the second
 run instead of writing a duplicate. Never observed.
 
-## What Session 358 handed on (done by Session 359)
-
-Fix SNAG-DB-007: settle the open-alert identity from docs/design/alerts.md, then add its partial unique index and the flag/timestamp CHECKs in one migration. *(For: session)*
-
-## Session 358: Alfred's Telegram health is watched from the day the bot exists
-
-The owner asked for estate message `d01b0798`: Alfred's `GET
-/api/health` gains a `telegram` field (`ok`, `degraded` or `disabled`),
-and whether to watch it was left to this repository. Session 357's next
-action stays open, unchanged.
-
-Code in `ba81bb2` (the gated test) and `c056ee9` (the entry).
-
-**The gate fired the same evening.** The owner installed
-`~/.config/alfred/telegram.env` at 20:58 BST and said the bot was live; the
-test went red, `alfred-telegram` was declared beside `alfred-bus`, and
-`POST /api/sysadmin/reload` added it without a restart. Its first poll,
-at 21:17:34 BST, read `ok`.
-
-Decided:
-
-- **Watched, but not today.** The field reads `disabled` until the
-  owner creates the bot, and was absent from the live body this
-  evening. An `equals: ok` entry would alert from its first poll about
-  a state the owner chose.
-- **A test fires the day it is time, rather than a task waiting to be
-  read.** It skips while `~/.config/alfred/telegram.env` is absent
-  (the prod token file, Alfred ADR-0139's amendment) and fails from
-  the moment it exists until `services.yaml` has a monitored
-  `alfred-telegram` entry. Gated on the file, not the body, because the
-  body's value is what flips when the bot is in trouble. Falsified with
-  the gate forced open: red against today's file, green against a copy
-  holding the recommended entry, and the loader accepts that entry.
-- **Its own entry, `alfred-bus`'s shape**, by the owner's 2026-09-25
-  ruling for `bus`: the bot is non-critical, so its faults must not
-  charge the `alfred` entry's reliability score. `equals: ok` is
-  strict, because with the token file present `disabled` is a fault.
-- **Rejected: an entry with `mute: true` now.** It ends only when
-  someone remembers to unmute it, the same weakness as a note.
-
-## Session 357: a critical service draws a red dot
-
-Session 356's next action, `SNAG-TRAY-012`. Code in `902176a` (the map
-and its tests) and `8fb5564` (the two tabs call the helper). Full suite
-4,599 passed and 2 skipped; ruff and mypy are clean.
-
-`STATUS_COLOURS` in `sysadmin_tray/styles.py` holds exactly the seven
-`chk_health_status` values, and `status_colour()` is the one grey
-fallback the three dot sites call. `tests/test_tray/test_status_colours.py`
-pins the keys to the constraint in both directions and drives every
-site through every value. Against the pre-fix map, 13 of its 25 tests
-turn red.
-
-Decided:
-
-- **The keys equal the constraint; they do not merely include it.**
-  `active`, `inactive`, `failed` and `unknown` went: no producer sends
-  any of them to these sites. `/api/projects/managed` does send
-  `unknown`, for a service with no health row, and it still draws grey
-  through the fallback. A superset test would have let dead keys
-  accumulate, as these four had since February.
-- **`skipped` is grey, and the map now says so.** It means nobody
-  looked, by declaration. It is neither well nor a fault, and a new
-  colour would be a design decision this fix had no grounds for.
-- **The colours are not derived from `STATUS_READINGS`.** That map
-  sits in a SQLAlchemy model module the tray does not import. Its three
-  readings also cannot give `degraded` amber and `critical` red, since
-  both are `fault`.
-- **Split into two code commits** at a green point, because the
-  pre-commit hook blocks five or more code files without docs, and code
-  and prose go in separate commits.
-
-## What Session 356 handed on (done by Session 357)
-
-Fix SNAG-TRAY-012: one status-colour map in sysadmin_tray/styles.py, read by all three sites, with a test pinning its keys to chk_health_status. *(For: session)*
-
-## Session 356: a web page can no longer fire the monitor's actions
-
-Session 355's next action. Code in `381cfdb`. The owner restarted
-`sysadmin.service` at 16:52:34, and the probes passed live.
-
-`require_auth` now refuses with 403 a request whose `Origin` is set and
-not in `service.cors_origins`. It applies to all 13 mutating routes,
-before the token is checked, whether or not a token is set.
-`SNAG-API-005` stays open at P3 for the token half: another local
-process sends no `Origin` and still gets through.
-
-Decided:
-
-- **The check is in `require_auth`, not in a middleware.** That gives it
-  exactly the routes already guarded, and the census test holds that set
-  equal to every non-`GET` route.
-- **The allowed list is read from `app.state`, not `get_config()`.**
-  `CORSMiddleware` captures it once and `service` is restart-only, so a
-  reload must not let the two readers disagree.
-- **A foreign origin is refused even with the right token.** That is
-  simpler than ordering the two checks around each other, and a page
-  cannot hold the token anyway.
-- **The match is exact, as `CORSMiddleware`'s is**, and `"*"` allows
-  everything. `Origin: null` is refused.
-
-What went wrong: the first live probe ran before the restart, because
-the restart was aimed at `--user`, where no `sysadmin.service` exists:
-it is a system unit. That probe's `POST /api/sysadmin/scan-all` started
-all four agents' scans once, out of schedule. Harmless, but recorded.
-`sudo` does not work through the `!` prefix, so the owner restarts from
-a terminal.
-
-Second concern, recorded: `SNAG-TEST-017`. Postflight flagged an
-idle-queue-only live assert while the GPU queue held a lease.
-`SNAG-TEST-016` was flagged again too, as before.
-
-## What Session 355 handed on (done by Session 356)
-
-Close the cross-site half of SNAG-API-005: refuse a mutating request whose Origin header is set and not in cors_origins, with a test per route. *(For: session)*
-
-## Session 355: the October design review's five defects are recorded
-
-Session 354's next action. Roadmap and handoff only; no code changed,
-no restart owed.
-
-Estate message `dca21976` carried five readings from the owner's
-October design review (run 2026-10-07 from an estate-manager session).
-Each was re-read at its file and line, and measured where the box could
-answer:
-
-- R4, the empty API token: **`SNAG-API-005`, P2.** All 13 mutating
-  routes are open, as quoted. Added by measurement: 9 of them take no
-  body, so a browser can send them cross-site without a preflight. The
-  old task "set a real token in config.yaml" is marked superseded,
-  because the repository is public and a token in that file would be
-  published.
-- R5, the tray palette: **`SNAG-TRAY-012`, P2.** Confirmed, and there
-  are three readers, not two. 311 `critical` rows in the last 7 days
-  showed as grey dots.
-- R35, duplicate open alerts: **`SNAG-DB-007`, P3.** The schema allows
-  it, and the live table has none: 0 duplicate open pairs and 0 flags
-  that disagree with their timestamps.
-- R36, a unit that never applies migrations: **no entry.** This is the
-  design `SNAG-DB-005` chose, and the commit-time check still runs
-  (`scripts/claude-precommit.sh:95`). Recorded as a ticked item in
-  tasks.md.
-- R43, the placeholder and "~360 tests" in `CLAUDE.md`: **a `- [ ]`
-  task** in Session 355's block in tasks.md.
-
-Decided: the next action is SNAG-API-005's Origin check rather than the
-tray colours, because it is the only finding that lets something outside
-the box act on it. Rejected: fixing any of them here, which would be a
-second concern.
-
-Not recorded: the review's two closing remarks (direct database calls in
-`files/router.py`, and the 48% docstring and comment share), which the
-message lists outside the five and calls neither a defect.
-
 ## Older sessions
 
-Sessions 354 and earlier are in [HANDOFF-archive.md](HANDOFF-archive.md).
+Sessions 358 and earlier are in [HANDOFF-archive.md](HANDOFF-archive.md).

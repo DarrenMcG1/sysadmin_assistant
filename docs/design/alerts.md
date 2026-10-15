@@ -160,7 +160,11 @@ Five rules, four of them the opposite of what the entry proposed:
    prefers the older index, one open row making either free, so the new
    one is insurance that engages when the entry's worry materialises —
    stated rather than implied, since an index nothing chooses looks
-   exactly like an index that does not work.
+   exactly like an index that does not work. **Migration 021 dropped it
+   on 2026-10-15**: 019's `uq_alerts_open_agent_title` leads on `agent`
+   under the same predicate and took the read at the same 100,000-row
+   storm, 4 buffers. The insurance is now that index, and
+   `test_an_open_index_leads_on_agent` holds its column order.
 4. **The substitution is provable, not merely safe-looking.** `IS false`
    and `= false` differ on exactly one input and `resolved` is `NOT
    NULL`, which is why the definition lives beside the column: the column
