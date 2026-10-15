@@ -8252,6 +8252,16 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 374 — on 7.2.9 the card sleeps, and the screens did not come back (2026-10-15)
+
+- The unclean power-off at 2026-10-14 05:41 was not a hang. The card
+  had slept all night with Steam quit; it woke at 05:19:10, no DP
+  monitor reconnected, and the owner pressed and then held the power
+  key. 7.2.7 never let the card sleep (0 resumes in a week); 7.2.9
+  does (1,797 in one boot). Session 349's "where the card never
+  sleeps" below held only until that upgrade. Pinning the card awake
+  with a udev rule is the owner's step (tasks.md, Session 374).
+
 ### Session 368 — an empty database reaches head by the chain (2026-10-14)
 
 - `tests/test_schema_build.py` is contract §2.7's test: a scratch

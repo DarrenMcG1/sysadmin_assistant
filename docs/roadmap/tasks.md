@@ -8,6 +8,50 @@
 
 ---
 
+## Session 374: the 05:41 power-off was the dark-screen wake again (2026-10-15)
+
+Session 373's next action. Read the journal of boot `1f080b26` (ended
+2026-10-14 05:41:15). Roadmap and handoff only; no code changed, no
+restart owed.
+
+- [x] **The box had not hung.** Services, the tray's 30 s polls,
+      Postgres and the estate API logged normally up to 05:41:15.207,
+      27 s after the press. No amdgpu fault in the whole boot.
+- [x] **The press was handed to KDE and did nothing visible.** logind
+      logged "Power key pressed short" at 05:40:48.6 and took no action,
+      because PowerDevil holds the `handle-power-key` block inhibitor.
+      Nothing from KDE followed. The journal then stops with no shutdown
+      sequence, and the next boot recovered ext4's journal and found
+      the ESP's dirty bit: the key was held until the power went.
+- [x] **The cause is Session 349's failure, on 7.2.9.** Steam quit at
+      21:27:23 on 2026-10-13, the monitors went off at 21:51, and the
+      card then slept all night, waking only about hourly (`:37:48` or
+      `:42:48`). At 05:19:10, off that pattern and so most likely the
+      owner's input, it resumed cleanly with a `drm` change of
+      `prop_connector: (null)`. No `card1-DP-2` event followed in the
+      21 minutes before the press. Every earlier morning in this boot
+      that worked had one within seconds (10-10 10:42, 10-12 09:01,
+      10-13 06:43).
+- [x] **7.2.9 lets the card sleep; 7.2.7 did not.** Boot `797b83cd`
+      (7.2.7, 2026-09-30 to 10-07) logged 0 card resumes. Boot
+      `1f080b26` (7.2.9) logged 1,797, the first at 2026-10-08 23:00.
+      So Session 349's "7.2 keeps the card awake", which the owner's
+      2026-10-08 ruling rests on, held for 7.2.7 and stopped on the
+      upgrade. The current boot reads `control=auto` with 0 resumes,
+      because Steam is running.
+- [ ] **Pin the card awake** *(For: owner, ~5 min)*. The 2026-10-08
+      ruling already says a sleeping card is not wanted. Two commands,
+      run once:
+      `echo 'ACTION=="add", SUBSYSTEM=="pci", KERNEL=="0000:03:00.0", ATTR{power/control}="on"' | sudo tee /etc/udev/rules.d/80-dgpu-awake.rules`
+      and `echo on | sudo tee /sys/bus/pci/devices/0000:03:00.0/power/control`.
+      Check: `cat /sys/bus/pci/devices/0000:03:00.0/power/control`
+      reads `on`, and again after the next boot. **Chosen:** a udev
+      rule. Rejected: `amdgpu.runpm=0` on the kernel line, which needs
+      a boot-entry edit and a reboot, while the rule takes effect at
+      once and does not depend on which kernel entry boots.
+
+---
+
 ## Session 372: idx_alerts_open_by_agent dropped (2026-10-15)
 
 Session 371's next action, Session 359's open task. Migration 021,
@@ -154,8 +198,10 @@ Session 363's next action. Docs only: STATUS.md's ops block.
       was pressed at 05:40:48 and the previous boot's journal ends at
       05:41:15 with no shutdown sequence. `check-ops-claims.sh` reads
       12 of 12 `ok`.
-- [ ] **Why the box was powered off uncleanly at 05:40:48** on
-      2026-10-14. A second concern, not worked: the journal shows the
+- [x] **Why the box was powered off uncleanly at 05:40:48** on
+      2026-10-14. *(Answered by Session 374: it had not hung. The
+      screens had not come back after the card woke at 05:19:10.)*
+      A second concern, not worked: the journal shows the
       key press and then nothing, so whether the box had hung first is
       unread. Start at `journalctl -b -1 --since 05:30`.
 - Left for the owner: the alert stays open until `/` is under 90 %,

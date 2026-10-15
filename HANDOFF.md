@@ -2,7 +2,7 @@
 
 ## Next action
 
-Read the journal of the boot that ended 2026-10-14 05:41 from 05:30 on, to find whether the box hung before its power key was pressed. *(For: session)*
+Pin the dGPU awake by running the two commands under Pin the card awake in tasks.md, Session 374. *(For: owner, ~5 min)*
 
 ## Scheduled action
 
@@ -13,6 +13,32 @@ Read the journal of the boot that ended 2026-10-14 05:41 from 05:30 on, to find 
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
   game has been seen yet.
+
+## Session 374: the 05:41 power-off was the dark-screen wake again
+
+Session 373's next action. Journal reading only; no code changed, no
+restart owed. The evidence is in tasks.md, Session 374.
+
+- **The box had not hung.** Everything logged normally until
+  05:41:15, 27 s after the short press at 05:40:48. logind deferred
+  the press to PowerDevil, nothing visible happened, and the key was
+  then held until the power went (unclean-shutdown recovery on the
+  next boot).
+- **Why the owner pressed it:** the card had slept all night with
+  Steam quit, woke at 05:19:10, and no DP monitor reconnected. This is
+  Session 349's linux-lts failure, now on 7.2.9.
+- **The 2026-10-08 ruling's premise broke on the kernel upgrade.**
+  7.2.7 logged 0 card resumes in a week; 7.2.9 logged 1,797 in one
+  boot. The ruling (a sleeping card is not wanted) still stands, so
+  pinning the card awake implements it rather than reopening it.
+- **Chosen:** a udev rule setting `power/control=on`. Rejected:
+  `amdgpu.runpm=0`, which needs a boot-entry edit and a reboot.
+- Until the owner runs it, any night with Steam quit can end the same
+  way. With Steam running, as now, the card stays awake.
+
+## What Session 373 handed on (done by Session 374)
+
+Read the journal of the boot that ended 2026-10-14 05:41 from 05:30 on, to find whether the box hung before its power key was pressed. *(For: session)*
 
 ## Session 373: CLAUDE.md's two stale lines
 
