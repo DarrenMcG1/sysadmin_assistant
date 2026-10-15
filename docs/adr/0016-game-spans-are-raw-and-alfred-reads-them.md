@@ -1,7 +1,8 @@
 # ADR-0016 — Game spans are raw, and Alfred reads them
 
 **Date:** 2026-10-14
-**Status:** Accepted (the owner's rulings, Session 369; nothing built yet)
+**Status:** Accepted (the owner's rulings, Session 369). First half
+built by Session 370 (2026-10-15); two amendments in §7.
 **Context:** estate message `4dc2b8bc` (alfred → sysadmin-assistant, filed
 2026-10-11). The owner asked for a read-only endpoint returning the time
 spans in which a game was running over a date range, so Alfred's
@@ -150,3 +151,21 @@ the answer.
 - **Alerting.** A game running is not a fault. Nothing in this ADR
   raises an alert.
 - **Alfred's merge.** It is theirs, as stated above.
+
+## 7. Amendments from the build (Session 370, 2026-10-15)
+
+Both were found while building and neither changes a ruling.
+
+- **A Steam span is keyed on the AppId, not on the reaper's PID** (§2).
+  Steam's `console_log.txt` for Deadlock on 2026-10-14 shows two
+  processes whose argv carries `SteamLaunch AppId=1422450`: the
+  `steam-launch-wrapper`, which has the reaper's command line as its
+  arguments, and the reaper. Keyed on a PID, one game opens two spans.
+  The span lasts while any process carrying the AppId lives.
+- **`game_focus` has a `state` column, `focused` or `unknown`** (§4).
+  §3 says a stretch where the probe failed carries `focus_known: false`,
+  and §4's columns had nowhere to record it. An unfocused stretch has no
+  row. Until the KWin probe is built, every gaming minute is `unknown`.
+- **Added: a gap of more than three polls ends a span** even if the game
+  is still running. A suspended box resumes with the game open, and
+  extending the span across the night would report it as play.

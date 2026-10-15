@@ -1,8 +1,8 @@
-# Handoff — 2026-10-14 (Session 369)
+# Handoff — 2026-10-15 (Session 370)
 
 ## Next action
 
-Build ADR-0016's first half: the game_spans and game_focus migration and the 60 s game detector job, with tests and no route yet. *(For: session)*
+Build ADR-0016's second half: GET /api/games/spans with its contracts.py model and registry row, and the one-shot KWin focus probe; then close 4dc2b8bc. *(For: session)*
 
 ## Scheduled action
 
@@ -10,7 +10,47 @@ Build ADR-0016's first half: the game_spans and game_focus migration and the 60 
   critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
   (151 GB) arrived 2026-09-22 and was the biggest single step.
 
-## Session 369: ADR-0016, game spans
+## Session 370: ADR-0016's first half, live
+
+Session 369's next action. Built: migration 020 (`game_spans`,
+`game_focus`, a 30-day retention row, `game_detector` admitted by the
+alerts table's agent whitelist), `sysadmin/games/` (detector, agent,
+models), the wiring, and 26 tests. No route.
+
+- **Live:** the owner approved; migration 020 applied and the daemon
+  restarted at 2026-10-15 08:52:12. Startup closed 0 open spans; the
+  first poll at 08:53:12 completed with no game running. A stand-in
+  process carrying `SteamLaunch AppId=570` was found by `scan()` on the
+  live `/proc` and named "Dota 2" from the real manifest, without
+  writing a row.
+- **Not yet seen:** a real game span. The first evening of play is the
+  first live positive; check `sysadmin.game_spans` after it.
+- **For the second half:** the probe plugs into
+  `GameDetectorAgent(focus_probe=…)`; it returns the active window's
+  PID or `None`, and the bookkeeping already turns that into
+  `focused`/`unknown` stretches.
+- Commit plan: one code commit carrying `tasks.md` (the hook blocks 5+
+  code files with no tracking doc, and this is 19), then one prose
+  commit. Rejected: four 4-file code commits, which doubles the
+  per-push review count for one concern.
+- Departed from ADR-0016, both measured, recorded in its §7: a Steam span is keyed on the AppId, because Steam's console log
+  shows the launch wrapper and the reaper both carry
+  `SteamLaunch AppId=1422450`; `game_focus` has a `state` column
+  (`focused`/`unknown`), because §3 needs "unknown" and §4 had nowhere
+  to put it.
+- Until the KWin probe (second half) exists, every gaming minute is
+  recorded as an `unknown` focus stretch, never as unfocused.
+- Added rule: a gap of more than 3 polls breaks a span, so a suspended
+  box does not report the night as play.
+- Found by the scratch-database test: with no ORM relationship, the
+  unit of work inserted the focus row before its span and the foreign
+  key refused it. Fixed with a never-read relationship on `GameFocus`.
+
+## What Session 369 handed on (done by Session 370)
+
+Build ADR-0016's first half: the game_spans and game_focus migration and the 60 s game detector job, with tests and no route yet. *(For: session)*
+
+## Session 369 (2026-10-14): ADR-0016, game spans
 
 Session 368's next action. Docs only, plus a reply to Alfred.
 
