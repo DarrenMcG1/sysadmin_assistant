@@ -52,8 +52,8 @@ CHECK cannot pass by default.  Zero rows violate either on the live
 table, and every writer under ``sysadmin/`` sets both columns together.
 
 ``idx_alerts_open_by_agent`` (migration 017) is now redundant, since this
-index leads on ``agent`` under the same predicate.  It is left in place:
-dropping it is its own change, recorded in ``docs/roadmap/tasks.md``.
+index leads on ``agent`` under the same predicate.  It was left in place
+here and dropped as its own change by migration 021.
 
 Revision ID: 019
 Revises: 018

@@ -1,5 +1,10 @@
 """Index this agent's open alerts, so one family's pile-up is not paid by all.
 
+**Dropped by migration 021 on 2026-10-15.**  Migration 019's
+``uq_alerts_open_agent_title`` leads on ``agent`` under the same
+predicate and serves the same read; the measurement is in 021's
+docstring.  This index no longer exists on a database at head.
+
 Session 105, ``SNAG-AGENT-007``.  Every agent asks the same question on
 every run — *which of my alerts are still open?* — and ``alerts`` carried
 only ``idx_alerts_active`` (``created_at`` where not resolved), which

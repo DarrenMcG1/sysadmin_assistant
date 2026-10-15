@@ -31,7 +31,7 @@ from sysadmin.core.models.alert import Alert, unresolved
 #: idiom here by running its walker at its own owner.
 OWNER = pathlib.Path("sysadmin/core/models/alert.py")
 
-#: What both partial indexes on ``alerts`` declare.
+#: What every partial index on ``alerts`` declares.
 INDEX_PREDICATE = "resolved = FALSE"
 
 
@@ -132,13 +132,33 @@ class TestThePredicateAndTheIndexAgree:
             for index in Alert.__table__.indexes
             if index.dialect_options["postgresql"].get("where") is not None
         ]
-        # Three since migration 019 added ``uq_alerts_open_agent_title``
-        # (``SNAG-DB-007``) under the same predicate.
-        assert len(partials) == 3, f"expected three partial indexes, got {partials}"
+        # Two: migration 019 added ``uq_alerts_open_agent_title``
+        # (``SNAG-DB-007``) under the same predicate, and migration 021
+        # dropped ``idx_alerts_open_by_agent``, which it made redundant.
+        assert len(partials) == 2, f"expected two partial indexes, got {partials}"
         assert {p.lower() for p in partials} == {INDEX_PREDICATE.lower()}
 
         rendered = _sql(select(Alert.title).where(unresolved())).lower()
         assert INDEX_PREDICATE.lower() in rendered
+
+    def test_an_open_index_leads_on_agent(self):
+        """What made dropping ``idx_alerts_open_by_agent`` safe.
+
+        Every agent reads its own open rows on every run, and only an
+        index whose first column is ``agent`` bounds that read by the
+        agent's share of the open set rather than by all of it
+        (``SNAG-AGENT-007``).  Migration 021 dropped the agent-only index
+        because ``uq_alerts_open_agent_title`` leads on ``agent``; a
+        reordering of that index's columns would quietly undo this.
+        """
+        leading_on_agent = [
+            index.name
+            for index in Alert.__table__.indexes
+            if next(iter(index.columns)).name == "agent"
+            and str(index.dialect_options["postgresql"].get("where")).lower()
+            == INDEX_PREDICATE.lower()
+        ]
+        assert leading_on_agent, "no open-row index leads on agent"
 
     def test_the_column_cannot_be_null(self):
         """The proof that the substitution preserved meaning.

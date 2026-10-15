@@ -582,14 +582,14 @@ class SysAdminAgent(BaseAgent):
         bounded by *the judgements this run made*, which is at most a
         handful.  It costs one indexed lookup per held-and-checked title:
         measured against the live table at 665,937 rows, **84 buffers and
-        0.098 ms**, on ``idx_alerts_active`` rather than
-        ``idx_alerts_open_by_agent`` — with one open row on the box
-        either partial index is free and the planner takes the older one,
-        which is exactly what ``SNAG-AGENT-007`` recorded about its own
-        pair.  The agent-scoped one is what bounds this read if the open
-        set ever grows again, and it is reached through
-        :meth:`_open_alert_criteria` rather than by a hand-written
-        predicate, so it can be reached at all.
+        0.098 ms**, on ``idx_alerts_active`` — with one open row on the
+        box any partial index is free and the planner takes the older
+        one, which is exactly what ``SNAG-AGENT-007`` recorded about its
+        own pair.  What bounds this read if the open set ever grows again
+        is ``uq_alerts_open_agent_title``, which leads on ``agent``
+        (migration 021 dropped the agent-only index it made redundant),
+        and it is reached through :meth:`_open_alert_criteria` rather
+        than by a hand-written predicate, so it can be reached at all.
 
         The read happens inside the per-service savepoint on that path,
         which changes nothing:

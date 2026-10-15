@@ -223,7 +223,7 @@ sysadmin/            backend package
   games/             game spans from /proc and Steam's manifests
   briefing/          morning briefing envelope
 sysadmin_tray/       PyQt6 tray icon + dashboard
-alembic/             20 migrations (version_table_schema="sysadmin")
+alembic/             21 migrations (version_table_schema="sysadmin")
 tests/               pytest suites, incl. tests/test_tray/
 scripts/             install, run, lint, systemd, session pre/postflight, checks
 systemd/             unit and desktop files

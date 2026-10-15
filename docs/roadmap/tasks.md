@@ -8,6 +8,23 @@
 
 ---
 
+## Session 372: idx_alerts_open_by_agent dropped (2026-10-15)
+
+Session 371's next action, Session 359's open task. Migration 021,
+applied live the same day; no restart owed.
+
+- [x] **Measured before the drop**: 100,000 open `log_aggregator` rows
+      and the index dropped in one rolled-back transaction; `sysadmin`'s
+      open-row read took `uq_alerts_open_agent_title`, 4 buffers,
+      0.013 ms.
+- [x] **Migration 021** drops it; `downgrade` recreates it as 017 did.
+      The pointer is migration 017's docstring. Not filed at the
+      estate: rule 5 covers schemas and tables holding data.
+- [x] **`test_an_open_index_leads_on_agent`**, falsified by reordering
+      the unique index's columns.
+
+---
+
 ## Session 371: ADR-0016's second half (2026-10-15)
 
 Session 370's next action. Code: `sysadmin/games/focus.py` (the KWin
@@ -327,7 +344,7 @@ to the live database the same day, no restart owed.
 - [x] **Migration 019**: the partial unique index and the two
       flag/timestamp CHECKs, falsified red against the old schema and
       green after, in `tests/test_open_alert_constraints_live.py`.
-- [ ] **Drop `idx_alerts_open_by_agent`**, found by Session 359 and not
+- [x] **Drop `idx_alerts_open_by_agent`**, found by Session 359 and not
       worked. Migration 019's index leads on `agent` under the same
       predicate, and the planner already takes it for "this agent's open
       rows" (`Index Only Scan using uq_alerts_open_agent_title`). Its

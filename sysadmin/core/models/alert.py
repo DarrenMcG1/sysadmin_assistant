@@ -72,6 +72,16 @@ class Alert(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         # would refuse a raise the code considers legal, and
         # ``details['source']`` narrows one resolve, never a raise.  The
         # measurement is in migration 019's docstring.
+        #
+        # It also serves "*this agent's* open rows", which every agent
+        # asks on every run, because it leads on ``agent``.  That read
+        # had its own index, ``idx_alerts_open_by_agent`` (migration
+        # 017), until migration 021 dropped it as redundant: with 100,000
+        # open ``log_aggregator`` rows inserted in a rolled-back
+        # transaction and that index dropped, ``sysadmin``'s read took
+        # this one at 4 buffers, 0.013 ms.  ``idx_alerts_active`` alone
+        # bounds the read by the whole open set, and ``SNAG-AGENT-005``
+        # reached 598,091 such rows.
         Index(
             "uq_alerts_open_agent_title",
             "agent",
@@ -83,25 +93,6 @@ class Alert(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         # ordering.  Its predicate is the reason :func:`unresolved` exists
         # and is spelled the way it is; see there.
         Index("idx_alerts_active", "created_at", postgresql_where=text("resolved = FALSE")),
-        # Serves "*this agent's* open rows", which is what every agent
-        # asks on every run.  The index above bounds that read by the
-        # whole open set rather than by the asking agent's share of it,
-        # so one family's pile-up is paid for by every other family:
-        # measured against the live table with 100,000 open
-        # ``log_aggregator`` rows inserted in a rolled-back transaction,
-        # ``SysAdminAgent._active_alerts`` scanned 100,001 index entries
-        # (1,935 buffers, 6.7 ms) to return zero rows, and 2 buffers /
-        # 0.02 ms with this one.  ``SNAG-AGENT-005`` reached 598,091 such
-        # rows, so the shape is observed here rather than imagined.
-        #
-        # ``agent`` alone, not ``(agent, created_at)``: no caller of the
-        # open set orders by anything, and the index above already owns
-        # the one that does.
-        Index(
-            "idx_alerts_open_by_agent",
-            "agent",
-            postgresql_where=text("resolved = FALSE"),
-        ),
     )
 
 
