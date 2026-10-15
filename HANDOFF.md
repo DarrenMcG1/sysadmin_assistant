@@ -1,11 +1,14 @@
-# Handoff — 2026-10-15 (Session 373)
+# Handoff — 2026-10-15 (Session 375)
 
 ## Next action
 
-Pin the dGPU awake by running the two commands under Pin the card awake in tasks.md, Session 374. *(For: owner, ~5 min)*
+Recommend whether ci.yml gets a PostgreSQL service so test_schema_build.py and test_schema_drift.py run in CI (tasks.md, Session 368). *(For: session)*
 
 ## Scheduled action
 
+- After the next boot, `cat /sys/bus/pci/devices/0000:03:00.0/power/control`
+  reads `on`. If it reads `auto`, the udev rule lost to amdgpu; the
+  fallbacks are in tasks.md, Session 374.
 - Uninstall Steam games until `/` is under 90 %, which closes the
   critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
   (151 GB) arrived 2026-09-22 and was the biggest single step.
@@ -13,6 +16,25 @@ Pin the dGPU awake by running the two commands under Pin the card awake in tasks
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
   game has been seen yet.
+
+## Session 375: the card is pinned awake
+
+Session 374's next action. No repository code; one system file.
+
+- `/etc/udev/rules.d/80-dgpu-awake.rules` written and
+  `power/control` set to `on` live, through `pkexec`: `sudo` needs a
+  terminal password, and neither the session nor the owner's `!`
+  prefix can supply one.
+- **Changed from the recorded command:** the rule matches
+  `ACTION=="add|bind"`. Rejected: `add` alone, which fires before
+  amdgpu binds; the driver re-enables runtime PM while loading, so the
+  write would likely be undone. Reasoned, not measured.
+- Checked: `udevadm verify` passes; `power/control` reads `on`,
+  `runtime_status` `active`.
+
+## What Session 374 handed on (done by Session 375)
+
+Pin the dGPU awake by running the two commands under Pin the card awake in tasks.md, Session 374. *(For: owner, ~5 min)*
 
 ## Session 374: the 05:41 power-off was the dark-screen wake again
 

@@ -39,7 +39,7 @@ restart owed.
       2026-10-08 ruling rests on, held for 7.2.7 and stopped on the
       upgrade. The current boot reads `control=auto` with 0 resumes,
       because Steam is running.
-- [ ] **Pin the card awake** *(For: owner, ~5 min)*. The 2026-10-08
+- [x] **Pin the card awake** *(For: owner, ~5 min)*. The 2026-10-08
       ruling already says a sleeping card is not wanted. Two commands,
       run once:
       `echo 'ACTION=="add", SUBSYSTEM=="pci", KERNEL=="0000:03:00.0", ATTR{power/control}="on"' | sudo tee /etc/udev/rules.d/80-dgpu-awake.rules`
@@ -49,6 +49,21 @@ restart owed.
       rule. Rejected: `amdgpu.runpm=0` on the kernel line, which needs
       a boot-entry edit and a reboot, while the rule takes effect at
       once and does not depend on which kernel entry boots.
+      **Done 2026-10-15 (Session 375)** through `pkexec`, because
+      `sudo` wants a terminal password the session cannot give. The
+      rule as written matches `ACTION=="add|bind"`, not `add` alone:
+      `add` fires when the card is enumerated, before amdgpu binds,
+      and the driver re-enables runtime PM while it loads, so an
+      add-only write would likely be undone each boot. Not measured;
+      the after-boot check settles it. `udevadm verify` passes, and
+      `power/control` reads `on` and `runtime_status` `active`.
+- [ ] **After the next boot, `power/control` still reads `on`.** If
+      it reads `auto`, the rule lost to the driver: try matching
+      `DRIVER=="amdgpu"` on the bind event, else fall back to
+      `amdgpu.runpm=0`.
+- [ ] **Compact the memory index under 140 lines.** A hook flagged
+      `MEMORY.md` at 175 of its 200-line read limit on 2026-10-15.
+      Recorded as a second concern, not worked.
 
 ---
 
