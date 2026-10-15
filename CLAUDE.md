@@ -5,8 +5,6 @@
 Infrastructure monitoring and housekeeping service with systemd integration. FastAPI + PostgreSQL + llama.cpp.
 UK English throughout (colour, analyse, initialise).
 
-**Current Phase:** _Update this as your project evolves_
-
 ---
 
 ## Before ANY Task
@@ -101,7 +99,7 @@ These directories waste tokens - never read or search them:
 
 ### Step 4: Test
 ```bash
-uv run pytest             # Full suite (backend + tray, ~360 tests) — must stay green
+uv run pytest             # Full suite (backend + tray) — must stay green
 uv run ruff check .       # Lint — CI runs this, must stay clean
 uv run mypy sysadmin      # Type check (backend only) — CI expects clean
 ```

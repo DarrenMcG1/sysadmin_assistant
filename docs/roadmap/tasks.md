@@ -445,8 +445,8 @@ where the box could answer.
       `scripts/claude-precommit.sh:95` still runs
       `check-migrations.sh`, which refuses a commit while the database is
       behind the checkout. The review itself noted it was by design.
-- [ ] **R43, two stale lines in `CLAUDE.md`.** Found by Session 355 and
-      not worked. `CLAUDE.md:8` still holds the template placeholder
+- [x] **R43, two stale lines in `CLAUDE.md`.** Found by Session 355;
+      done by Session 373 (2026-10-15), both lines removed. `CLAUDE.md:8` still holds the template placeholder
       `_Update this as your project evolves_`, and `CLAUDE.md:104` says
       "~360 tests" where Session 354's run counted 4,540. Remove the
       placeholder line, or replace it with a real phase if the owner has

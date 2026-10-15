@@ -1,8 +1,8 @@
-# Handoff — 2026-10-15 (Session 372)
+# Handoff — 2026-10-15 (Session 373)
 
 ## Next action
 
-Fix R43 in CLAUDE.md: remove the template placeholder at line 8 and drop the stale "~360 tests" count at line 104. *(For: session)*
+Read the journal of the boot that ended 2026-10-14 05:41 from 05:30 on, to find whether the box hung before its power key was pressed. *(For: session)*
 
 ## Scheduled action
 
@@ -13,6 +13,24 @@ Fix R43 in CLAUDE.md: remove the template placeholder at line 8 and drop the sta
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
   game has been seen yet.
+
+## Session 373: CLAUDE.md's two stale lines
+
+Session 372's next action, task R43. Docs only.
+
+- Removed the `**Current Phase:**` line, which still held the
+  template's `_Update this as your project evolves_`.
+- **Chosen:** remove it. Rejected: copying STATUS.md's phase
+  ("Feature-complete — maintenance & future features") into it,
+  which gives the phase two homes, and one of them would go stale.
+- Dropped "~360 tests" from the `uv run pytest` line, without
+  replacing it: pytest prints the count, and Session 372 counted 4,670.
+- Nothing reads either string: a grep of `sysadmin/`, `tests/` and
+  `scripts/` finds neither.
+
+## What Session 372 handed on (done by Session 373)
+
+Fix R43 in CLAUDE.md: remove the template placeholder at line 8 and drop the stale "~360 tests" count at line 104. *(For: session)*
 
 ## Session 372: idx_alerts_open_by_agent dropped
 
