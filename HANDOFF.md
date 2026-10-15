@@ -1,8 +1,8 @@
-# Handoff — 2026-10-15 (Session 375)
+# Handoff — 2026-10-15 (Session 376)
 
 ## Next action
 
-Recommend whether ci.yml gets a PostgreSQL service so test_schema_build.py and test_schema_drift.py run in CI (tasks.md, Session 368). *(For: session)*
+Compact the memory index under 140 lines (tasks.md, Session 374). *(For: session)*
 
 ## Scheduled action
 
@@ -16,6 +16,26 @@ Recommend whether ci.yml gets a PostgreSQL service so test_schema_build.py and t
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
   game has been seen yet.
+
+## Session 376: no PostgreSQL service for CI, yet
+
+Session 375's next action. Recommendation only; `ci.yml` unchanged.
+The rehearsal's numbers are in tasks.md, Session 376.
+
+- **Recommended no.** The pre-push stage already runs both schema
+  tests, and the full suite, against real PostgreSQL on every push.
+- **The service is not a two-test change.** 14 test files skip on
+  "no database" in CI. A bare service turned 36 tests red; a service
+  migrated to head first left 2 red, both asserting the box's live
+  rows, which would need the `box` mark.
+- **The drift guard would pass in CI without guarding anything new**:
+  against a freshly built database it repeats `test_schema_build.py`.
+- **Reopen when** a push can come from somewhere other than this box.
+- The owner may overrule. Meanwhile `ci.yml` stays as it is.
+
+## What Session 375 handed on (done by Session 376)
+
+Recommend whether ci.yml gets a PostgreSQL service so test_schema_build.py and test_schema_drift.py run in CI (tasks.md, Session 368). *(For: session)*
 
 ## Session 375: the card is pinned awake
 

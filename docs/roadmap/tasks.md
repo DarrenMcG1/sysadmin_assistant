@@ -8,6 +8,44 @@
 
 ---
 
+## Session 376: no PostgreSQL service for CI, yet (2026-10-15)
+
+Session 375's next action, from Session 368's open item. Roadmap and
+handoff only; `ci.yml` unchanged.
+
+- [x] **Recommended: leave `ci.yml` without a PostgreSQL service.**
+      Both tests already run on every push, at the `pre-push` stage
+      that runs the full suite on the box since 2026-10-14. CI would
+      add a second run of the same tests, at a cost.
+- [x] **Rehearsed, not reasoned.** The 14 non-`box` test files that
+      skip without a database were run against an empty PostgreSQL 18
+      on `localhost:5432` (user `gaddi`, database `projects`) inside a
+      network namespace. Today, all 14 skip in CI, not just the two.
+  - **Service alone: 36 red** (14 failed, 22 errors). Every guard
+    sees a reachable database and finds no `sysadmin` schema.
+  - **Service plus `alembic upgrade head` first: 2 failed, 154
+    passed, 18 skipped.** Both failures assert the live table already
+    holds rows (`test_logs_routes.py`
+    `test_the_table_holds_rows_to_be_declared`,
+    `test_arbitrated_stops_live.py`
+    `test_the_deployed_path_has_annotated_at_least_one_row`), so they
+    would need the `box` mark.
+  - `test_schema_build.py` passes either way. `test_schema_drift.py`
+    passes only after the upgrade, and then it diffs a database just
+    built from empty, which `test_schema_build.py` already does. The
+    drift guard's own job is the box's long-migrated schema, which CI
+    cannot have.
+- Chosen: no service. Rejected: service plus upgrade plus two `box`
+  marks, because its only coverage the pre-push stage lacks is a
+  fresh cluster, and the build test already starts from an empty
+  database each push.
+- **Reopen when** a push can come from anywhere other than this box
+  (a second machine or committer), because then nothing guarantees
+  the pre-push stage ran. The rehearsal's two-failure list is the
+  starting point.
+
+---
+
 ## Session 374: the 05:41 power-off was the dark-screen wake again (2026-10-15)
 
 Session 373's next action. Read the journal of boot `1f080b26` (ended
@@ -187,9 +225,10 @@ Session 367's next action. One new test file.
   skips `fileConfig`, which would disable every logger already created
   in the pytest run. Rejected: running Alembic in a subprocess, which
   would make the `get_config` patch impossible.
-- [ ] **Decide whether `ci.yml` gets a PostgreSQL service**, so this
+- [x] **Decide whether `ci.yml` gets a PostgreSQL service**, so this
       test and `test_schema_drift.py` run in CI instead of skipping.
       Recorded, not worked: a choice about CI, not about this test.
+      Recommended no by Session 376, with the rehearsal behind it.
 
 ---
 
