@@ -37,17 +37,18 @@ alert rows. Neither side judges itself.
  │ PyQt6 tray   │──────────▶│  Packages         core/                    │
  │ sysadmin_tray│  poll     │  ├ monitor        ├ scheduler (APScheduler)│
  │ ├ tray_icon  │           │  ├ estate         ├ agent (BaseAgent)      │
- │ ├ dashboard  │           │  ├ files          ├ jobs (12 scheduled)    │
+ │ ├ dashboard  │           │  ├ files          ├ jobs (13 scheduled)    │
  │ └ D-Bus      │           │  ├ units          ├ event_bus, retention   │
- │   notifs     │           │  └ briefing       ├ llm_client             │
+ │   notifs     │           │  ├ games          ├ llm_client             │
+ │              │           │  └ briefing                                │
  └──────┬───────┘           │                                            │
         │ imports           │  Agents (core.agent.BaseAgent)             │
         ▼                   │  ├ SysAdminAgent          every 300 s      │
  ┌──────────────┐           │  ├ LogAggregatorAgent     every 60 s       │
- │ sysadmin/    │           │  ├ EstateJudgeAgent       every 1 h        │
- │ core/        │◀──────────│  ├ ServiceDiscoveryAgent  every 6 h        │
- │ contracts.py │ response_ │  └ FileOrganiserAgent     every 24 h       │
- │ defaults.py  │ model=    │                                            │
+ │ sysadmin/    │           │  ├ GameDetectorAgent      every 60 s       │
+ │ core/        │◀──────────│  ├ EstateJudgeAgent       every 1 h        │
+ │ contracts.py │ response_ │  ├ ServiceDiscoveryAgent  every 6 h        │
+ │ defaults.py  │ model=    │  └ FileOrganiserAgent     every 24 h       │
  │ (pydantic/   │           │                                            │
  │  stdlib only)│           │                                            │
  └──────────────┘           └───┬───────────────────┬─────────────────┬──┘
@@ -87,7 +88,7 @@ sysadmin_assistant/
 │   │   ├── database.py    # Async engine/session + NullPool scheduler sessions
 │   │   ├── health.py      # GET /health
 │   │   ├── scheduler.py   # APScheduler bridge
-│   │   ├── jobs.py        # The schedule: 12 JobSpecs, applied at boot and on reload
+│   │   ├── jobs.py        # The schedule: 13 JobSpecs, applied at boot and on reload
 │   │   ├── escalation.py  # The severity ladder shared by four domains
 │   │   ├── llm_client.py, retention.py, event_bus.py, async_http.py
 │   │   ├── logging_setup.py, middleware.py, abandoned_runs.py, unit_failure.py
@@ -97,6 +98,7 @@ sysadmin_assistant/
 │   ├── estate/            # Pulls estate-manager's surfaces and judges them
 │   ├── files/             # Filesystem audit, reclaim advice, forecasting, actions
 │   ├── units/             # Service discovery — units vs services.yaml vs the kernel
+│   ├── games/             # Game spans from /proc and Steam's manifests (ADR-0016)
 │   └── briefing/          # Cross-domain digests for external consumers
 ├── sysadmin_tray/         # PyQt6 KDE tray app (console script: sysadmin-tray)
 │   ├── app.py             # Orchestrator: QTimers + ApiClient + TrayIcon + Dashboard
@@ -163,13 +165,14 @@ scheduler DB session, records a row in `agent_runs` (status/duration/findings),
 calls the subclass's abstract `_execute(session)`, and handles failures. It also
 provides `raise_alert()` / `resolve_alerts()` writing to the `alerts` table.
 
-There are **five**, and all five are listed here — the diagram above and this
+There are **six**, and all six are listed here — the diagram above and this
 table are the same set.
 
 | Agent | Schedule (config) | Work |
 |-------|-------------------|------|
 | SysAdminAgent | every 300 s | HTTP/TCP/systemd health checks (system + user units), resource snapshots, threshold alerts (disk/RAM/CPU/GPU), optional auto-restart |
 | LogAggregatorAgent | every 60 s | Polls journalctl (system + `--user`) and files from a durable cursor. One alert row per fault **signature**, never per line — the identity is the message with its variable parts removed |
+| GameDetectorAgent | every 60 s | Reads `/proc` for Steam launches (`SteamLaunch AppId=<n>`) and the owner's `games:` list, and keeps one `game_spans` row per unbroken run of polls, with its focus stretches in `game_focus`, for Alfred's Downtime ([ADR-0016](adr/0016-game-spans-are-raw-and-alfred-reads-them.md)). Never alerts |
 | EstateJudgeAgent | every 1 h | Reads the five surfaces estate-manager publishes on :8400 (scan invariants, attention, audit invariants, audit findings, queue invariants) plus a sixth read locally from disk, and raises alerts from them. It judges; it never scans |
 | ServiceDiscoveryAgent | every 6 h | Sweeps installed systemd units against `services.yaml` and against the ports the kernel reports, and ranks what it finds. Findings only — `/api/units` is GET-only by design |
 | FileOrganiserAgent | every 24 h | Home-directory audit: duplicates, stale downloads, large files, reclaimable space |
@@ -222,13 +225,13 @@ PostgreSQL, database `projects`, dedicated **`sysadmin` schema** (isolated from
 the other application in the same database — including its own `alembic_version`
 via `version_table_schema`). Async access with `postgresql+asyncpg` (search_path
 via `server_settings`); Alembic migrations use the sync `psycopg2` URL.
-**13 tables**, measured against the live schema 2026-09-10:
+**15 tables**, measured against the live schema 2026-10-15:
 
 | Group | Tables |
 |-------|--------|
 | Framework | `agent_runs`, `alerts`, `retention_config` |
 | Measurements | `service_health`, `resource_snapshots`, `log_entries`, `filesystem_audits`, `unit_audits` |
-| Derived history | `reliability_scores`, `desktop_notifications` |
+| Derived history | `reliability_scores`, `desktop_notifications`, `game_spans`, `game_focus` |
 | LLM-narrated reviews | `disk_reviews`, `log_reviews`, `health_reviews` |
 
 The three review tables are separate on purpose — they answer different

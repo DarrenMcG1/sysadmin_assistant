@@ -70,6 +70,8 @@ class TestTableTimestampMap:
             # durable so the 24-hour reminder can be reached by a daemon
             # whose median life is 1.77 h.  Both halves in migration 018.
             "desktop_notifications",
+            # ADR-0016: game spans, both halves in migration 020.
+            "game_spans",
         }
         assert set(TABLE_TIMESTAMP_MAP.keys()) == expected_tables
 

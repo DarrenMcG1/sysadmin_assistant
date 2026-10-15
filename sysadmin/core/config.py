@@ -1079,6 +1079,20 @@ class EventsConfig(BaseModel):
     retry_ms: int = 5000
 
 
+class GameDetectorConfig(BaseModel):
+    """The game detector (ADR-0016): which games it can see, and how often.
+
+    ``games`` is the owner's list, executable name to game name, for
+    games Steam does not launch.  A Steam launch needs no entry: its
+    ``AppId`` names it from the app's manifest under ``steam_root``.
+    """
+
+    enabled: bool = True
+    poll_interval_seconds: int = 60
+    steam_root: str = "~/.local/share/Steam"
+    games: dict[str, str] = Field(default_factory=dict)
+
+
 class AgentsConfig(BaseModel):
     sysadmin: SysAdminAgentConfig = Field(default_factory=SysAdminAgentConfig)
     file_organiser: FileOrganiserConfig = Field(default_factory=FileOrganiserConfig)
@@ -1087,6 +1101,7 @@ class AgentsConfig(BaseModel):
         default_factory=ServiceDiscoveryConfig
     )
     estate_judge: EstateJudgeConfig = Field(default_factory=EstateJudgeConfig)
+    game_detector: GameDetectorConfig = Field(default_factory=GameDetectorConfig)
 
 
 # --- Root config ---

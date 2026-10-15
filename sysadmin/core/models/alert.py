@@ -51,7 +51,8 @@ class Alert(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         # with migration 012.
         CheckConstraint(
             "agent IN ('sysadmin', 'project_organiser', 'file_organiser',"
-            " 'log_aggregator', 'service_discovery', 'estate_judge')",
+            " 'log_aggregator', 'service_discovery', 'estate_judge',"
+            " 'game_detector')",
             name="chk_alert_agent",
         ),
         # A flag and its timestamp say one thing twice, so the schema

@@ -234,6 +234,18 @@ def plan_jobs(config: AppConfig) -> tuple[JobSpec, ...]:
                 "agents.log_aggregator.poll_interval_seconds",
             ),
         ),
+        # Game detector (ADR-0016): one span per unbroken run of polls, so
+        # the interval is the resolution of every span Alfred reads.
+        JobSpec(
+            job_id="game_detector_poll",
+            enabled=agents.game_detector.enabled,
+            trigger="interval",
+            trigger_kwargs={"seconds": agents.game_detector.poll_interval_seconds},
+            config_paths=(
+                "agents.game_detector.enabled",
+                "agents.game_detector.poll_interval_seconds",
+            ),
+        ),
         # The tray's understudy restating a fault it announced that is
         # still open (SNAG-TRAY-007). A job rather than a call at the end
         # of an agent run, because an agent reminding on the notifier's

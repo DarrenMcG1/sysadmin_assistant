@@ -63,6 +63,7 @@ from sysadmin.core.models.base import Base
 from sysadmin.core.models.retention_config import RetentionConfig
 from sysadmin.files.models.disk_review import DiskReview
 from sysadmin.files.models.filesystem_audit import FilesystemAudit
+from sysadmin.games.models import GameFocus, GameSpan
 from sysadmin.monitor.models.desktop_notification import DesktopNotification
 from sysadmin.monitor.models.health_review import HealthReview
 from sysadmin.monitor.models.log_entry import LogEntry
@@ -78,6 +79,8 @@ ALL_MODELS = (
     DesktopNotification,
     DiskReview,
     FilesystemAudit,
+    GameFocus,
+    GameSpan,
     HealthReview,
     LogEntry,
     LogReview,

@@ -93,7 +93,10 @@ class TestTheAgentIsWired:
         names and narrowing the constraint would orphan them."""
         module = _load_revision("012_allow_estate_judge_agent.py")
         assert "estate_judge" in module.AGENTS
-        assert set(module.AGENTS) == set(AGENT_NAMES)
+        # Containment, as for 007: equality pinned 012 as the newest,
+        # and migration 020 widened the list for ``game_detector``.
+        # The equality is the newest-migration test's, above.
+        assert set(module.AGENTS) <= set(AGENT_NAMES)
 
     def test_the_orm_model_agrees_with_the_migration(self):
         """The second copy of the whitelist, and it had drifted:

@@ -492,6 +492,15 @@ agents:
     # so any rule on them raises a row no future state can clear. That is
     # redis unreachable's 6,283 rows arriving by a new route.
 
+  game_detector:
+    # ADR-0016. Records when a game ran, for Alfred's Downtime. Never alerts.
+    enabled: true
+    poll_interval_seconds: 60
+    steam_root: ~/.local/share/Steam
+    # Games Steam does not launch: executable name -> game name. A Steam
+    # launch needs no entry; its AppId is named from the app's manifest.
+    games: {}
+
   log_aggregator:
     enabled: true
     poll_interval_seconds: 60

@@ -168,7 +168,7 @@ def stated(flat: str, pattern: str) -> int:
 
 class TestThePopulationsAreNotEmpty:
     def test_the_box_has_the_populations_the_document_describes(self) -> None:
-        assert len(live_agents()) == 5, live_agents()
+        assert len(live_agents()) == 6, live_agents()
         assert len(live_packages()) >= 5, live_packages()
         assert len(live_tables()) >= 10, live_tables()
         assert len(live_migrations()) >= 10, live_migrations()

@@ -48,6 +48,10 @@ TABLE_TIMESTAMP_MAP = {
     # still being reminded about can never age out, and only a row
     # whose fault resolved while the daemon was down goes stale.
     "desktop_notifications": "last_spoken_at",
+    # ADR-0016: on ``last_seen_at``, so a span still open is never
+    # purged. ``game_focus`` has no entry: it goes with its span by
+    # ``ON DELETE CASCADE`` (migration 020).
+    "game_spans": "last_seen_at",
 }
 
 #: The entity for a table with no per-entity dimension: the whole table

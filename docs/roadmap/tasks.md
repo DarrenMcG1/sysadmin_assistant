@@ -4,7 +4,37 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-14
+> **Last Updated**: 2026-10-15
+
+---
+
+## Session 370: ADR-0016's first half (2026-10-15)
+
+Session 369's next action. Code: migration 020, `sysadmin/games/`
+(`detect.py`, `agent.py`, `models.py`), wiring in config, jobs, main,
+self-monitor, retention and metadata; `tests/test_games.py` and
+`tests/test_game_spans_db.py`.
+
+- [x] **Migration 020**: `game_spans`, `game_focus`, 30-day retention
+      on `last_seen_at` (focus rows go by `ON DELETE CASCADE`), and
+      `game_detector` added to the alerts agent whitelist. Applied live.
+- [x] **The detector**: a Steam launch by the adjacent argv pair
+      `SteamLaunch` `AppId=<n>`, keyed on the AppId; the owner's
+      `games:` list under `agents.game_detector`, never counted twice
+      inside a Steam launch; names from each library's manifest, else
+      `steam:<n>`.
+- [x] **The spans**: end at the last sighting; a gap over 3 polls breaks
+      a span; startup closes every open span. Falsified: setting
+      `ended_at` to the noticing poll, or dropping the gap rule, reds
+      three tests.
+- [x] **Found by the scratch-database test**: without an ORM
+      relationship the focus row was inserted before its span. Fixed by
+      a relationship on `GameFocus`.
+- [x] **ADR-0016 §7** records the two departures (AppId keying, the
+      `state` column) and the gap rule.
+- Chosen: one code commit carrying `tasks.md`, which the commit hook
+  demands for 5+ code files. Rejected: four 4-file code commits for one
+  concern.
 
 ---
 
@@ -24,10 +54,9 @@ Session 368's next action. Docs only: `docs/adr/0016-game-spans-are-raw-and-alfr
       with the shape. It asks whether Alfred keeps the spans it reads,
       which the owner left for Alfred to answer. `4dc2b8bc` stays open
       until the endpoint exists.
-- [ ] **Build ADR-0016, first half**: the `game_spans` and `game_focus`
-      migration and the 60 s detector job (a new agent: the four places
-      in CLAUDE.md "Adding an agent", plus `JobSpec` and `JOB_TARGETS`),
-      with tests. No route yet.
+- [x] **Build ADR-0016, first half** (Session 370, 2026-10-15):
+      migration 020, `sysadmin/games/`, the agent's six places, 26
+      tests. Applied live; daemon restarted 2026-10-15 08:52:12.
 - [ ] **Build ADR-0016, second half**: `GET /api/games/spans`, its
       `contracts.py` model, the registry row and the KWin focus probe.
       Then close `4dc2b8bc`.

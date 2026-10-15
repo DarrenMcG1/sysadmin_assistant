@@ -37,7 +37,7 @@ the bullets underneath it.
 
 | | |
 |---|---|
-| [What it does](#what-it-does) | the five agents and the tray |
+| [What it does](#what-it-does) | the six agents and the tray |
 | [How it is built](#how-it-is-built) | stack, API, configuration |
 | [Running it](#running-it) | install, dev server, systemd |
 | [Tests and checks](#tests-and-checks) | what the suite guarantees |
@@ -49,14 +49,15 @@ the bullets underneath it.
 
 ## What it does
 
-Five agents run on an APScheduler timetable inside the FastAPI process, one per
-domain package, each writing to PostgreSQL and raising alerts through a shared
-base class:
+Six agents run on an APScheduler timetable inside the FastAPI process, one per
+domain package, each writing to PostgreSQL through a shared base class, and
+every one but the game detector raising alerts through it:
 
 | Agent | Every | Responsibility |
 |-------|-------|----------------|
 | `SysAdminAgent` | 5 min | service health (HTTP/TCP/systemd), CPU, RAM, disk, swap, load, GPU; threshold and anomaly alerting |
 | `LogAggregatorAgent` | 60 s | journal ingestion, fault signatures, trend and incident correlation |
+| `GameDetectorAgent` | 60 s | records when a game was running, for Alfred's Downtime (ADR-0016); never alerts |
 | `EstateJudgeAgent` | 1 h | reads the estate manager's published surfaces and judges them |
 | `ServiceDiscoveryAgent` | 6 h | finds systemd units nothing is monitoring, and orphans that will restart-loop |
 | `FileOrganiserAgent` | 24 h | filesystem audit — duplicates, misplaced files, large files, stale caches |
@@ -81,7 +82,7 @@ digests. A backend-side notifier stands in when the tray is not running.
 ## How it is built
 
 - Python ≥ 3.12, FastAPI + uvicorn, backend on port **8500**
-- PostgreSQL (`projects` database, `sysadmin` schema, 13 tables) via SQLAlchemy
+- PostgreSQL (`projects` database, `sysadmin` schema, 15 tables) via SQLAlchemy
   async + asyncpg; Alembic migrations use psycopg2
 - APScheduler, psutil, GitPython, httpx
 - PyQt6 for the tray (optional extra: `.[tray]`)
@@ -218,9 +219,10 @@ sysadmin/            backend package
   files/             filesystem audit, recommendations, actions
   units/             systemd unit sweep, port attribution
   estate/            reads and judges the estate manager's surfaces
+  games/             game spans from /proc and Steam's manifests
   briefing/          morning briefing envelope
 sysadmin_tray/       PyQt6 tray icon + dashboard
-alembic/             19 migrations (version_table_schema="sysadmin")
+alembic/             20 migrations (version_table_schema="sysadmin")
 tests/               pytest suites, incl. tests/test_tray/
 scripts/             install, run, lint, systemd, session pre/postflight, checks
 systemd/             unit and desktop files

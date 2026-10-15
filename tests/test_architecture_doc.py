@@ -168,7 +168,7 @@ class TestThePopulationsAreNotEmpty:
 
     def test_the_box_has_packages_agents_and_tables(self) -> None:
         assert len(live_packages()) >= 5, live_packages()
-        assert len(live_agents()) == 5, live_agents()
+        assert len(live_agents()) == 6, live_agents()
         assert len(live_tables()) >= 10, live_tables()
 
     def test_the_document_has_the_two_fenced_blocks(self, document: str) -> None:
@@ -245,8 +245,8 @@ class TestTheIntervalsComeFromTheJobPlan:
 
     def test_every_interval_in_the_document_parses(self, document: str) -> None:
         """Anti-vacuity: the comparisons below are empty if the parse fails."""
-        assert len(table_intervals(document)) == 5, table_intervals(document)
-        assert len(diagram_intervals(document)) == 5, diagram_intervals(document)
+        assert len(table_intervals(document)) == 6, table_intervals(document)
+        assert len(diagram_intervals(document)) == 6, diagram_intervals(document)
         for name, text in table_intervals(document).items():
             assert interval_seconds(text) > 0, (name, text)
 

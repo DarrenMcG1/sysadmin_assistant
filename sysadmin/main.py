@@ -51,6 +51,7 @@ from sysadmin.estate.agent import EstateJudgeAgent
 from sysadmin.files.agent import FileOrganiserAgent
 from sysadmin.files.review import run_weekly_review as run_weekly_disk_review
 from sysadmin.files.router import router as files_router
+from sysadmin.games.agent import GameDetectorAgent, close_open_spans
 
 # Agents
 from sysadmin.monitor.agent import SysAdminAgent
@@ -82,6 +83,7 @@ file_organiser_agent = FileOrganiserAgent()
 log_aggregator_agent = LogAggregatorAgent()
 service_discovery_agent = ServiceDiscoveryAgent()
 estate_judge_agent = EstateJudgeAgent()
+game_detector_agent = GameDetectorAgent()
 
 #: Agents holding in-memory state keyed by a configured name. Only these
 #: two: the file organiser, service discovery and estate judge key nothing
@@ -100,6 +102,7 @@ JOB_TARGETS: JobTargets = {
     "service_discovery_scan": service_discovery_agent.run,
     "estate_judge_poll": estate_judge_agent.run,
     "log_aggregator_poll": log_aggregator_agent.run,
+    "game_detector_poll": game_detector_agent.run,
     "desktop_reminder_sweep": desktop_notifier.sweep_reminders,
     "morning_briefing": send_morning_briefing,
     "retention_purge": run_retention,
@@ -355,6 +358,16 @@ async def lifespan(app: FastAPI):
             logger.info("abandoned_runs_none")
     except Exception as exc:  # noqa: BLE001
         logger.warning("could not close abandoned agent runs: %s", exc)
+
+    # A game span left open by the previous process ends at its last
+    # sighting (ADR-0016 §4). Same moment and same catch as the sweep
+    # above: only now is "nobody will extend that span" knowable.
+    try:
+        async with get_async_session() as session:
+            closed = await close_open_spans(session)
+        logger.info("game_spans_closed_at_startup", extra={"count": closed})
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("could not close open game spans: %s", exc)
 
     # Start services.  Agents deliberately have no startup hook: they run
     # on scheduler threads, each with its own event loop, so anything
