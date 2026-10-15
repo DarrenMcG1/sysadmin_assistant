@@ -8,6 +8,31 @@
 
 ---
 
+## Session 371: ADR-0016's second half (2026-10-15)
+
+Session 370's next action. Code: `sysadmin/games/focus.py` (the KWin
+probe), `sysadmin/games/router.py` (`GET /api/games/spans`), three
+models in `contracts.py`, the agent's default probe, the router in
+`main.py`; `tests/test_games_api.py`, more in `tests/test_games.py` and
+`tests/test_game_spans_db.py`; the registry row in `CLAUDE.md`.
+
+- [x] **The KWin focus probe.** Loads a two-line script, runs it,
+      unloads it, reads its line from the user journal by a per-call
+      token. A name left loaded by a killed probe is unloaded and loaded
+      again. Driven live under the daemon's stripped environment.
+- [x] **Found: the daemon is a system unit** with no session bus in its
+      environment, which ADR-0016 §3 assumed it had. The probe sets
+      `XDG_RUNTIME_DIR` with `build_env`, as `systemctl --user` does.
+- [x] **`GET /api/games/spans`**, `response_model=GameSpansResponse`,
+      with its registry row. Overlap over `[start, end)` tested against
+      the scratch PostgreSQL; a naive timestamp is a 422.
+- [x] **ADR-0016 §8** records the five changes from this build.
+- Falsified: deleting the leftover-load branch reds its test; matching
+  on `started_at >= start` instead of `ended_at >= start` reds the
+  overlap test.
+
+---
+
 ## Session 370: ADR-0016's first half (2026-10-15)
 
 Session 369's next action. Code: migration 020, `sysadmin/games/`
@@ -57,9 +82,9 @@ Session 368's next action. Docs only: `docs/adr/0016-game-spans-are-raw-and-alfr
 - [x] **Build ADR-0016, first half** (Session 370, 2026-10-15):
       migration 020, `sysadmin/games/`, the agent's six places, 26
       tests. Applied live; daemon restarted 2026-10-15 08:52:12.
-- [ ] **Build ADR-0016, second half**: `GET /api/games/spans`, its
-      `contracts.py` model, the registry row and the KWin focus probe.
-      Then close `4dc2b8bc`.
+- [x] **Build ADR-0016, second half** (Session 371, 2026-10-15):
+      `GET /api/games/spans`, its `contracts.py` model, the registry
+      row and the KWin focus probe. Then close `4dc2b8bc`.
 - [ ] **A game-start event for the estate's gaming ladder** (rung 2:
       evict models when a game starts). Recorded as a second concern,
       not worked: whether the detector publishes under `estate/…` or the

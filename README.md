@@ -94,7 +94,7 @@ them — use `uv sync --all-extras`.
 
 ### API
 
-52 application routes across eight routers (56 including the four FastAPI
+53 application routes across nine routers (57 including the four FastAPI
 generates for its own documentation), counted per method — so a path serving
 both `GET` and `POST` is two:
 
@@ -109,6 +109,7 @@ both `GET` and `POST` is two:
 | `/api/units/*` | 2 | the systemd sweep as measured, and as ranked advice (GET-only) |
 | `/api/projects/*` | 1 | `managed` only — live service health wearing a project-shaped path |
 | `/api/summary` | 1 | briefing envelope for external consumers |
+| `/api/games/*` | 1 | `spans` — when a game was running, raw, for Alfred's Downtime (ADR-0016) |
 
 Response shapes are pinned in `sysadmin/core/contracts.py` (pydantic only) and
 re-exported by the tray, so backend and client cannot drift silently. The full

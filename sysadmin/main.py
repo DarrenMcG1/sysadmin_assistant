@@ -52,6 +52,7 @@ from sysadmin.files.agent import FileOrganiserAgent
 from sysadmin.files.review import run_weekly_review as run_weekly_disk_review
 from sysadmin.files.router import router as files_router
 from sysadmin.games.agent import GameDetectorAgent, close_open_spans
+from sysadmin.games.router import router as games_router
 
 # Agents
 from sysadmin.monitor.agent import SysAdminAgent
@@ -478,6 +479,7 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
     app.include_router(logs_router)
     app.include_router(units_router)
     app.include_router(services_router)
+    app.include_router(games_router)
     app.include_router(summary_router)
 
     # --- Trigger-all endpoint ---

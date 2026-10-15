@@ -1782,3 +1782,60 @@ class ServicesByProjectResponse(Contract):
     """
 
     by_project: dict[str, list[str]] = Field(default_factory=dict)
+
+
+# ── /api/games/spans (ADR-0016) ───────────────────────────────────────
+
+
+class GameFocusInfo(Contract):
+    """One stretch of a span where the game held focus, or nobody could tell.
+
+    ``state`` is ``focused`` or ``unknown``.  An unfocused stretch has no
+    entry, so the gaps between entries are the minutes the game ran
+    behind another window.  ``unknown`` is a minute the KWin probe gave no
+    answer, which ADR-0016 §3 forbids reading as unfocused.
+    """
+
+    state: str = "unknown"
+    started_at: str | None = None
+    last_seen_at: str | None = None
+    #: ``None`` while the stretch is open at the last poll.
+    ended_at: str | None = None
+
+
+class GameSpanInfo(Contract):
+    """One unbroken run of polls that saw one game — raw, never merged."""
+
+    game: str = ""
+    #: ``steam_appid`` or ``executable``: which rule found it.
+    matched_by: str = ""
+    appid: int | None = None
+    executable: str | None = None
+    started_at: str | None = None
+    last_seen_at: str | None = None
+    #: ``None`` while the game is running at the last poll.
+    ended_at: str | None = None
+    focus: list[GameFocusInfo] = Field(default_factory=list)
+    #: ``False`` when any stretch of the span is ``unknown``, so a reader
+    #: that ignores ``focus`` can still tell "not looking" from "not
+    #: playing" and fall back to presence (ADR-0016 §3).  Defaults to
+    #: ``False``: a payload that omits it has not said focus was known.
+    focus_known: bool = False
+
+
+class GameSpansResponse(Contract):
+    """GET /api/games/spans — the games that ran in a range (ADR-0016 §5).
+
+    The consumer is Alfred, not the tray, so :meth:`Contract.from_dict`
+    has no caller in this checkout.  There is no ``count``, unlike most
+    siblings here: their count exists because an empty list cannot say
+    whether anyone looked, and ``retained_from`` says that here, as a
+    time rather than a number.
+    """
+
+    poll_seconds: int = 60
+    #: The earliest instant this service can vouch for.  Before it, an
+    #: empty ``spans`` means "not held", never "no game".  ``None`` when
+    #: the detector has no recorded run at all.
+    retained_from: str | None = None
+    spans: list[GameSpanInfo] = Field(default_factory=list)

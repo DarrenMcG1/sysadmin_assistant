@@ -231,7 +231,8 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/units/actions` | `UnitActionsResponse` (+`UnitRecommendationInfo`) | response_model (404 = "no sweep yet") |
 | `GET /api/services/reliability` | `ReliabilityResponse` (+`ReliabilitySummary`, `ServiceReliabilityInfo`, `ReliabilityDeduction`) | response_model (computed live — never 404s) |
 | `GET /api/services/actions` | `ServiceActionsResponse` (+`ServiceRecommendationInfo`, `ServiceRecommendationMemberInfo`) | response_model (computed live off the same call `/reliability` serves) |
-| `GET /api/services/by-project` | `ServicesByProjectResponse` | response_model (the only row whose consumer is another repository — estate-manager on 8400, not the tray) |
+| `GET /api/services/by-project` | `ServicesByProjectResponse` | response_model (consumed by estate-manager on 8400, not the tray) |
+| `GET /api/games/spans` | `GameSpansResponse` (+`GameSpanInfo`, `GameFocusInfo`) | response_model (consumed by Alfred, not the tray; raw spans, ADR-0016) |
 
 **Consumed from estate-manager on 8400** — parsed here, served there:
 

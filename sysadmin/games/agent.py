@@ -21,13 +21,14 @@ The agent keeps nothing in memory between polls: the open rows *are* the
 state, so a restart or a failed poll loses nothing that the rules above
 do not already account for.
 
-**Focus is recorded, and the probe that reads it is not built yet.**
+**Focus is the KWin probe's answer** (:mod:`sysadmin.games.focus`).
 :attr:`GameDetectorAgent.focus_probe` answers with the active window's
-PID, or ``None`` when it cannot tell.  Until ADR-0016's second half
-wires the KWin probe, it always answers ``None``, so every gaming minute
-is recorded as an ``unknown`` focus stretch.  That is the honest record:
-nobody was looking, which §3 forbids reading as unfocused.  The probe is
-only called on a poll that found a game (§3's journal-volume argument).
+PID, or ``None`` when it cannot tell, and ``None`` is recorded as an
+``unknown`` focus stretch: nobody was looking, which §3 forbids reading
+as unfocused.  The probe is only called on a poll that found a game
+(§3's journal-volume argument), and the run's ``details['focus']`` says
+which answer it got, which is where a probe that has stopped working
+shows.  Every minute before 2026-10-15's second half was ``unknown``.
 """
 
 from __future__ import annotations
@@ -44,6 +45,7 @@ from sqlalchemy import select, update
 from sysadmin.core.agent import AgentResult, BaseAgent
 from sysadmin.core.config import get_config
 from sysadmin.games.detect import Sighting, scan
+from sysadmin.games.focus import kwin_focus_probe
 from sysadmin.games.models import GameFocus, GameSpan
 
 logger = logging.getLogger(__name__)
@@ -56,11 +58,6 @@ UNKNOWN = "unknown"
 
 #: The active window's PID, or ``None`` when the probe could not tell.
 FocusProbe = Callable[[], Awaitable[int | None]]
-
-
-async def no_focus_probe() -> int | None:
-    """Stands in until the KWin probe exists (ADR-0016, second half)."""
-    return None
 
 
 def focus_state(sighting: Sighting, window_pid: int | None) -> str | None:
@@ -155,7 +152,7 @@ async def close_open_spans(session) -> int:
 class GameDetectorAgent(BaseAgent):
     """Records the spans in which a game was running.  Never alerts."""
 
-    def __init__(self, focus_probe: FocusProbe = no_focus_probe) -> None:
+    def __init__(self, focus_probe: FocusProbe = kwin_focus_probe) -> None:
         self.focus_probe = focus_probe
 
     @property
@@ -194,5 +191,7 @@ class GameDetectorAgent(BaseAgent):
             details={
                 "games": sorted(s.game for s in sightings),
                 "spans_opened": sum(isinstance(row, GameSpan) for row in new),
+                # ``None`` on a poll that found no game: the probe did not run.
+                "focus": None if not sightings else UNKNOWN if window_pid is None else "known",
             },
         )

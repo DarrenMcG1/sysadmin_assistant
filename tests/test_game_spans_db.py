@@ -15,10 +15,12 @@ from sqlalchemy import create_engine, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import Session
 
+from sysadmin.core.contracts import GameSpansResponse
 from sysadmin.core.retention import purge_statement
 from sysadmin.games.agent import FOCUSED, apply_poll, close_open_spans
 from sysadmin.games.detect import MATCHED_BY_EXECUTABLE, MATCHED_BY_STEAM, Sighting
 from sysadmin.games.models import GameFocus, GameSpan
+from sysadmin.games.router import get_game_spans
 from tests.test_schema_build import build, pytestmark  # noqa: F401
 
 # ``build`` is the scratch database and ``pytestmark`` its skip.  Ruff
@@ -36,6 +38,7 @@ def engine(build):  # noqa: F811
     yield engine
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM sysadmin.game_spans"))
+        conn.execute(text("DELETE FROM sysadmin.agent_runs WHERE agent = 'game_detector'"))
     engine.dispose()
 
 
@@ -95,3 +98,59 @@ def test_the_purge_takes_the_focus_rows_with_their_span(engine):
             {"cutoff": T0 + timedelta(days=1)},
         )
         assert conn.execute(text("SELECT count(*) FROM sysadmin.game_focus")).scalar() == 0
+
+
+def _closed_span(game, started, ended):
+    return GameSpan(
+        game=game,
+        matched_by=MATCHED_BY_EXECUTABLE,
+        executable=game.lower(),
+        pid=10,
+        started_at=started,
+        last_seen_at=ended,
+        ended_at=ended,
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_route_serves_every_span_overlapping_the_range(
+    build, engine, patched_config  # noqa: F811
+):
+    """ADR-0016 §5 rule 1: overlap, not start-inside, over ``[start, end)``.
+
+    A session crossing the range's start, one still open, and one inside
+    are served; one that ended before the range and one starting exactly
+    at its end are not.
+    """
+    start, end = T0, T0 + timedelta(hours=4)
+    with Session(engine) as session, session.begin():
+        session.add_all(
+            [
+                _closed_span("Before", start - timedelta(hours=2), start - timedelta(minutes=1)),
+                _closed_span("Crossing", start - timedelta(hours=1), start + timedelta(minutes=5)),
+                _closed_span("Inside", start + timedelta(hours=1), start + timedelta(hours=2)),
+                _closed_span("AtEnd", end, end + timedelta(minutes=30)),
+            ]
+        )
+        session.execute(
+            text(
+                "INSERT INTO sysadmin.agent_runs (agent, run_type, status, started_at)"
+                " VALUES ('game_detector', 'scheduled', 'completed', :at)"
+            ),
+            {"at": start - timedelta(days=1)},
+        )
+    _poll(engine, [STEAM_GAME], start + timedelta(hours=3), window_pid=204)
+
+    async_engine = create_async_engine(build.url.replace("+psycopg2", "+asyncpg"))
+    try:
+        async with AsyncSession(async_engine) as session:
+            payload = await get_game_spans(start=start, end=end, session=session)
+    finally:
+        await async_engine.dispose()
+
+    assert [s["game"] for s in payload["spans"]] == ["Crossing", "Inside", "Deadlock"]
+    deadlock = payload["spans"][-1]
+    assert deadlock["ended_at"] is None
+    assert [f["state"] for f in deadlock["focus"]] == [FOCUSED]
+    assert payload["retained_from"] == (start - timedelta(days=1)).isoformat()
+    assert GameSpansResponse.from_dict(payload).spans[0].game == "Crossing"

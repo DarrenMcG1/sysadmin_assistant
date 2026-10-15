@@ -8,12 +8,13 @@ import pytest
 
 from sysadmin.core.config import AppConfig
 from sysadmin.core.jobs import plan_jobs
+from sysadmin.games import focus as focus_module
 from sysadmin.games.agent import (
     FOCUSED,
     UNKNOWN,
     GameDetectorAgent,
     apply_poll,
-    no_focus_probe,
+    focus_state,
 )
 from sysadmin.games.detect import (
     MATCHED_BY_EXECUTABLE,
@@ -25,6 +26,14 @@ from sysadmin.games.detect import (
     steam_app_name,
     steam_appid,
     steam_libraries,
+)
+from sysadmin.games.focus import (
+    NO_WINDOW,
+    PLUGIN_NAME,
+    kwin_focus_probe,
+    parse_line,
+    parse_load_id,
+    script_text,
 )
 from sysadmin.games.models import GameFocus, GameSpan
 
@@ -281,9 +290,19 @@ class TestTheAgent:
         probe.assert_not_called()
         assert result.findings_count == 0
 
+    def test_the_kwin_probe_is_the_default(self):
+        assert GameDetectorAgent().focus_probe is kwin_focus_probe
+
     @pytest.mark.asyncio
-    async def test_until_the_kwin_probe_exists_nobody_is_looking(self):
-        assert await no_focus_probe() is None
+    @pytest.mark.parametrize(("window_pid", "said"), [(None, UNKNOWN), (204, "known")])
+    async def test_the_run_says_whether_the_probe_answered(self, monkeypatch, window_pid, said):
+        """A probe that has stopped working shows in ``agent_runs.details``."""
+        agent = GameDetectorAgent(focus_probe=AsyncMock(return_value=window_pid))
+        monkeypatch.setattr("sysadmin.games.agent.scan", lambda root, games: [_sighting()])
+        session = MagicMock()
+        session.execute = AsyncMock(return_value=MagicMock())
+        result = await agent._execute(session)
+        assert result.details["focus"] == said
 
     def test_it_is_planned_every_sixty_seconds_and_wired(self):
         from sysadmin.main import JOB_TARGETS, game_detector_agent
@@ -292,3 +311,115 @@ class TestTheAgent:
         assert spec.enabled and spec.trigger_kwargs == {"seconds": 60}
         assert JOB_TARGETS["game_detector_poll"] == game_detector_agent.run
         assert game_detector_agent.name == "game_detector"
+
+
+class TestTheFocusProbe:
+    """The one-shot KWin script (ADR-0016 §3), with ``gdbus`` and the journal faked.
+
+    Driven live on 2026-10-15 under the daemon's own stripped environment:
+    it answered firefox's PID in 0.011 s, unloaded, and left no file.
+    """
+
+    def test_the_line_is_picked_by_this_calls_token(self):
+        out = (
+            "sysadmin-focus-probe token=other pid=11\n"
+            "sysadmin-focus-probe token=mine pid=71447\n"
+        )
+        assert parse_line(out, "mine") == 71447
+        assert parse_line(out, "absent") is None
+
+    def test_no_active_window_is_an_answer_not_unknown(self):
+        """Rule 4: ``pid=0`` is unfocused; only a missing line is unknown."""
+        assert parse_line("sysadmin-focus-probe token=t pid=0", "t") == NO_WINDOW
+        assert focus_state(_sighting(), NO_WINDOW) is None
+        assert focus_state(_sighting(), None) == UNKNOWN
+
+    def test_the_script_prints_the_token(self):
+        assert "token=abc" in script_text("abc")
+        assert "workspace.activeWindow" in script_text("abc")
+
+    @pytest.mark.parametrize(("out", "want"), [("(0,)\n", 0), ("(-1,)", -1), ("()", None)])
+    def test_the_load_id_is_read_from_gdbus(self, out, want):
+        assert parse_load_id(out) == want
+
+    @staticmethod
+    def _fake(monkeypatch, tmp_path, answers):
+        """Fake ``_run`` answering by verb; return the calls it saw."""
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+        calls: list[list[str]] = []
+        loads = iter(answers["loadScript"])
+
+        async def fake_run(args, env):
+            calls.append(args)
+            assert env["XDG_RUNTIME_DIR"] == str(tmp_path)
+            if args[0] == "journalctl":
+                token = (tmp_path / next(tmp_path.glob("*.js")).name).read_text()
+                token = token.split("token=")[1].split(" ")[0]
+                return answers["journal"].replace("TOKEN", token)
+            verb = args[args.index("--method") + 1].rsplit(".", 1)[-1]
+            if verb == "loadScript":
+                return next(loads)
+            if verb == "run" and "run_fails" in answers:
+                raise focus_module.ProbeFailedError("run refused")
+            return "(true,)" if verb == "unloadScript" else "()"
+
+        monkeypatch.setattr("sysadmin.games.focus._run", fake_run)
+        monkeypatch.setattr("sysadmin.games.focus.JOURNAL_RETRY_SECONDS", 0)
+        return calls
+
+    @staticmethod
+    def _verbs(calls):
+        return [
+            c[c.index("--method") + 1].rsplit(".", 1)[-1] if c[0] == "gdbus" else c[0]
+            for c in calls
+        ]
+
+    @pytest.mark.asyncio
+    async def test_it_loads_runs_unloads_then_reads(self, monkeypatch, tmp_path):
+        calls = self._fake(
+            monkeypatch,
+            tmp_path,
+            {"loadScript": ["(3,)"], "journal": "sysadmin-focus-probe token=TOKEN pid=204\n"},
+        )
+        assert await kwin_focus_probe() == 204
+        assert self._verbs(calls) == ["loadScript", "run", "unloadScript", "journalctl"]
+        assert "/Scripting/Script3" in calls[1]
+        assert PLUGIN_NAME in calls[2]
+        assert list(tmp_path.iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_a_leftover_load_is_cleared_and_loaded_again(self, monkeypatch, tmp_path):
+        """Rule 3: ``loadScript`` answers -1 for a name a killed probe left loaded."""
+        calls = self._fake(
+            monkeypatch,
+            tmp_path,
+            {
+                "loadScript": ["(-1,)", "(0,)"],
+                "journal": "sysadmin-focus-probe token=TOKEN pid=7\n",
+            },
+        )
+        assert await kwin_focus_probe() == 7
+        assert self._verbs(calls)[:4] == ["loadScript", "unloadScript", "loadScript", "run"]
+
+    @pytest.mark.asyncio
+    async def test_a_failed_run_still_unloads_and_answers_unknown(self, monkeypatch, tmp_path):
+        calls = self._fake(
+            monkeypatch,
+            tmp_path,
+            {"loadScript": ["(0,)"], "journal": "", "run_fails": True},
+        )
+        assert await kwin_focus_probe() is None
+        assert self._verbs(calls) == ["loadScript", "run", "unloadScript"]
+        assert list(tmp_path.iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_a_missing_line_is_unknown_after_every_attempt(self, monkeypatch, tmp_path):
+        calls = self._fake(monkeypatch, tmp_path, {"loadScript": ["(0,)"], "journal": "noise\n"})
+        assert await kwin_focus_probe() is None
+        assert self._verbs(calls).count("journalctl") == focus_module.JOURNAL_ATTEMPTS
+
+    @pytest.mark.asyncio
+    async def test_no_runtime_directory_is_unknown(self, monkeypatch, tmp_path):
+        """No login session and no lingering: no bus to ask."""
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "absent"))
+        assert await kwin_focus_probe() is None
