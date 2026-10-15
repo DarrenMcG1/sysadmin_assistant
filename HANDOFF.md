@@ -1,8 +1,8 @@
-# Handoff — 2026-10-15 (Session 376)
+# Handoff — 2026-10-15 (Session 377)
 
 ## Next action
 
-Compact the memory index under 140 lines (tasks.md, Session 374). *(For: session)*
+Recommend whether the game-start event publishes under estate/… or the estate polls GET /api/games/spans (ADR-0016 §6; tasks.md, Session 369). *(For: session)*
 
 ## Scheduled action
 
@@ -16,6 +16,20 @@ Compact the memory index under 140 lines (tasks.md, Session 374). *(For: session
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
   game has been seen yet.
+
+## Session 377: the memory index is 123 lines
+
+Session 376's next action. The memory directory is not in git; the
+detail is in tasks.md, Session 377.
+
+- `MEMORY.md` went from 175 lines to 123: three lines dropped that its
+  own rule excuses, and 34 memories folded into 16 family lines. No
+  memory file was changed or deleted.
+- The header now states a 140-line budget beside the byte one.
+
+## What Session 376 handed on (done by Session 377)
+
+Compact the memory index under 140 lines (tasks.md, Session 374). *(For: session)*
 
 ## Session 376: no PostgreSQL service for CI, yet
 

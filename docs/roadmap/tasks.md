@@ -8,6 +8,28 @@
 
 ---
 
+## Session 377: the memory index under 140 lines (2026-10-15)
+
+Session 376's next action. The memory directory is outside the
+repository, so only the roadmap and handoff are committed.
+
+- [x] **`MEMORY.md` from 175 lines to 123, 21,717 bytes to 19,064.**
+      Every link resolves; the old file and the new list the same
+      memories bar three.
+- [x] **Three lines dropped under the index's own rule** (a memory
+      four or more others link to is surfaced by them):
+      `estate-messages-the-receiver-closes`,
+      `snag-parser-lives-in-estate-service`,
+      `exit-status-cannot-see-polkit`. Each is linked from at least
+      four memories that stay indexed.
+- [x] **34 memories folded into 16 family lines**, each member keeping
+      its own link and a short cue, placed at its newest member.
+      Rejected: raising the excused threshold to three links, which
+      would hide 14 cues with nothing checking they still surface; and
+      merging memory files into hubs, which rewrites 30-odd bodies.
+- [x] **The header states the line budget** beside the byte budget,
+      since the line limit is the one that bit.
+
 ## Session 376: no PostgreSQL service for CI, yet (2026-10-15)
 
 Session 375's next action, from Session 368's open item. Roadmap and
@@ -99,9 +121,9 @@ restart owed.
       it reads `auto`, the rule lost to the driver: try matching
       `DRIVER=="amdgpu"` on the bind event, else fall back to
       `amdgpu.runpm=0`.
-- [ ] **Compact the memory index under 140 lines.** A hook flagged
+- [x] **Compact the memory index under 140 lines.** A hook flagged
       `MEMORY.md` at 175 of its 200-line read limit on 2026-10-15.
-      Recorded as a second concern, not worked.
+      Done by Session 377: 123 lines.
 
 ---
 
