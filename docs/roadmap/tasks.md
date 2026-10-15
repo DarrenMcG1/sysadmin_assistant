@@ -8,6 +8,47 @@
 
 ---
 
+## Session 378: the estate should poll for games (2026-10-15)
+
+Session 377's next action, from Session 369's open item. Roadmap,
+handoff and one estate message; no code, ADR-0016 unchanged.
+
+- [x] **Recommended: the estate polls `GET /api/games/spans`.** No
+      `estate/…` event. The decision is estate-manager's and the
+      owner's, because rung 2 is theirs to build. Sent to them as estate
+      message `2d24843e-de87-481e-81a4-6a3ee72d675d`, which also tells
+      them the "nothing detects a game" blocker in their `ideas.md` is
+      gone.
+- [x] **Why polling.**
+  - **Latency is the detector's, either way.** A game is seen at most
+    60 s after launch whatever carries the news. Polling from the
+    arbiter's 5 s tick adds seconds. A faster eviction needs a shorter
+    detector interval, not MQTT.
+  - **A poll is a level reading; an event is an edge.** The estate's
+    ADR-0007 Decision 3 re-derives reality every tick. An event is lost
+    across an estate restart or a broker outage. Making it safe needs a
+    retained topic plus a last will, so a dead daemon does not leave
+    "game running" standing.
+  - **MQTT's cost is the estate's.** `sysadmin-publisher` can already
+    publish on `estate/#` (estate `mqtt/dynsec.yaml`), but the `:8400`
+    service has no subscriber. It would need a dynsec client, a
+    credential and a reconnecting loop. It already reads `:8500` over
+    HTTP (`scan.yaml`, `audit.yaml`).
+- [x] **Checked live**: a five-minute window at 17:34 BST answered
+      200 in 5 ms, with Deadlock open (`ended_at: null`) since 14:52
+      UTC. The reader's test is `ended_at` null and `last_seen_at`
+      within about two `poll_seconds` of now; both are served.
+- Chosen: poll. Rejected: a game-start event, for the three reasons
+  above. The estate's ADR-0001 called MQTT "the obvious carrier"; that
+  predates both the detector and the arbiter's tick loop.
+- **Reopen when** something needs the push itself (a phone buzz on game
+  start). Then publish a retained state topic with a last will, not a
+  bare event.
+- If the estate polls, it becomes the route's second measured reader
+  after Alfred, so a change to the route's shape files at both first.
+
+---
+
 ## Session 377: the memory index under 140 lines (2026-10-15)
 
 Session 376's next action. The memory directory is outside the
@@ -221,10 +262,12 @@ Session 368's next action. Docs only: `docs/adr/0016-game-spans-are-raw-and-alfr
 - [x] **Build ADR-0016, second half** (Session 371, 2026-10-15):
       `GET /api/games/spans`, its `contracts.py` model, the registry
       row and the KWin focus probe. Then close `4dc2b8bc`.
-- [ ] **A game-start event for the estate's gaming ladder** (rung 2:
+- [x] **A game-start event for the estate's gaming ladder** (rung 2:
       evict models when a game starts). Recorded as a second concern,
       not worked: whether the detector publishes under `estate/…` or the
       estate polls the route is open (ADR-0016 §6).
+      Recommended by Session 378: the estate polls, so nothing is built
+      here (estate message `2d24843e-de87-481e-81a4-6a3ee72d675d`).
 
 ---
 

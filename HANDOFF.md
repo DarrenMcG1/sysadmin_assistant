@@ -1,8 +1,8 @@
-# Handoff — 2026-10-15 (Session 377)
+# Handoff — 2026-10-15 (Session 378)
 
 ## Next action
 
-Recommend whether the game-start event publishes under estate/… or the estate polls GET /api/games/spans (ADR-0016 §6; tasks.md, Session 369). *(For: session)*
+Nothing is owed: estate-manager rules on polling for games (our message 2d24843e-de87-481e-81a4-6a3ee72d675d); the scheduled checks wait on a boot and the owner. *(For: none)*
 
 ## Scheduled action
 
@@ -15,7 +15,27 @@ Recommend whether the game-start event publishes under estate/… or the estate 
 - After the first evening of real play, read `sysadmin.game_spans` and
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
-  game has been seen yet.
+  game had been seen until Deadlock, open since 2026-10-15 15:52 BST.
+
+## Session 378: the estate should poll for games
+
+Session 377's next action. Recommendation only; no code, ADR-0016
+unchanged. The reasons are in tasks.md, Session 378.
+
+- **Recommended: the estate polls `GET /api/games/spans`**, with no
+  `estate/…` event. Filed at estate-manager as message
+  `2d24843e-de87-481e-81a4-6a3ee72d675d`; rung 2 is theirs and the
+  owner's to rule on.
+- The detector's 60 s poll sets the latency either way. A poll
+  re-derives the state each tick, which an event cannot survive a
+  restart doing. The estate has no MQTT subscriber to build on.
+- Checked live: 200 in 5 ms, Deadlock open.
+- **Reopen when** something needs the push itself; then a retained
+  topic with a last will.
+
+## What Session 377 handed on (done by Session 378)
+
+Recommend whether the game-start event publishes under estate/… or the estate polls GET /api/games/spans (ADR-0016 §6; tasks.md, Session 369). *(For: session)*
 
 ## Session 377: the memory index is 123 lines
 
