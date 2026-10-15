@@ -1,14 +1,54 @@
-# Handoff — 2026-10-15 (Session 370)
+# Handoff — 2026-10-15 (Session 371)
 
 ## Next action
 
-Build ADR-0016's second half: GET /api/games/spans with its contracts.py model and registry row, and the one-shot KWin focus probe; then close 4dc2b8bc. *(For: session)*
+Drop idx_alerts_open_by_agent in its own migration, filing at the estate first and leaving a pointer in migration 017's docstring. *(For: session)*
 
 ## Scheduled action
 
 - Uninstall Steam games until `/` is under 90 %, which closes the
   critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
   (151 GB) arrived 2026-09-22 and was the biggest single step.
+- After the first evening of real play, read `sysadmin.game_spans` and
+  `game_focus`: one span per game, `focused` stretches while it was in
+  front, and `agent_runs.details->>'focus'` reading `known`. No real
+  game has been seen yet.
+
+## Session 371: ADR-0016's second half, live
+
+Session 370's next action. Built `GET /api/games/spans`, its three
+contract models and registry row, and the KWin focus probe. Code in
+`7d3e50d`.
+
+- **Live:** the owner restarted the daemon at 2026-10-15 11:37:25. The
+  route answered 200 with `retained_from` at the detector's first run;
+  a timestamp with no offset answered 422.
+- **The probe in the real daemon:** a stand-in process carrying
+  `SteamLaunch AppId=570` was seen as "Dota 2" on two polls, and both
+  runs recorded `focus: known` with two probe lines in the journal. It
+  had no window, so no focus row was written, which is correct. The
+  stand-in's span was deleted by its id afterwards.
+- **Found:** `sysadmin.service` is a system unit with no session bus in
+  its environment. ADR-0016 §3 said it was a user unit. The probe sets
+  `XDG_RUNTIME_DIR` through `build_env`, the helper `systemctl --user`
+  already uses. Recorded in ADR-0016 §8.
+- **Chosen:** each focus stretch is served with its `state`, and
+  `focus_known` stays at span level. Rejected: serving only `focused`
+  stretches, which would hide which minutes nobody could see.
+- **Chosen:** `pid=0` (no active window) counts as unfocused, not
+  unknown. Only a probe with no journal line is `unknown`.
+- **Chosen:** a fixed plugin name, unloaded and reloaded when KWin says
+  it is already loaded. Rejected: a fresh name per call, which leaks
+  one script into KWin each time a probe is killed mid-call.
+- **For Alfred:** a `+01:00` offset must be sent as `%2B01:00`, because
+  a query string decodes `+` to a space. `Z` needs no encoding.
+- **Rule 3 (announce a changed surface to its readers):** no repository
+  reads `games/spans` yet, so nothing was filed before the commit, and
+  the commit says so. `4dc2b8bc` was then closed with the shape.
+
+## What Session 370 handed on (done by Session 371)
+
+Build ADR-0016's second half: GET /api/games/spans with its contracts.py model and registry row, and the one-shot KWin focus probe; then close 4dc2b8bc. *(For: session)*
 
 ## Session 370: ADR-0016's first half, live
 

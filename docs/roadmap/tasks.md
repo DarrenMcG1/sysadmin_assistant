@@ -190,8 +190,8 @@ so they stay open until then.
       http:// and www. answer 301. About 288 requests a day at no cost to
       the owner. Add it, reload, and close the message saying it was
       added.
-- [ ] **A read-only endpoint for the spans a game was running, for a
-      date range** (estate message `4dc2b8bc` from Alfred, open; the
+- [x] **A read-only endpoint for the spans a game was running, for a
+      date range** (estate message `4dc2b8bc` from Alfred, closed by Session 371; the
       owner's ruling of 2026-10-11 routed it here). A feature that wants
       its own session and an ADR: nothing here records processes today.
       Detection by full `/proc/<pid>/cmdline` (`SteamLaunch AppId=<n>`)
@@ -202,6 +202,8 @@ so they stay open until then.
       the endpoint exists.
       *(2026-10-14: decided in ADR-0016 by Session 369; the build is
       that session's two open items.)*
+      *(2026-10-15: built by Sessions 370 and 371 and live;
+      `4dc2b8bc` closed with the served shape.)*
 - [x] **Decide whether to judge `publish_errors`** on
       `GET :8400/api/estate/messages-invariants` (estate message
       `653e9ae9`, closed). Decided by Session 365: not judged, and not

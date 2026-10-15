@@ -1,8 +1,8 @@
 # ADR-0016 — Game spans are raw, and Alfred reads them
 
 **Date:** 2026-10-14
-**Status:** Accepted (the owner's rulings, Session 369). First half
-built by Session 370 (2026-10-15); two amendments in §7.
+**Status:** Accepted (the owner's rulings, Session 369). Built by
+Sessions 370 and 371 (2026-10-15); amendments from both builds in §7.
 **Context:** estate message `4dc2b8bc` (alfred → sysadmin-assistant, filed
 2026-10-11). The owner asked for a read-only endpoint returning the time
 spans in which a game was running over a date range, so Alfred's
@@ -169,3 +169,31 @@ Both were found while building and neither changes a ruling.
 - **Added: a gap of more than three polls ends a span** even if the game
   is still running. A suspended box resumes with the game open, and
   extending the span across the night would report it as play.
+
+## 8. Amendments from the second half (Session 371, 2026-10-15)
+
+None changes a ruling; the first was a false premise in §3.
+
+- **The daemon is a system unit, not a user unit** (§3 said it "has the
+  session bus"). `sysadmin.service` runs in the system slice as
+  `User=gaddi`, and its environment has neither
+  `DBUS_SESSION_BUS_ADDRESS` nor `XDG_RUNTIME_DIR`; `gdbus` there fails
+  with "Cannot autolaunch D-Bus without X11 $DISPLAY". The probe sets
+  `XDG_RUNTIME_DIR` with the helper `systemctl --user` already uses
+  (`sysadmin/monitor/systemd.py`'s `build_env`), and with that alone
+  `gdbus` reaches KWin and `journalctl --user` reads the line. Driven
+  under a stripped environment: firefox's PID in 0.011 s, script
+  unloaded, no file left.
+- **Each served focus stretch carries its `state`** (§5's example had
+  only `started_at`/`ended_at`), plus `last_seen_at`. `focus_known` is
+  kept at span level and is `false` when any stretch is `unknown`, so a
+  reader that ignores the list can still fall back to presence.
+- **No active window is an answer.** The script prints `pid=0` when
+  nothing holds focus, and that minute is recorded as unfocused. Only a
+  probe that got no line is `unknown`.
+- **A timestamp with no offset is refused (422)**, and a `+01:00`
+  offset must be sent as `%2B01:00`, because a query string decodes `+`
+  to a space. The refusal suggests the `Z` form.
+- **`retained_from`** is the later of the detector's oldest held run and
+  the `game_spans` retention cutoff, and `null` when the detector has
+  never run.

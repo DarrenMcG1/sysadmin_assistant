@@ -3,15 +3,14 @@
 **Last Updated**: 2026-10-15
 **Current Phase:** Feature-complete — maintenance & future features
 
-> **The box now records when a game is running** (2026-10-15, Session
-> 370). A new agent, the game detector, reads the process list every
-> 60 s and keeps one row per stretch a game ran, for Alfred to log as
-> Downtime (ADR-0016). Steam games are found by their AppId; others
-> only if listed under `games:` in config.yaml. Whether the game had
-> focus is recorded as unknown until the KWin probe is built. Nothing
-> is served yet; the route is the next session's. `alerts` holds **3**
-> unresolved rows <!--check:alerts-->. Migration 020 applied live; the
-> daemon restarted at **2026-10-15 08:52:12**
+> **Alfred can now read when a game was running** (2026-10-15,
+> Sessions 370 and 371). The game detector reads the process list every
+> 60 s and keeps one row per stretch a game ran; `GET /api/games/spans`
+> serves them raw for Alfred to log as Downtime (ADR-0016). Steam games
+> are found by their AppId; others only if listed under `games:` in
+> config.yaml. Focus comes from a one-shot KWin script, run only while a
+> game is present. `alerts` holds **3** unresolved rows
+> <!--check:alerts-->. The daemon restarted at **2026-10-15 11:37:25**
 > <!--check:deploy--> <!--check:daemon_start-->.
 
 > **/ is 91 % full because of Steam, not the database backups**
