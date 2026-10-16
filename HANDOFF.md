@@ -1,8 +1,8 @@
-# Handoff — 2026-10-16 (Session 379)
+# Handoff — 2026-10-16 (Session 380)
 
 ## Next action
 
-Amend ADR-0016 §4: Alfred keeps Downtime entries, not raw spans, so our 30 days are the only raw record; then close Alfred's message (tasks.md, Session 379). *(For: session)*
+Nothing is owed: Alfred closes our 4f851ae8 now the spans endpoint is live; the scheduled checks wait on a boot and the owner. *(For: none)*
 
 ## Scheduled action
 
@@ -16,6 +16,27 @@ Amend ADR-0016 §4: Alfred keeps Downtime entries, not raw spans, so our 30 days
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
   game had been seen until Deadlock, open since 2026-10-15 15:52 BST.
+
+## Session 380: ADR-0016 §4 from Alfred's answer
+
+Session 379's next action. No code; the detail is in tasks.md,
+Session 380.
+
+- **ADR-0016 §4 now says our 30 days are the only raw record of
+  gaming.** Alfred keeps one `Downtime: <game>` entry per run, with no
+  expiry, and stores no spans (estate message `36903d39`).
+- Amended in place rather than in a new section, because §4's bullet
+  waited on Alfred's answer and would otherwise still read
+  "unconfirmed".
+- Retention stays 30 days. Alfred never rebuilds a day older than the
+  window, so our expiry cannot erase its entries.
+- Closed `36903d39`. Its detail said Alfred's Part 6 still waits on
+  the endpoint, which has been live since 2026-10-15; the close note
+  says so. Our `4f851ae8` is Alfred's to close.
+
+## What Session 379 handed on (done by Session 380)
+
+Amend ADR-0016 §4: Alfred keeps Downtime entries, not raw spans, so our 30 days are the only raw record; then close Alfred's message (tasks.md, Session 379). *(For: session)*
 
 ## Session 379: venture-embed declares holds_vram
 

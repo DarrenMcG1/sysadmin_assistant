@@ -8,6 +8,27 @@
 
 ---
 
+## Session 380: ADR-0016 §4 from Alfred's answer (2026-10-16)
+
+Session 379's next action. One ADR amendment and one estate close; no
+code.
+
+- [x] **§4 now says the 30 days are the only raw record.** Alfred
+      keeps one `Downtime: <game>` entry per run with no expiry and
+      stores no spans; it never rebuilds a day older than our window.
+  - Chosen: amend §4's retention bullet in place. It named the
+    condition it waited on ("until Alfred confirms it"), so an
+    amendment section would have left §4 saying "unconfirmed".
+  - Retention stays 30 days. Keeping raw spans longer is a new ruling
+    for the owner; nothing asks for it.
+- [x] **Closed `36903d39-5793-47c9-a8df-eb71fd591cee`.** The close note
+      tells Alfred the endpoint has been live since 2026-10-15
+      (checked: 200, 12 spans, Deadlock and Slay the Spire 2), since its
+      message said Part 6 still waits on it. Our `4f851ae8` stays open
+      until Alfred closes it; that is theirs.
+
+---
+
 ## Session 379: venture-embed declares holds_vram (2026-10-16)
 
 Estate message `d2b70567-0cc4-42ba-916c-546f0540d94d`: estate-manager
@@ -42,12 +63,14 @@ measured that `venture-embed` puts a compute buffer on the card despite
       The rule (a declaration, not a role) stands; its evidence changed.
 - [x] The start-order race (no `wait-for-dgpu` gate on the unit) is
       venture-assistant's; the estate filed it there as `d07f4176`.
-- [ ] **Amend ADR-0016 §4 from Alfred's answer**, estate message
+- [x] **Amend ADR-0016 §4 from Alfred's answer**, estate message
       `36903d39-5793-47c9-a8df-eb71fd591cee` (Alfred, 2026-10-16, in
       reply to our `4f851ae8`). Alfred keeps one "Downtime: <game>"
       entry per run in its own table, with no expiry, and does not
       store the raw spans, so our 30 days are the only raw record.
       Record that in §4, then close the message.
+      *(Done by Session 380, 2026-10-16: §4 amended in place, message
+      closed.)*
 
 ---
 

@@ -2,7 +2,9 @@
 
 **Date:** 2026-10-14
 **Status:** Accepted (the owner's rulings, Session 369). Built by
-Sessions 370 and 371 (2026-10-15); amendments from both builds in §7.
+Sessions 370 and 371 (2026-10-15); amendments from both builds in §7
+and §8. §4 amended from Alfred's answer on retention (Session 380,
+2026-10-16).
 **Context:** estate message `4dc2b8bc` (alfred → sysadmin-assistant, filed
 2026-10-11). The owner asked for a read-only endpoint returning the time
 spans in which a game was running over a date range, so Alfred's
@@ -97,13 +99,23 @@ rule.
   span, which Alfred's 10-minute merge joins.
 - **30 days**, through `retention_config` and `TABLE_TIMESTAMP_MAP` like
   every other timed table here. 30 days covers Alfred's 7-day backfill
-  four times over. The owner expects Alfred to keep what it logs under
-  `/plan`, which would make these rows a **buffer** rather than the
-  history of record. **That is unconfirmed**: this would be Alfred's
-  first read from another service, and whether its existing logging
-  keeps what it reads is Alfred's to say. The question went to Alfred
-  with the reply to `4dc2b8bc`. Until Alfred confirms it, these 30 days
-  are the only record of gaming on the box.
+  four times over.
+- **These 30 days are the only raw record of gaming on the box**
+  (amended 2026-10-16, Session 380). Alfred answered the question put
+  with the reply to `4dc2b8bc` in estate message `36903d39` (Alfred
+  keeps what it builds from the spans, not the spans). After its merge,
+  drop and unfocused cut, each run becomes one `Downtime: <game>`
+  actual entry in Alfred's own table, kept with no expiry. The spans
+  themselves are read and not stored. So the owner's expectation held
+  for the *reading* and not for the rows: Alfred's entries are the
+  history of record for Downtime, and a span older than 30 days is gone
+  from the box.
+  - Alfred never rebuilds a day older than this window, so an entry
+    whose spans have expired is never deleted for want of them. Our
+    retention cannot erase Alfred's history.
+  - The retention ruling (§1) is unchanged. It rejected 90 days for
+    having no reader, and Alfred's answer adds none. Keeping the raw
+    spans longer, here or in Alfred, is a new ruling for the owner.
 - Both tables come from an Alembic migration, the `sysadmin` schema's one
   owner (contract §2.7, Session 367).
 
