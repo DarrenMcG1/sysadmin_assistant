@@ -149,6 +149,46 @@ was not evaluated is recorded beside it. `ports_checked`'s rule — zero
 because nothing was wrong must never be served as zero because nobody
 looked — at the size of one term in one check.
 
+### 2.4 Amended 2026-10-16: §2.1's specimen was CPU-only, and it declares now
+
+Estate message `d2b70567` (estate-manager, 2026-10-16) measured what §2.1
+assumed: that `-ngl 0` means no VRAM. **It keeps the weights in RAM but
+not the compute buffer.** Re-measured here the same day from
+`journalctl --user -u venture-embed.service`, taking the first
+`compute buffer size` line after each `main: loading model`:
+
+| start | count since 2026-09-03 | compute buffer |
+|---|---|---|
+| at boot, before amdgpu is ready | 12 of 12 | CPU, 564 MiB |
+| after boot | 10 of 10 | **Vulkan0, 504 MiB** |
+
+Every one of the 14 resets the kernel journal still shows (2026-09-03 →
+09-30) fell while the unit was a boot start, running CPU-only. So §2.1's
+**267 of 823** measured CPU-only processes, which no reset could touch,
+and said nothing about the unit as it usually runs. **No reset has yet
+landed while it held the card**: whether it aborts then is inferred from
+the two `-ngl 99` units, not measured.
+
+What changed:
+
+- `venture-embed` declares `holds_vram: true`. Leaving it absent would
+  report `ok` after a reset in the state the unit is in after any manual
+  or arbiter restart, which is this ADR's worse direction. The cost is
+  the other direction, bounded: after a boot start and a later reset it
+  reads `degraded` while it could still serve, until its next restart
+  (`SNAG-GPU-008`).
+- **§2.1's rule stands; its evidence changed.** The population is still
+  a declaration, because residency is decided at start-up by things no
+  role names (`-ngl`, where llama.cpp puts its compute buffer, and
+  whether amdgpu was ready). Reading `-ngl` from `ExecStart` is now
+  refuted twice: `-ngl 0` would have answered "no VRAM" and been wrong.
+- Rejected: deciding per start from the unit's own `compute buffer` log
+  line. That would be exact, but it is a new reader built for a case
+  with no recorded specimen. Reopen it if a boot start's false
+  `degraded` is ever seen.
+- The start-order race itself (no `wait-for-dgpu` gate) is
+  venture-assistant's; the estate filed it there as message `d07f4176`.
+
 ---
 
 ## 3. The reading is `degraded`, and `unwatched` is false in both halves

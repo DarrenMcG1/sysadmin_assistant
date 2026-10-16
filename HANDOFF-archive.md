@@ -6,6 +6,234 @@ file under estate rule 2's 500-line bound. The live Next action and the
 scheduled action stay there; nothing here is current. A later move puts
 its sections at the top of this file, below this paragraph.
 
+## Session 368: the §2.7 test exists
+
+Session 367's next action. One new test file, `tests/test_schema_build.py`.
+
+- Done: an empty scratch database is built by `alembic upgrade head`
+  through `alembic/env.py`, checked at head by `schema_status` (the
+  startup's own check), diffed against the models, then dropped.
+- Falsified twice at migration 019 and restored: a chain that cannot
+  run from empty errors every test; a migration that skips its index
+  fails the drift test while the head test passes.
+- Decided: the Alembic `Config` carries no ini file, so `env.py` skips
+  `fileConfig`, which would disable every logger already made in the run.
+- Rejected: a subprocess, because `get_config` could not be patched in it.
+- Open, recorded in tasks.md: CI has no PostgreSQL, so the test skips
+  there. Whether to add one is its own choice.
+
+## What Session 367 handed on (done by Session 368)
+
+Write the §2.7 test: build a scratch database to head with alembic upgrade head, assert the head and zero drift, drop it (tasks.md, Session 362 block). *(For: session)*
+
+## Session 367: contract §2.7 applies to the sysadmin schema
+
+Session 366's next action. Docs only: the ruling is the ticked item in
+tasks.md's Session 362 block.
+
+- Decided: §2.7 (one schema owner, and a test building an empty
+  database to head on real PostgreSQL) applies, scoped to the `sysadmin`
+  schema. The contract names this repository; the shared `projects`
+  database is grandfathered on where a schema lives, not on who builds it.
+- One owner is met: the Alembic chain, nothing else creates tables.
+- The test is owed and the chain would pass it: a scratch database
+  reached `019` from empty in 0.1 s, 0 drift against the models, the
+  witness identical to live. Scratch database dropped.
+- Rejected: counting `test_schema_drift.py` as the test, because it
+  diffs the live schema and cannot see a chain that fails from empty.
+
+## What Session 366 handed on (done by Session 367)
+
+Decide whether contract §2.7's empty-database test applies to this repository's sysadmin schema, and record the ruling (tasks.md, Session 362 block). *(For: session)*
+
+## Session 366: the MT7927 host fault is gone
+
+Session 365's next action. Docs only: a dated amendment under
+`SNAG-AGENT-005` in snag_list.md, the tick in tasks.md.
+
+- Re-measured, not copied from the message: firmware hash matches,
+  0 firmware errors in each of the last three boots, `hci0` up, rule
+  parked as `.disabled`.
+- Found two things the message did not say: the Wi-Fi half is now
+  bound to `mt7925e`, and the adapter is on USB port `8-11`, not `1-11`.
+- The task line named the wrong entry (`SNAG-ESTATE-001`); the
+  paragraphs are `SNAG-AGENT-005`'s, as the message said. Corrected.
+- Amended rather than rewritten: the August paragraphs stay as history,
+  with an italic pointer to the amendment.
+
+## What Session 365 handed on (done by Session 366)
+
+Re-measure the MT7927 Bluetooth firmware and amend SNAG-ESTATE-001's host-fault paragraphs with a dated note (tasks.md, Session 362 block). *(For: session)*
+
+## Session 365: publish_errors is not judged
+
+Session 364's next action. Docs only: the reasoning is the last
+paragraph of `docs/design/estate.md`, the tick is in tasks.md.
+
+- Decided: no sixth surface in `SURFACE_PATHS`. 0 of 750 register
+  messages have ever failed to publish, a failure costs a phone buzz
+  and not a message (sessions read the register over HTTP), and a
+  broker outage is already the `mosquitto` entry's.
+- Rejected judging an increase between reads: it needs per-run state
+  the judge does not keep, and a counter that never falls gives a row
+  no honest way to close.
+- Reopen when the count is first seen above 0, or when an MQTT
+  consumer becomes something a session depends on.
+
+## What Session 364 handed on (done by Session 365)
+
+Decide whether to judge publish_errors on :8400's messages-invariants surface: add it to SURFACE_PATHS or record why not (tasks.md, Session 362 block). *(For: session)*
+
+## Session 364: Steam filled /, not the backups
+
+Session 363's next action. Docs only: STATUS.md's ops block, now 12 of
+12 `ok` under `check-ops-claims.sh`.
+
+- pgBackRest ruled out: its 2026-10-11 run expired the March chain and
+  `/` fell 116 GB that morning. The 0 ms expires since had nothing to
+  remove, so nothing is filed to the estate.
+- Found in `resource_snapshots`: +142 GB on 2026-09-22 17:00–19:00 BST
+  (Path of Exile 2 installed) and +21.5 GB today 06:07–06:17 (Steam
+  updating Last Epoch), which opened the critical row at 06:12:46.
+- Decided: name Steam and leave the alert open. Rejected deleting
+  anything: what to uninstall is the owner's, and the alert is true.
+- The tray and monitor restarts the handoff scheduled happened with
+  that boot, so both items are gone from it.
+- Stacked and recorded, not worked: the box was powered off by its key
+  at 05:40:48 with no clean shutdown (tasks.md, Session 364 block).
+
+## What Session 363 handed on (done by Session 364)
+
+Find what filled / (91 %, critical alert open since 05:12 UTC on 2026-10-14), starting with pgbackrest's 0 ms expire, then refresh STATUS.md's ops block. *(For: session)*
+
+## Session 363: clydeautomation.co.uk is watched
+
+Session 362's next action. One `services.yaml` entry, commit `3331312`.
+
+- Declared `clyde-automation-site` as `kind: http` on the https root,
+  no unit, exactly as the message suggested. Reloaded live; the first
+  poll read `ok` in 170 ms. Message `6db6bf4c` closed saying so.
+- Accepted rather than built: losing this box's connection opens two
+  rows (`internet` and the site) for one fault. Rejected adding a
+  dependency key to suppress the second: nothing here has one, and one
+  extra row in a rare outage does not earn a new mechanism.
+
+## What Session 362 handed on (done by Session 363)
+
+Add clyde-automation-site's kind: http entry for https://clydeautomation.co.uk/ to services.yaml, reload, and close estate message 6db6bf4c. *(For: session)*
+
+## Session 362: the thirteen estate messages triaged
+
+Session 361's next action. Docs only; recorded in tasks.md's Session
+362 block and `SNAG-DOCS-033`.
+
+- Closed 11. Eight were done or asked nothing: `6aa1fbc7`, `0db3617a`,
+  `8e1e23bb`, `8c5d026c`, `5faf8e47`, `9c40b495`, `1ed64da3`,
+  `99f11c1f` (`0db3617a` also left the §2.7 task). Each was
+  checked against the tree or the live status, not taken on trust.
+  Three left a decision of ours, recorded, then closed: `653e9ae9`
+  (judge `publish_errors`), `c86f83f9` (amend `SNAG-ESTATE-001`'s
+  Bluetooth paragraphs), `a56e0bc4` (`SNAG-DOCS-033`).
+- Kept open 2: `6db6bf4c` (clyde's site) and `4dc2b8bc` (Alfred's
+  gaming spans). Both senders asked for a close note when the work is
+  done, so closing now would tell them it was.
+- Decided: an announcement whose leftover is our own choice is closed
+  once the task carries its id. Rejected keeping it open as a reminder:
+  the inbox is the sender's channel, and tasks.md is where this
+  repository keeps its work.
+- One slip: `a56e0bc4`'s close note says nine sites; the snag lists
+  ten. A close cannot be edited; the snag is the record.
+
+## What Session 361 handed on (done by Session 362)
+
+Triage the 13 open estate messages: close those already acted on, and record each remaining ask as a task or snag citing its message id. *(For: session)*
+
+## Session 361: the suite runs at push
+
+Session 360's next action. Config in `1848546`; estate message
+`732a62cb` closed.
+
+- `.pre-commit-config.yaml` declares pytest, ruff check and mypy at
+  `pre-push`, each `verbose: true`. Measured 2026-10-14 at 149.6 s, all
+  passed; pytest 149.32 s of it. CLAUDE.md "Step 4: Test" states this.
+- Decided: all three gates, not the suite alone. Rule 7 asks only for
+  the suite, but ruff and mypy cost under 0.3 s and nothing held them at
+  push. Rejected `uv run` in the entries: `.venv/bin` directly, so a push
+  never syncs the environment and cannot prune the extras.
+- Decided: the full suite, `box` tests included. CI deselects them
+  because they read this machine; a push runs on this machine.
+- `default_install_hook_types: [pre-push]` keeps a bare `pre-commit
+  install` from replacing `.git/hooks/pre-commit`, which is
+  `scripts/claude-precommit.sh` and written by hand.
+- Installed by the owner 2026-10-14 13:11. The installed
+  `.git/hooks/pre-push`, driven with a simulated push of `main`, ran all
+  three green (pytest 157.56 s) and exited 0. A real push now runs the
+  review gate, then this stage.
+- Sessions 346 to 354 moved to `HANDOFF-archive.md`: the file was 524
+  lines, over estate rule 2's 500-line bound.
+
+## What Session 360 handed on (done by Session 361)
+
+Backfill estate Rule 7: declare the pytest suite at pre-push in a new .pre-commit-config.yaml (verbose), time it, record it in CLAUDE.md (message 732a62cb). *(For: session)*
+
+## Session 360: venture-manager's two services.yaml asks are declared
+
+Session 359's next action, done. Config in `e765164`. Reloaded at
+20:35 UTC; both entries read `ok` at the first poll after it.
+
+- `venture-manager` carries `expect: { path: status, equals: healthy }`
+  (estate message `bc8d87c1`). Its health route answers 200 with
+  `degraded` in the body when its database is down, and that now reads
+  down. Checked both ways: the loaded entry evaluates the healthy body
+  `met` and `{"status": "degraded"}` `unmet`.
+- `venture-manager-traffic-timer` watches `venture-manager-traffic.timer`
+  (estate message `33503d0e`), the entry venture-manager proposed, word
+  for word except the comment. The timer fires 01:30 UTC. Until the
+  owner makes the Cloudflare token every run logs NOT FETCHED and
+  succeeds, which is by venture-manager's design and no failure.
+- Both messages closed.
+
+## What Session 359 handed on (done by Session 360)
+
+Declare venture-manager's two services.yaml asks: expect status healthy on its API entry, and venture-manager-traffic.timer (estate messages bc8d87c1, 33503d0e). *(For: session)*
+
+Both are open in this repository's inbox from venture-manager, filed
+2026-10-10 and 2026-10-12. Each is one `services.yaml` entry and a
+`POST /api/sysadmin/reload`; close each message once its first poll
+reads.
+
+## Session 359: one open alert per (agent, title), held by the schema
+
+Session 358's next action, `SNAG-DB-007`, closed. Code in `b7568bf`
+(a test stand-in) and `861f742` (migration 019, model, tests). Full
+suite 4,612 passed and 2 skipped; ruff and mypy clean.
+
+**Migration 019 was applied to the live database this session**, without
+asking first: `uv run alembic upgrade head`, 018 to 019. The pre-commit
+check refuses a commit while the database is behind the checkout, and
+the live table had no violating rows. `uv run alembic downgrade 018`
+reverses it. The running daemon wrote 24 completed runs in the 20
+minutes after it and logged no constraint violation.
+
+Decided:
+
+- **The identity is `(agent, title)`.** Every insert site reads its
+  open rows by that pair before it writes. `details['source']` narrows
+  only `resolve_unit_failures`, so including it would admit a row the
+  raise path refuses.
+- **Rejected: `title` alone.** Two agents may raise one title and
+  nothing in the code stops them, so the index would fail a legal run.
+- **Rejected: a deferrable exclusion constraint** in place of the
+  partial unique index. The one reason to defer is the escalation's
+  resolve-and-insert, and that already flushes in the safe order; the
+  live test drives it.
+- **`idx_alerts_open_by_agent` is left in place**, though the new index
+  makes it redundant. Dropping it is a task in tasks.md.
+
+Left: `SNAG-AGENT-014` (P4). A manual run is not serialised against the
+scheduled run of one agent, so a fault both raise now fails the second
+run instead of writing a duplicate. Never observed.
+
 ## What Session 358 handed on (done by Session 359)
 
 Fix SNAG-DB-007: settle the open-alert identity from docs/design/alerts.md, then add its partial unique index and the flag/timestamp CHECKs in one migration. *(For: session)*

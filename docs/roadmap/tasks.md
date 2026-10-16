@@ -4,7 +4,50 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-15
+> **Last Updated**: 2026-10-16
+
+---
+
+## Session 379: venture-embed declares holds_vram (2026-10-16)
+
+Estate message `d2b70567-0cc4-42ba-916c-546f0540d94d`: estate-manager
+measured that `venture-embed` puts a compute buffer on the card despite
+`-ngl 0`. Code in `125bbc9`; ADR-0007 §2.4.
+
+- [x] **Re-measured, and the estate's figures hold.** From
+      `journalctl --user -u venture-embed.service`, the first
+      `compute buffer size` after each `main: loading model`: 12 boot
+      starts on CPU (564 MiB), 10 later starts on Vulkan0 (504 MiB),
+      2026-09-03 to now. The live process (10:09:22 BST) is on Vulkan0.
+- [x] **Every reset on record hit a CPU-only process.** The 14 resets
+      in the kernel journal (2026-09-03 → 09-30) all fell after a boot
+      start. So ADR-0007's "267 of 823 served while flagged" measured
+      processes no reset could touch. No reset has landed while the
+      unit held the card; its abort is inferred, not measured.
+- [x] **`holds_vram: true` on `venture-embed`** in `services.yaml`.
+      Reloaded live at 17:36; the 17:37:25 check recorded
+      `gpu_context.evaluated: true, context_lost: false`.
+  - Chosen: declare it. Leaving it absent reads `ok` after a reset in
+    the state the unit is in after any restart.
+  - Rejected: deciding per start from the unit's `compute buffer` log
+    line. Exact, but a new reader for a case never seen. Reopen if a
+    boot start's false `degraded` is ever seen.
+  - Cost: after a boot start and a later reset, it reads `degraded`
+    while it could still serve, until its next restart. Filed as
+    `SNAG-GPU-008`.
+- [x] **Prose corrected** where it said `venture-embed` holds no VRAM:
+      `services.yaml` (three comments), `gpu_context.py` rule 1,
+      `ServiceEntry.holds_vram`'s comment, `tests/test_gpu_context.py`
+      (the shipped-file pin now names three), ADR-0007 §2.4, CLAUDE.md.
+      The rule (a declaration, not a role) stands; its evidence changed.
+- [x] The start-order race (no `wait-for-dgpu` gate on the unit) is
+      venture-assistant's; the estate filed it there as `d07f4176`.
+- [ ] **Amend ADR-0016 §4 from Alfred's answer**, estate message
+      `36903d39-5793-47c9-a8df-eb71fd591cee` (Alfred, 2026-10-16, in
+      reply to our `4f851ae8`). Alfred keeps one "Downtime: <game>"
+      entry per run in its own table, with no expiry, and does not
+      store the raw spans, so our 30 days are the only raw record.
+      Record that in §4, then close the message.
 
 ---
 
@@ -46,6 +89,10 @@ handoff and one estate message; no code, ADR-0016 unchanged.
   bare event.
 - If the estate polls, it becomes the route's second measured reader
   after Alfred, so a change to the route's shape files at both first.
+- [x] **Answered** (2026-10-15, closed by estate-manager): polling is
+      recorded as the route in their `ideas.md` gaming-ladder entry, and
+      the no-detector blocker is struck. Rung 2 is not built, so they
+      are not yet a reader of `/api/games/spans`.
 
 ---
 

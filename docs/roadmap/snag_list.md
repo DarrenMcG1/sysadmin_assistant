@@ -10,6 +10,12 @@
 
 ## Open Issues
 
+- [P4] SNAG-GPU-008: **`venture-embed` declares `holds_vram` for every start, but a start at boot runs CPU-only, so a reset after a boot start reads `degraded` about a server that can still serve** (2026-10-16, opened by Session 379 from estate message `d2b70567`)
+  - **Symptom**: whether `-ngl 0` puts the 504 MiB compute buffer on Vulkan0 depends on whether amdgpu was ready when the unit started: 10 of 10 starts after boot did, 12 of 12 boot starts did not. The declaration is one value for both, chosen for the after-boot case (ADR-0007 §2.4).
+  - **Left unfixed on purpose**: the exact fix reads each start's first `compute buffer size` line and declares per start. That is a new reader, and the case has no specimen: no reset has yet followed a boot start of this unit since the declaration. A restart of the unit clears the false reading.
+  - **Retires itself** if venture-assistant gates the unit on `wait-for-dgpu` (every start then holds the card) or makes it CPU-only for certain; the estate filed the race there as `d07f4176`.
+  - **Status:** Open, P4: bounded by the next restart, and the estate's vram check already flags the same boot start as `cpu_fallback`.
+
 - [P4] SNAG-DOCS-033: **"open and unread for eight days" is said of the roll-up alert, which was open for one day; the eight days were the restart loop's** (2026-10-14, opened by Session 362 from portfolio's estate message `a56e0bc4`)
   - **Symptom**: `SNAG-ESTATE-001` dates the alert `Unmonitored systemd units: 17 findings` to 2026-08-11 and the loop's end to 2026-08-12. The loop ran from 2026-08-04 21:13, which is the eight days. The compression then spread, and portfolio copied it into their overview before their 2026-09-22 fact-check caught it.
   - **Where**, swept 2026-10-14 for the alert-shaped claim: `sysadmin/units/agent.py:25` and `:111`, `sysadmin/monitor/log_review.py:372`, `sysadmin/monitor/log_actions.py:306`, `sysadmin/core/failure_replay.py:233`, `sysadmin/estate/judgements.py:1280`, `sysadmin/units/scan.py:1162` (quoting the snag), `tests/test_estate_judgements.py:1463`, `tests/test_unit_arming.py:444`, and this file's `SNAG-ESTATE-001` bullet "eight days old". `scan.py:947` and `agent.py:839` say the *snag* ran eight days, which is true, and stay.

@@ -624,9 +624,10 @@ than this paragraph.
   reading is `degraded` and not `unwatched` (`skipped` means *nobody looked
   by declaration*, and `UNMEASURED_STATUSES` would excuse the outage as a
   decision — `SNAG-SVC-001` in reverse), why the population is a
-  declaration in `services.yaml` rather than `role: inference` (measured:
-  `venture-embed` runs `-ngl 0` and served **267 of 823** successful
-  embeddings while the predicate was true), and the three measurement traps
+  declaration in `services.yaml` rather than `role: inference` (its
+  `venture-embed` specimen was voided on 2026-10-16 by §2.4: `-ngl 0`
+  still puts the compute buffer on the card after boot, so it declares
+  `holds_vram` now), and the three measurement traps
   — `journalctl -k` implying `--boot=0`, second-granular `@epoch`
   truncation erring toward over-reporting, and an empty
   `ActiveEnterTimestamp` on an inactive unit.
