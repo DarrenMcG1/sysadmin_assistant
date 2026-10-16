@@ -33,21 +33,25 @@ every one settled against 34 days of the live journal rather than by
 argument.
 
 1. **The population is a declaration, never a role.**  ``role:
-   inference`` names four services in ``services.yaml`` and is the
-   cheapest rule available; keyed on it this reading ships **267 false
-   alarms**.  ``venture-embed`` runs ``llama-server … -ngl 0`` — no
-   offloaded layers, no resident VRAM — and served 267 of its 823
-   successful embeddings *while the predicate was true*, across the same
-   twelve resets, with zero aborts in the unit's whole retained history.
-   On the two units that do hold VRAM the separation is total in both
-   directions: 16 of 16 aborts preceded by a true predicate, and not one
-   of 11,565 successful requests served while it was true.  So
+   inference`` was the cheapest rule available, and the specimen that
+   refused it was ``venture-embed``: ``-ngl 0``, and 267 of its 823
+   successful embeddings served *while the predicate was true*.  **That
+   specimen was voided on 2026-10-16** (ADR-0007 §2.4): ``-ngl 0`` keeps
+   the weights off the card but not the compute buffer, which lands on
+   Vulkan0 on every start after boot, and every reset the journal still
+   shows fell while the unit was a boot start running CPU-only.  It
+   declares ``holds_vram`` now.  The rule stands on its other leg:
+   residency is decided at start-up by things no role names, so
    ``ServiceEntry.holds_vram`` is honoured as a *statement*, which is
    :func:`~sysadmin.monitor.journal.unwrap_json_message`'s rule met from
-   a new direction.  Reading ``-ngl`` out of the unit's ``ExecStart`` is
-   the other cheap rule and is refused for the same reason plus a
+   a new direction.  On the two units that held VRAM throughout, the
+   separation is total in both directions: 16 of 16 aborts preceded by a
+   true predicate, and not one of 11,565 successful requests served
+   while it was true.  Reading ``-ngl`` out of the unit's ``ExecStart``
+   is the other cheap rule and is refused for the same reason plus a
    stronger one — it makes this repository a parser of a command line
-   another repository owns.
+   another repository owns — and ``venture-embed`` shows it would also
+   have answered wrongly.
 
 2. **The comparison is strict, and strictness buys less than ADR-0007
    claims for it.**  ``--timestamp=unix`` renders whole seconds, and

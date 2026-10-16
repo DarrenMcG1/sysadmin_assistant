@@ -55,7 +55,7 @@ def declaring(**overrides) -> ServiceEntry:
 
 
 def silent(**overrides) -> ServiceEntry:
-    """``venture-embed``: the same role, and no declaration."""
+    """An inference server that declares nothing: the role, no statement."""
     return ServiceEntry.model_validate({
         "name": "venture-embed",
         "kind": "http",
@@ -118,12 +118,14 @@ class TestThePopulationIsADeclaration:
         assert declaring().holds_vram is True
 
     def test_the_role_it_shares_declares_nothing(self):
-        """``venture-embed`` is the whole reason the key is not the role.
+        """The role is not the key, so a server may carry it and not declare.
 
-        It carries ``role: inference`` and served 267 of 823 successful
-        embeddings while the predicate was true.  Falsified by keying the
-        production check on ``svc.role == "inference"``, which turns this
-        red and nothing else.
+        Named after ``venture-embed``, whose 267 of 823 embeddings served
+        while flagged first decided this.  It declares ``holds_vram`` in
+        ``services.yaml`` since 2026-10-16 (ADR-0007 §2.4), so this fixture
+        is synthetic now; the rule does not need a live specimen.
+        Falsified by keying the production check on
+        ``svc.role == "inference"``, which turns this red and nothing else.
         """
         assert silent().role == "inference"
         assert silent().holds_vram is False
@@ -167,12 +169,15 @@ class TestThePopulationIsADeclaration:
                 "holds_vram": True,
             })
 
-    def test_the_shipped_file_declares_exactly_the_measured_two(self):
+    def test_the_shipped_file_declares_exactly_the_measured_three(self):
         """The declaration is a fact about this box, so it is read here.
 
         Not a restatement: the point of the entry is *which* services
-        hold VRAM, and a test over a fixture could not notice a third
-        being added without a measurement behind it.
+        hold VRAM, and a test over a fixture could not notice one being
+        added without a measurement behind it.  ``venture-embed`` was
+        added on 2026-10-16 on estate message ``d2b70567``'s journal
+        read (ADR-0007 §2.4); ``venture-chat-large`` keeps the strict
+        superset, sharing the role as ``kind: static``.
         """
         from sysadmin.monitor.services import load_services
 
@@ -181,7 +186,7 @@ class TestThePopulationIsADeclaration:
         ).services
         declared = sorted(s.name for s in entries if s.holds_vram)
         inference = sorted(s.name for s in entries if s.role == "inference")
-        assert declared == ["llama-server", "venture-chat"]
+        assert declared == ["llama-server", "venture-chat", "venture-embed"]
         assert set(declared) < set(inference), (
             "the role is a strict superset, which is why it is not the key"
         )

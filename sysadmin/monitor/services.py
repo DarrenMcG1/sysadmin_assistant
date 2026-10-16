@@ -231,12 +231,13 @@ class ServiceEntry(BaseModel):
     #: :mod:`sysadmin.monitor.gpu_context` through
     #: :meth:`~sysadmin.monitor.agent.SysAdminAgent._check_http_and_unit`.
     #:
-    #: **A declaration and not a role**, which is the measurement that
-    #: decided it: ``role: inference`` names four services here, and
-    #: ``venture-embed`` runs with no offloaded layers and served 267 of
-    #: its 823 successful embeddings while the predicate was true.  Keyed
-    #: on the role this ships 267 false alarms about a server that was
-    #: working throughout.
+    #: **A declaration and not a role**: residency is decided at start-up
+    #: by things no role names — ``-ngl``, where llama.cpp puts its
+    #: compute buffer, whether amdgpu was ready.  ``venture-embed`` was
+    #: the specimen that decided it and was voided on 2026-10-16 (ADR-0007
+    #: §2.4): its ``-ngl 0`` keeps the weights off the card and not the
+    #: compute buffer, so it declares this now.  ``venture-chat-large``
+    #: shares the role and cannot declare it, being ``kind: static``.
     #:
     #: Default ``False``, and the polarity is the safe one in both
     #: directions — an omission costs a term nobody asked for rather than

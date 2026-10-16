@@ -110,7 +110,8 @@ services:
   # unit were preceded by a context created before the last reset, and
   # 0 of 3,020 successful requests were served while that was true.
   # ADR-0007 records the derivation; `role: inference` is deliberately
-  # NOT the key, because `venture-embed` carries it and holds no VRAM.
+  # NOT the key, because residency is decided at start-up by things no
+  # role names (see venture-embed below).
   - project: alfred
     name: llama-server
     role: inference
@@ -185,7 +186,8 @@ services:
   #
   # Worth knowing for the GPU work: this unit is the *foreground application*
   # half of ADR-0007's _GPU_RESET.reason — the half §2.1 left standing when
-  # it measured the resident-inference half false on venture-embed. Four
+  # it judged the resident-inference half false on venture-embed, a
+  # judgement voided on 2026-10-16 (§2.4: those processes were CPU-only). Four
   # aborts over 2026-08-29 → 09-06, every one clustered with Xwayland,
   # plasmashell and WebKitWebProcess. It holds no VRAM, so holds_vram is
   # correctly absent; it loses a *graphics* context, not a model.
@@ -294,19 +296,25 @@ services:
     holds_vram: true
     systemd: { unit: venture-chat.service, scope: user }
 
-  # No `holds_vram:` on purpose, and it is the measurement that decided
-  # the whole population is a declaration rather than `role: inference`.
-  # This runs `llama-server … -ngl 0` — no offloaded layers, no resident
-  # VRAM — and served 267 of its 823 successful embeddings *while* its
-  # context predated the last reset, with zero aborts in its whole
-  # retained history. Keyed on the role it shares with the two above,
-  # this reading would have raised 267 false alarms here.
+  # `holds_vram: true` since 2026-10-16, reversing the absence ADR-0007
+  # was decided on (its §2.4). `-ngl 0` keeps the weights in RAM but not
+  # the compute buffer: every start after boot since 2026-09-03 (10 of
+  # 10) reserved 504 MiB on Vulkan0, and only starts at boot, before
+  # amdgpu is ready, ran CPU-only (12 of 12). Every reset the journal
+  # still shows fell in a CPU-only stretch, which is what the old
+  # "267 of 823 served while flagged" count measured. No reset has landed
+  # while this unit held the card, so its abort is inferred from the two
+  # above, not measured. The cost: after a boot start and a later reset
+  # it reads `degraded` while it can still serve, until its next restart.
+  # Estate message d2b70567 measured it; the start-order race is
+  # venture-assistant's (estate message d07f4176, filed at them).
   - project: venture-assistant
     name: venture-embed
     role: inference
     kind: http
     url: http://localhost:8082/health
     port: 8082
+    holds_vram: true
     systemd: { unit: venture-embed.service, scope: user }
 
   - project: venture-assistant
