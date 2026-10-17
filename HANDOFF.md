@@ -1,8 +1,8 @@
-# Handoff — 2026-10-16 (Session 380)
+# Handoff — 2026-10-17 (Session 381)
 
 ## Next action
 
-Nothing is owed: Alfred closes our 4f851ae8 now the spans endpoint is live; the scheduled checks wait on a boot and the owner. *(For: none)*
+Nothing is owed: the estate's priority-digit message is closed and no message is open; the scheduled checks wait on a boot and the owner. *(For: none)*
 
 ## Scheduled action
 
@@ -16,6 +16,30 @@ Nothing is owed: Alfred closes our 4f851ae8 now the spans endpoint is live; the 
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
   game had been seen until Deadlock, open since 2026-10-15 15:52 BST.
+
+## Session 381: estate.snags reads an ASCII priority digit
+
+Estate message `67138a9d-3adf-45a5-a409-f4f844b0b0d9`. No code; the
+detail is in tasks.md, Session 381.
+
+- **Our `PRIORITY_RE` keeps `\d`.** It sets only `Entry.priority`,
+  which nothing reads and no database stores, so a full-width digit
+  cannot fail anything here. Both patterns find the same 177 priorities
+  in our snag list. Rejected: switching to `[0-9]`, because it changes
+  a field with no reader. Copy the estate's pattern if one is ever
+  added.
+- Closed `67138a9d` with that note.
+- **Close note on `4f851ae8` (Alfred):** the endpoint answers, with 12
+  spans on 2026-10-16 22:50. Alfred's Part 6 is unblocked. Its focus
+  stretches also carry `state` and `last_seen_at`.
+- **Close note on `89d1c61c` (estate-manager, the 2026-10-16 wipes):**
+  no session ran git or pre-commit here in that window. Their unconfirmed
+  reading is the owner's push from project-manager's Review tab: one
+  pre-commit stash, then a failed restore that ran `git checkout -- .`.
+
+## What Session 380 handed on
+
+Nothing was owed: Alfred was to close our 4f851ae8, which it did on 2026-10-16.
 
 ## Session 380: ADR-0016 §4 from Alfred's answer
 

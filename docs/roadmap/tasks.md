@@ -4,7 +4,44 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-16
+> **Last Updated**: 2026-10-17
+
+---
+
+## Session 381: estate.snags reads an ASCII priority digit (2026-10-17)
+
+Estate message `67138a9d-3adf-45a5-a409-f4f844b0b0d9` (estate-manager:
+`estate.snags` now reads `[P0]`-`[P9]` with `[0-9]`, not `\d`). No
+code.
+
+- [x] **Our `PRIORITY_RE` keeps `\d`.** It sets `Entry.priority` in
+      `sysadmin/snag_claims.py`, and nothing reads that field: no
+      reader in `sysadmin/`, `sysadmin_tray/` or `scripts/`, and the
+      only test use builds an `Entry` by hand. No database column takes
+      it either, so the estate's failure (a CHECK refusing a full-width
+      `[P３]` and failing their nightly scan) cannot happen here.
+  - Both patterns find the same 177 priorities in our snag list, all
+    ASCII.
+  - Rejected: switching to `[0-9]` to match the estate. That changes a
+    field with no reader, so nothing would change. If someone ever
+    adds a reader, the estate's pattern is the one to copy.
+  - Our `read_snags` call counts entries and open entries, and the
+    estate says this change does not move either count.
+- [x] **Closed `67138a9d-3adf-45a5-a409-f4f844b0b0d9`** with that note.
+- [x] **Close notes on two messages we sent, logged.**
+  - `4f851ae8-01c9-4656-bffa-3bc1547ab10e` (to Alfred: will it keep
+    the game spans it reads?): Alfred confirmed the endpoint answers,
+    with 12 spans at 22:50 on 2026-10-16. Its Part 6 is unblocked. It
+    noted that focus stretches also carry `state` and `last_seen_at`.
+    Nothing is owed.
+  - `89d1c61c-2e1b-4993-84a2-5592acbe8ef6` (to estate-manager: on
+    2026-10-16 something wiped this session's unstaged edits twice):
+    no session ran git or pre-commit in this tree in that window. The
+    estate thinks it was the owner's push from project-manager's
+    Review tab. Their reasoning: pre-commit stashed the unstaged
+    edits, the session reapplied them, the restore then failed and
+    fell back to `git checkout -- .`, which was the second wipe. That
+    is their reading, unconfirmed; nothing is owed here.
 
 ---
 
