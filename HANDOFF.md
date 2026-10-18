@@ -1,21 +1,35 @@
-# Handoff — 2026-10-17 (Session 381)
+# Handoff — 2026-10-18 (Session 382)
 
 ## Next action
 
-Nothing is owed: the estate's priority-digit message is closed and no message is open; the scheduled checks wait on a boot and the owner. *(For: none)*
+Nothing is owed: no estate message is open; the scheduled checks wait on the owner's Steam uninstalls and an evening of play. *(For: none)*
 
 ## Scheduled action
 
-- After the next boot, `cat /sys/bus/pci/devices/0000:03:00.0/power/control`
-  reads `on`. If it reads `auto`, the udev rule lost to amdgpu; the
-  fallbacks are in tasks.md, Session 374.
 - Uninstall Steam games until `/` is under 90 %, which closes the
   critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
-  (151 GB) arrived 2026-09-22 and was the biggest single step.
+  (151 GB) arrived 2026-09-22 and was the biggest single step. `/`
+  read 95 % (91 GB free) on 2026-10-18.
 - After the first evening of real play, read `sysadmin.game_spans` and
   `game_focus`: one span per game, `focused` stretches while it was in
   front, and `agent_runs.details->>'focus'` reading `known`. No real
   game had been seen until Deadlock, open since 2026-10-15 15:52 BST.
+
+## Session 382: the card stayed awake across a boot
+
+Session 381's scheduled check. No code.
+
+- **The udev rule held against amdgpu.** Boot `b6bb4935` (10:16 BST)
+  is the first since the rule was written on 2026-10-15 14:05, and
+  `power/control` reads `on`, `runtime_status` `active`. So the
+  `add|bind` match was enough; the `DRIVER=="amdgpu"` and
+  `amdgpu.runpm=0` fallbacks are not needed. Ticked in tasks.md,
+  Session 374.
+- No estate message open.
+
+## What Session 381 handed on
+
+Nothing was owed: the estate's priority-digit message is closed and no message is open; the scheduled checks wait on a boot and the owner.
 
 ## Session 381: estate.snags reads an ASCII priority digit
 

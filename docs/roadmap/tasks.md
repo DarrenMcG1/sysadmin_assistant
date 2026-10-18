@@ -265,10 +265,12 @@ restart owed.
       add-only write would likely be undone each boot. Not measured;
       the after-boot check settles it. `udevadm verify` passes, and
       `power/control` reads `on` and `runtime_status` `active`.
-- [ ] **After the next boot, `power/control` still reads `on`.** If
+- [x] **After the next boot, `power/control` still reads `on`.** If
       it reads `auto`, the rule lost to the driver: try matching
       `DRIVER=="amdgpu"` on the bind event, else fall back to
       `amdgpu.runpm=0`.
+      **Held 2026-10-18 (Session 382):** boot `b6bb4935`, the first
+      since the rule, reads `on` and `runtime_status` `active`.
 - [x] **Compact the memory index under 140 lines.** A hook flagged
       `MEMORY.md` at 175 of its 200-line read limit on 2026-10-15.
       Done by Session 377: 123 lines.
