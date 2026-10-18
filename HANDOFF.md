@@ -1,19 +1,32 @@
-# Handoff — 2026-10-18 (Session 382)
+# Handoff — 2026-10-18 (Session 383)
 
 ## Next action
 
+Nothing is owed: no estate message is open, the game detector check passed, and the owner's uninstalls took `/` to 79 % and closed the critical alert. *(For: none)*
+
+## Session 383: both scheduled checks closed
+
+Session 370's scheduled check. It had been waiting on "an evening of
+play", and four evenings had passed (2026-10-15 to 18). No code; the
+counts are in tasks.md, Session 383.
+
+- **All three conditions held.** 24 spans, one per launch; 163
+  `focused` stretches and no `unknown` row, so the KWin probe always
+  answered; `focus` reads `known` on every run inside a span (1,483 of
+  1,483).
+- **Left as found:** three spans are single-poll sightings with no
+  duration. That is what a launch closed within a minute looks like at
+  a 1-minute poll, not a defect, so no snag entry.
+- **The disk check closed too.** The owner uninstalled Steam games
+  this evening: `/` went from 95 % (85 GB free) at 21:52 to 79 %
+  (337 GB free) at 21:56, and the "Critical disk usage on /" alert,
+  open since 2026-10-14, resolved itself at 21:56:56. No warning
+  opened after it. `steamapps/common` now holds 546 GB.
+- No estate message open.
+
+## What Session 382 handed on
+
 Nothing is owed: no estate message is open; the scheduled checks wait on the owner's Steam uninstalls and an evening of play. *(For: none)*
-
-## Scheduled action
-
-- Uninstall Steam games until `/` is under 90 %, which closes the
-  critical alert. Steam is 891 GB of the 1.4 TB used; Path of Exile 2
-  (151 GB) arrived 2026-09-22 and was the biggest single step. `/`
-  read 95 % (91 GB free) on 2026-10-18.
-- After the first evening of real play, read `sysadmin.game_spans` and
-  `game_focus`: one span per game, `focused` stretches while it was in
-  front, and `agent_runs.details->>'focus'` reading `known`. No real
-  game had been seen until Deadlock, open since 2026-10-15 15:52 BST.
 
 ## Session 382: the card stayed awake across a boot
 

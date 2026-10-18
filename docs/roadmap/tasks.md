@@ -4,7 +4,32 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-17
+> **Last Updated**: 2026-10-18
+
+---
+
+## Session 383: the game detector's first evenings, and the disk (2026-10-18)
+
+Session 370's scheduled check, read after four evenings of play. No
+code.
+
+- [x] **One span per launch.** 24 spans since 2026-10-15 (21 Deadlock,
+      3 Slay the Spire 2), each keyed on the Steam AppId, none open.
+      Three are one-poll sightings with no duration: a Deadlock launch
+      replaced five minutes later (2026-10-16 10:28), one at
+      2026-10-18 16:22, and a Slay the Spire 2 seen at the same poll a
+      Deadlock span opened (2026-10-18 17:59).
+- [x] **Focused stretches while the game was in front.** 163
+      `game_focus` rows, all `focused`; 22 of the 24 spans have at
+      least one. The gaps between stretches are the game being behind
+      another window. No `unknown` row exists, so the KWin probe
+      answered on every poll.
+- [x] **`agent_runs.details->>'focus'` reads `known`** on all 1,483
+      `game_detector` runs that fell inside a span. It is `null` only
+      on runs with no game open (3,426), where there is nothing to ask.
+- [x] **`/` under 90 %.** The owner's uninstalls took it from 95 % to
+      79 % (337 GB free) at 21:56, and the critical disk alert opened
+      2026-10-14 resolved itself at 21:56:56. No warning opened after it.
 
 ---
 
