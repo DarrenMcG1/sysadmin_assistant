@@ -1,6 +1,38 @@
-# Handoff — 2026-10-18 (Session 383)
+# Handoff — 2026-10-18 (Session 384)
 
 ## Next action
+
+Nothing is owed: estate message af170afe is closed, and alfred-inference was restarted at 22:05 and reads fully on the card. *(For: none)*
+
+## Session 384: an evicted VRAM resident reads degraded
+
+Estate message `af170afe-54d0-4997-8a10-42267c6a2214`. Code in
+`08a2235`; the detail is in tasks.md, Session 384.
+
+- **What it does.** A `holds_vram` service whose buffers a game or a
+  HIP job pushed into GTT now reads `degraded`, with the fdinfo figures
+  in `details['gpu_residency']`. The estate refused to publish the
+  split, and the monitor is what says a service cannot do its job.
+- **Decided:** the figure is `drm-total-vram` less `drm-resident-vram`.
+  Rejected `amd-evicted-vram`, which read 0 KiB beside a 1.0 GiB
+  shortfall. Rejected judging a declared service with no client on the
+  card: that is `venture-embed`'s CPU-only boot start, and the CPU
+  fallback is `wait-for-dgpu`'s question.
+- **The 128 MiB floor is a judgement, not a measurement.** The live
+  population is 0 KiB and 1,048,320 KiB with nothing between.
+- **Deployed at 22:03:29 and read back.** `alfred-inference` was
+  restarted at 22:05:33, not by this session, so the first stored row
+  (22:08:29, service `llama-server`) reads `ok` with 2,349,364 KiB of
+  2,349,364 on the card. That proves the system daemon can read a user
+  unit's fdinfo. The `degraded` verdict was proved only by driving the
+  same function from the session at the evicted process before the
+  restart; no stored row carries it yet.
+- **The suite was red at HEAD** on three handoff-shape tests that
+  required `## Scheduled action`, which Session 383 rightly removed.
+  They skip when it is absent; folded into `08a2235`.
+
+## What Session 383 handed on
+
 
 Nothing is owed: no estate message is open, the game detector check passed, and the owner's uninstalls took `/` to 79 % and closed the critical alert. *(For: none)*
 

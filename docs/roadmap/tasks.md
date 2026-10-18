@@ -8,6 +8,40 @@
 
 ---
 
+## Session 384: a VRAM resident evicted to GTT reads degraded (2026-10-18)
+
+Estate message `af170afe-54d0-4997-8a10-42267c6a2214`: a game had
+pushed 1.0 GiB of `alfred-inference` into GTT, nothing moves it back,
+and the estate's queue will not publish the per-resident split.
+Commit `08a2235`; the rules are in `sysadmin/monitor/gpu_residency.py`
+and `docs/design/gpu.md`.
+
+- [x] **A third term on the `holds_vram` check.** It reads the unit's
+      `MainPID`, sums `drm-total-vram` less `drm-resident-vram` over
+      its distinct dGPU clients in `/proc/<pid>/fdinfo`, and reads
+      `degraded` at 128 MiB or more. The figures go in
+      `details['gpu_residency']`. A lost GPU context keeps its own
+      reason. No main PID, an unreadable `/proc` or no client on the
+      card leaves the status alone.
+- [x] **Driven live before the restart**: `alfred-inference` degraded,
+      1,048,320 KiB evicted; `venture-chat` ok, resident 8,448 KiB
+      above total, so clamped to 0; `venture-embed` ok, no client on
+      the card.
+- [x] **Rejected `amd-evicted-vram`**: it read 0 KiB beside the 1.0 GiB
+      shortfall.
+- [x] **Daemon restarted 22:03:29.**
+- [x] **The suite was red at HEAD, and the push needed it green.**
+      Session 383 took out the empty `## Scheduled action` heading,
+      as the estate's handoff rule asks when nothing is gated. Three
+      tests in `tests/test_handoff_shape.py` assumed it always stood.
+      They now skip when it is absent. Rejected: putting the heading
+      back empty, which the estate refuses ("absent beats fake").
+- [x] **Read back from the daemon.** `alfred-inference` was restarted
+      at 22:05:33, not by this session, so the first stored row
+      (22:08:29, service `llama-server`) reads `ok`, 2,349,364 KiB of
+      2,349,364 resident. No stored row carries `degraded` yet; that
+      arm was proved by the live drive above.
+
 ## Session 383: the game detector's first evenings, and the disk (2026-10-18)
 
 Session 370's scheduled check, read after four evenings of play. No

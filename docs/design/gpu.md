@@ -138,3 +138,24 @@ that day supports. `message_backfill` could repair its ten rows because
 `raw_line` held the record's own `MESSAGE` byte-for-byte and made the
 repair *exact* — there is no such witness here, and a repair that cannot
 be witnessed is refused rather than approximated.
+
+## A resident evicted to GTT (2026-10-18, Session 384)
+
+**A service declaring `holds_vram` reads `degraded` when its VRAM has
+been pushed into GTT**, and the rules are in the docstring of
+`sysadmin/monitor/gpu_residency.py`. Estate message
+`af170afe-54d0-4997-8a10-42267c6a2214` reported `alfred-inference` with
+1.0 GiB of its 2.2 GiB in GTT hours after a game had ended, and said the
+estate's queue would not publish the per-resident split. So the monitor
+records it, as a third term of the check that already writes the
+`service_health` row, after ADR-0007's GPU-context term and for the same
+reason: the reading is a predicate the kernel publishes per process, and
+the unit's restart closes it.
+
+The figure is `drm-total-vram` less `drm-resident-vram`, summed over the
+main PID's distinct DRM clients on `llm.gpu_pci_slot`, clamped at zero,
+against a 128 MiB floor. `amd-evicted-vram` read 0 KiB beside the 1.0 GiB
+shortfall, so it is not the figure. A declared service with no client on
+the card (`venture-embed`'s CPU-only boot start) is recorded and not
+judged. The reading sits beside the 300 s poll, not on a feed of its
+own, which is the continuous GPU feed the estate's ADR-0189 §4 left here.
