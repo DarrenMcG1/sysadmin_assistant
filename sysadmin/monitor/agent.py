@@ -41,7 +41,7 @@ from sysadmin.core.escalation import QUIETEST_SEVERITY, may_quieten_in_place
 from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.text import TRUNCATION_MARKER, truncate_at_word
 from sysadmin.estate import client as estate_client
-from sysadmin.monitor import collation, failures, gpu_context, stalls
+from sysadmin.monitor import collation, failures, gpu_context, gpu_residency, stalls
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
@@ -1140,8 +1140,11 @@ class SysAdminAgent(BaseAgent):
 
         if unit_info.get("is_active"):
             if svc.holds_vram:
-                return await self._gpu_context_reading(
+                status, elapsed_ms, details = await self._gpu_context_reading(
                     svc, unit, unit_info, status, elapsed_ms, details, session
+                )
+                return self._gpu_residency_reading(
+                    unit, unit_info, status, elapsed_ms, details
                 )
             return status, elapsed_ms, details
         if unit_info.get("ActiveState") == "activating":
@@ -1238,6 +1241,54 @@ class SysAdminAgent(BaseAgent):
                 "— every client lost its VRAM"
             ),
         }
+
+    @staticmethod
+    def _gpu_residency_reading(
+        unit: str,
+        unit_info: dict,
+        status: str,
+        elapsed_ms: int | None,
+        details: dict,
+    ) -> tuple[str, int | None, dict]:
+        """The URL answered and the context is current — but is it on the card?
+
+        :mod:`sysadmin.monitor.gpu_residency`.  A game or a HIP job can
+        push a Vulkan resident's buffers into GTT, and they stay there
+        until the unit restarts.  The reading is added whatever the
+        status, and changes it only from ``ok``: a lost context already
+        names the fault and its ``reason`` is the one the alert quotes.
+        """
+        pid = int(unit_info.get("MainPID") or 0)
+        slot = get_config().llm.gpu_pci_slot
+        if pid <= 0:
+            extra = gpu_residency.unreadable_reading(
+                unit, "systemd published no MainPID"
+            )
+        elif not slot:
+            extra = gpu_residency.unreadable_reading(
+                unit, "llm.gpu_pci_slot is empty"
+            )
+        else:
+            try:
+                residency = gpu_residency.read_residency(pid, slot)
+            except OSError as exc:
+                extra = gpu_residency.unreadable_reading(
+                    unit, f"/proc/{pid}/fdinfo could not be read: {exc}"
+                )
+            else:
+                extra = gpu_residency.reading(unit, pid, residency)
+                if status == "ok" and extra[gpu_residency.DETAIL_KEY]["evicted"]:
+                    gib = residency.evicted_kib / 1024**2
+                    return gpu_residency.EVICTED_STATUS, elapsed_ms, {
+                        **details,
+                        **extra,
+                        "reason": (
+                            f"url ok and {unit} is active, but {gib:.1f} GiB "
+                            "of its VRAM has been evicted to GTT — restart "
+                            "the unit to put it back on the card"
+                        ),
+                    }
+        return status, elapsed_ms, {**details, **extra}
 
     async def _check_http(
         self, svc: ServiceEntry

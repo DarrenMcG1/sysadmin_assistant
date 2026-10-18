@@ -52,6 +52,19 @@ HANDOFF = pathlib.Path(__file__).resolve().parent.parent / "HANDOFF.md"
 NEXT_HEADING = "## Next action"
 SCHEDULED_HEADING = "## Scheduled action"
 
+#: Why a rule over the scheduled section has nothing to read.  The
+#: estate requires the heading only where there is gated work, and a
+#: heading standing empty is "absent beats fake" broken (estate-rules.md,
+#: the handoff format).  Session 383 closed the last gated item and took
+#: the heading out, which reddened three tests that assumed it always
+#: stood.  A skip says the population is empty by declaration;
+#: :class:`TestTheGateDetectorWouldSeeOne` still drives the rules at
+#: synthetic documents that carry the section.
+NO_SCHEDULED_SECTION = (
+    f"no {SCHEDULED_HEADING} section: nothing is gated, and the estate "
+    "refuses a standing empty one"
+)
+
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 _UNCHECKED_RE = re.compile(r"^\s*[-*]\s+\[\s\]")
 
@@ -97,7 +110,6 @@ class TestOnlyOneHeadingCanClaimTheBoardLine:
 
     def test_the_scheduled_heading_cannot_claim_it(self):
         assert "next" not in SCHEDULED_HEADING.lower()
-        assert SCHEDULED_HEADING in _headings(_text())
 
 
 class TestTheScheduledSectionCarriesNoCheckbox:
@@ -111,7 +123,8 @@ class TestTheScheduledSectionCarriesNoCheckbox:
 
     def test_no_scheduled_item_is_an_unchecked_task(self):
         body = _section_body(_text(), SCHEDULED_HEADING)
-        assert body is not None, f"{SCHEDULED_HEADING} is gone from {HANDOFF.name}"
+        if body is None:
+            pytest.skip(NO_SCHEDULED_SECTION)
         offenders = [line for line in body if _UNCHECKED_RE.match(line)]
         assert not offenders, (
             "a `- [ ]` here is published to the estate board as this "
@@ -493,9 +506,8 @@ class TestTheTwoSectionsDoNotCompeteForTheBoardSlot:
         line, problem = snag_claims.next_action_line()
         assert not problem, problem
         assert line
-        assert _section_body(text, SCHEDULED_HEADING) is not None, (
-            f"{SCHEDULED_HEADING} is gone, so every date reads as undeclared"
-        )
+        if _section_body(text, SCHEDULED_HEADING) is None:
+            pytest.skip(NO_SCHEDULED_SECTION)
 
     def test_the_next_action_does_not_delegate_to_a_scheduled_item(self):
         line, problem = snag_claims.next_action_line()
