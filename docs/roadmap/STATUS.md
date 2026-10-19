@@ -1,6 +1,5 @@
 # Project Status Dashboard
 **Last Updated**: 2026-10-19
-**Last Updated**: 2026-10-18
 
 > **The box as it stands.** This block holds only the claims
 > `scripts/check-ops-claims.sh` re-measures at every preflight, one
