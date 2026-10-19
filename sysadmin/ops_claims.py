@@ -176,7 +176,10 @@ machinery rather than about the estate, which is what that ruling says
 the area should have been all along:
 
 10. **A claim about prose is read from one sentence, because the region
-    is append-only.**  Rule 1 says the parsed region is exactly what
+    was append-only when this was written.**  Since 2026-10-19 the block
+    is rewritten in place and its dated history is frozen in
+    ``docs/roadmap/archive/status_opening_block_2026-10-19.md``; the rule
+    holds for a short block too.  Rule 1 says the parsed region is exactly what
     preflight prints, and that is right for a *figure*: bold emphasis
     separates the current number from the history the same block carries,
     and :func:`read_claim` refuses two matches outright.  A **membership**
@@ -399,8 +402,11 @@ CLAIM_PATTERNS: dict[str, str] = {
     "tables": r"\*\*(\d+) tables\*\*",
     "migration_head": r"head \*\*(\d+)\*\*",
     "alerts": r"holds \*\*(\d+)\*\* unresolved",
-    # The one claim a sitting rewrites into an *append-only* narrative, so
-    # the only one whose predecessor it must go and demote.  The obligation
+    # The one claim a sitting rewrote into an *append-only* narrative, so
+    # the only one whose predecessor it had to go and demote.  The block
+    # has been rewritten in place since 2026-10-19, its history archived
+    # in ``docs/roadmap/archive/status_opening_block_2026-10-19.md``, so
+    # the sentence is now replaced rather than demoted.  The obligation
     # is rule 2's and belongs to every key here; it is named at this one
     # because this is where it bites.  Stated, and driven, at
     # ``tests/test_ops_claims.py::TestSupersededClaimsAreDemoted`` — a
@@ -2146,7 +2152,9 @@ def check_open_titles(region: str, region_problem: str, facts: DatabaseFacts) ->
 
     **The haystack is one sentence, and it used to be the whole region**
     (``SNAG-ESTATE-016``, rule 10).  The substring test is right; what was
-    never weighed is that the region it ran over is **append-only**.  It
+    never weighed is that the region it ran over was **append-only** (it
+    is rewritten in place since 2026-10-19, its history archived in
+    ``docs/roadmap/archive/status_opening_block_2026-10-19.md``).  It
     flattened to **178,301 characters** at ``9a3fe30``, because every past
     sitting's account accumulates below the current sentence — so a
     recurring fault's title has been written down before and satisfied the
