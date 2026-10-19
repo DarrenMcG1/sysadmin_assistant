@@ -4,7 +4,7 @@
 >
 > **Related**: [tasks.md](tasks.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-04
+> **Last Updated**: 2026-10-19
 
 ---
 
@@ -2565,87 +2565,8 @@ _All SNAGs fixed to date are archived — nothing outstanding is hidden here._
 | SNAG-AGENT-001 | Project staleness scored from HEAD only, not all branches | 2026-07-24 |
 
 
-### Session 37 write-up (handoff pipeline, fixed 2026-08-10)
-
-**SNAG-ROADMAP-003 — four handoff conventions; the scanner knew two, and tuple order decided.**
-
-- **Symptom**: `HANDOFF_PATHS` was `("docs/sessions/handoff.md", "docs/roadmap/handoff.md")`. The estate used **four** locations. `venture-assistant` kept a 6,044-byte `HANDOFF.md` at its root and `ImbaBots` a 141,096-byte `docs/handoff.md`; neither path was a candidate, so neither file was ever read. Both repos *also* carried a `docs/sessions/handoff.md` of 851 and 882 bytes — the SessionEnd hook's generated stub — and that was the file the scanner picked up. The next action for two active projects came from an 850-byte stub while a 6 KB and a 141 KB record sat unread beside it
-- **Cause**: Two faults. (1) The candidate tuple was incomplete. (2) `_read` returned the first candidate that opened, making precedence a function of tuple order rather than of which document was current. `Alfred` had both listed candidates and happened to get the right one, by luck of ordering rather than by rule
-- **Fix**: All four shapes listed, and `_read_handoff` selects by `handoff_date` — the document's own first-heading date, mtime as fallback — with tuple order breaking ties only. Also-rans are returned as `handoff_duplicates` rather than discarded, so a repo mid-migration is a reportable finding instead of a silent choice
-- **The first attempt at the fix was wrong, and only the live estate showed it.** Ranking every *undated* candidate below every dated one is intuitive and re-creates the bug from the other side: `ImbaBots`' real handoff heads itself "Handoff — M5 (Tier 2)" with no ISO date, so the 882-byte stub written an hour *earlier the same day* outranked it purely for carrying one. The fallback has to apply uniformly — which is what `scan_roadmap` already did downstream when ageing a handoff, so the module had been holding two contradictory rules at once. The regression test uses real same-day timestamps deliberately: with bare epoch mtimes the stub wins honestly and the test would pass for the wrong reason
-- **Root cause was upstream, and is also fixed.** The stubs existed because a SessionEnd hook wrote them. `SessionEnd` cannot block, so it could only emit what `git` already knew. It is retired in favour of a **Stop** hook that blocks until `HANDOFF.md` carries today's date — see [tasks.md](tasks.md) Session 37
-
-### Session 34 write-ups (project-organiser capability audit, fixed 2026-08-10)
-
-_Kept in full rather than summarised: each entry records what was measured
-and why the chosen fix was chosen, which is the part that stops the defect
-being reintroduced. Line references are to the pre-Session-35 layout
-(`routers/projects.py`, `agents/project_organiser.py`); those modules are now
-`projects/router.py` and `projects/agent.py`._
-
-- [P1] SNAG-PROJ-001: the board's freshness filter is applied on one route out of eight (2026-08-07)
-  - **Symptom**: A project whose directory has been deleted is still reported by `/overview`, `/stale`, `/report`, `/actions`, `/api/summary`, `_build_project_section` and `_build_next_actions_section`. `GET /api/projects/board` is the only surface that drops it
-  - **Cause**: The board filters snapshots older than `newest_scan − 1h` (`routers/projects.py:400-416` ([moved to estate-manager 2026-08-13](../adr/0005-project-state-leaves.md))) *after* calling `_latest_snapshot_query`. Four of the other seven call sites do not use `_latest_snapshot_query` at all — they open-code the latest-per-name query, so there is no single place the filter could have been inherited from
-  - **Impact**: Eight surfaces, at least two answers to "what is on this box". Same class as the `Project Health` defect above — a consumer cannot repair it, because nothing in the rows says the directory is gone
-  - **Fix**: Move the cutoff **into the shared query** and route all eight call sites through it. Do not repeat the filter seven times — that is the shape the defect already has
-
-- [P2] SNAG-PROJ-002: a deleted project still contributes to `average_active_score` (2026-08-07)
-  - **Symptom**: The weekly project review's headline average includes projects that no longer exist on disk
-  - **Cause**: `project_review.gather_review_data` selects the latest snapshot per name with no freshness filter — the previous entry's defect, at a call site outside the router
-  - **Fix**: Same shared query. Listed separately because it is a separate call site in a separate module, and fixing the router alone would leave it
-
-- [P1] SNAG-PROJ-003: the project organiser never resolves its own alerts (2026-08-07)
-  - **Symptom**: **1,664 unresolved alert rows** live, 326 of them sharing one title. Every six-hourly scan re-raises for every project under threshold
-  - **Cause**: `ProjectOrganiserAgent` never calls `BaseAgent.resolve_alerts`, though `sysadmin_agent.py:268` (now [`monitor/agent.py`](../../sysadmin/monitor/agent.py)) and `service_discovery.py:175` (now [`units/agent.py`](../../sysadmin/units/agent.py)) both do
-  - **Impact**: Unbounded, not merely noisy — retention purges **resolved** alerts only, so not one of these rows will ever expire. The alerts API and the tray's alert list are dominated by them
-  - **Fix**: Call `resolve_alerts` on the recovery path, matching the title pattern the raise uses. The other two agents are the working reference
-
-- [P2] SNAG-PROJ-004: the 1,664 existing rows will not clear themselves once resolution works (2026-08-07)
-  - **Symptom**: Fixing the entry above resolves alerts raised *after* the fix. The backlog stays
-  - **Cause**: `resolve_alerts` acts on the current scan's recovered projects; a historic row for a project that is currently still under threshold is not a recovery
-  - **Fix**: Decide deliberately — a one-off backfill marking pre-fix rows resolved, or a dated migration, or leave them and let the retention purge take them once they are resolvable. **Do not ship the resolution fix without settling this**, or the table's size becomes permanent
-
-- [P1] SNAG-PROJ-005: the project review hands the model its figures and asks it not to use them (2026-08-07)
-  - **Symptom**: `build_review_prompt` for the project review passes scores, deltas, totals and recommendation point values into the prompt, relying on `REVIEW_INSTRUCTIONS` to tell the model not to restate them
-  - **Cause**: The disk review was rebuilt figure-free by construction on 2026-08-06; the project review, which is the older of the two, was never brought into line
-  - **Impact**: This exact approach is **recorded in CLAUDE.md as verified to fail**. Given "25.0 GB across 50 directories" plus an explicit "do not restate figures", dria-agent-a-3b restated them and published the quotient "each consuming 5GB". Instructing a model not to use a number it can see is a request; not showing it one is a constraint
-  - **Fix**: Bands, phrases and directions in the prompt; every real figure in `build_facts_section`, prepended deterministically. Port the disk review's guard test — no digit reaches the model outside API paths
-
-- [P2] SNAG-PROJ-006: `GET /api/projects/stale` declares a `days` parameter it never reads (2026-08-07)
-  - **Symptom**: `routers/projects.py:92` ([moved to estate-manager 2026-08-13](../adr/0005-project-state-leaves.md)) declares `days: int = Query(default=30, le=365)`; the handler filters on `health_score < grade_bands.needs_attention_min` and never references `days`. The endpoint answers "which projects score badly", whatever the caller asks for
-  - **Cause**: The parameter documents an intent the implementation dropped. It has no `response_model`, no contract-registry entry and no known consumer
-  - **Fix**: Implement the parameter or delete the endpoint. Deletion is the honest default given no consumer exists — but check Alfred first, since a 404 is worse than a wrong answer
-
-- [P2] SNAG-PROJ-007: `HACK` and `XXX` cost health-score points and appear in no column (2026-08-07)
-  - **Symptom**: A project with 40 `HACK` markers is penalised for all 40; `todo_count` and `fixme_count` both read 0, so nothing on any surface explains the deduction
-  - **Cause**: `project_organiser.py:258-259` ([moved to estate-manager 2026-08-13](../adr/0005-project-state-leaves.md)) records `todos["TODO"]` and `todos["FIXME"]` only, while the penalty is `sum(todos.values())` over all four configured `todo_patterns`
-  - **Fix**: Either store the full mapping (a `todos` JSON column beside the two counts) or penalise only what is recorded. Deductions on this service are attributable by design — an unexplained one breaks the rule the three scorers share
-
-- [P2] SNAG-PROJ-008: the TODO scan counts a project's own roadmap documents (2026-08-07)
-  - **Symptom**: `snag_list.md`, `tasks.md` and this very file count towards their own repository's TODO penalty. Writing up a snag lowers the score
-  - **Cause**: The scan includes `*.md`, and the patterns carry no word boundary — so `TODOS`, `TODO_LIST` and a prose sentence containing "TODO" all match
-  - **Fix**: Exclude `*.md` (or at least `docs/roadmap/`), and anchor the patterns with `\b`. The markers are a *code* signal; counting them in documentation inverts the incentive the score is supposed to create
-
-- [P2] SNAG-PROJ-009: `_count_todos`'s cap is per file, and its docstring says otherwise (2026-08-07)
-  - **Symptom**: `project_organiser.py:354` ([moved to estate-manager 2026-08-13](../adr/0005-project-state-leaves.md)) documents "Capped at 1000 matches"; `-m 1000` is grep's **per-file** limit, so a repo with 300 files can return 300,000
-  - **Fix**: Fix the cap or the docstring — and prefer fixing the cap, since the number reaching the score is the one that matters. Note the interaction with the entry above: excluding `*.md` lowers the counts that make the cap load-bearing
-
-- [P2] SNAG-PROJ-010: `project_reviews` is never purged (2026-08-07)
-  - **Symptom**: Four rows today, growing one per week, forever
-  - **Cause**: The table is in neither `retention_config` nor `TABLE_TIMESTAMP_MAP` in [`core/retention.py`](../../sysadmin/core/retention.py). `disk_reviews` (migration 005) should be checked at the same time — it was added by the same pattern
-  - **Fix**: Add both to the map with a retention window chosen for *review* data, not check data. A weekly narrative is worth keeping far longer than 30 days of health checks
-
-- [P2] SNAG-PROJ-011: three places document `archived` as waiving git hygiene generally (2026-08-07)
-  - **Symptom**: `_analyse_project`'s docstring, `projects.yaml:173` (retired; kept as [`docs/projects-registry-legacy.yaml`](../projects-registry-legacy.yaml), where the comment is now at line 187) and `config.py:404` (`ProjectEntry.status`; `config.py` is now [`sysadmin/core/config.py`](../../sysadmin/core/config.py) but no longer holds it, having [moved to estate-manager 2026-08-13](../adr/0005-project-state-leaves.md)) all describe archived projects as exempt from git hygiene. They are not: `archived` waives the **stale-branch deduction only**, and a `.git/index.lock` still costs an archived project 5 points
-  - **Fix**: Correct all three to name the single deduction that is waived. Documentation-only — the behaviour is defensible, the description is not
-
-- [P2] SNAG-PROJ-012: archived alert suppression is absolute but documented as conditional (2026-08-07)
-  - **Symptom**: The docs read as though an archived project can still alert at a low enough score. It cannot, under any score
-  - **Cause**: `_effective_threshold` returns `0` for archived, and the score is clamped with `max(0, …)`, so the alert condition is `score < 0` — unreachable by construction
-  - **Fix**: Document it as absolute. Worth keeping the mechanism as-is: a threshold of 0 is a clearer expression of "never alert" than a special case, provided the guarantee is written down and tested
-
-
 Full symptom/cause/fix write-ups:
+[archive/completed_2026-10-19.md](archive/completed_2026-10-19.md) (Sessions 34 and 37) ·
 [archive/completed_2026-08-05.md](archive/completed_2026-08-05.md) (2026-07-24 → 2026-08-04) ·
 [archive/completed_2026-03-23.md](archive/completed_2026-03-23.md) (SNAG-TRAY-001/002/003)
 

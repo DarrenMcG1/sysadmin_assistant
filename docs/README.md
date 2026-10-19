@@ -81,7 +81,7 @@ was measured to settle them.
 
 ## The roadmap — `roadmap/`
 
-About 32,000 lines, measured 2026-09-26, and the reason the repository is
+About 37,000 lines, measured 2026-10-19, and the reason the repository is
 worth reading.
 
 - **[`snag_list.md`](roadmap/snag_list.md)** — open and fixed defects. Entries
