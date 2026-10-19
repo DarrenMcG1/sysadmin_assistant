@@ -20,7 +20,7 @@ Session 387's next action. Comments only; no restart owed.
       the snag did not list. Each now says the region *was* append-only
       and names `docs/roadmap/archive/status_opening_block_2026-10-19.md`.
       Code in `f8ce7ce`.
-- [ ] **The same tense in the tests.** `tests/test_ops_claims.py` still
+- [x] **The same tense in the tests.** `tests/test_ops_claims.py` still
       says the region *is* append-only at lines 1571, 1977, 2486 and
       3558 (docstrings). Lines 1195, 1611 and 3047, and
       `tests/test_claude_md_registry.py:402`, speak of the past or of

@@ -2,7 +2,7 @@
 
 ## Next action
 
-Put tests/test_ops_claims.py's four present-tense "append-only" docstrings in the past tense, as tasks.md Session 388 records. *(For: session)*
+Delete the older duplicate `**Last Updated**` line (2026-10-18) from docs/roadmap/STATUS.md line 3, as tasks.md Session 388 records. *(For: session)*
 
 ## Session 388: ops_claims.py stops calling the region append-only
 
@@ -14,7 +14,8 @@ Session 387's next action. Comments only; no restart owed.
 - **Decided:** fix the third in the same commit, since it is the same
   file and the same defect. Rejected: also fixing the four in
   `tests/test_ops_claims.py`, which would widen the sitting past the
-  file the snag named; they are the next action instead.
+  file the snag named; they were done afterwards in the same session (four docstrings, test commit
+  below in the log); `tests/test_claude_md_registry.py:402` stays.
 - **Seen in passing:** STATUS.md has two `**Last Updated**` lines.
   Recorded as a task, not fixed.
 - No estate message open.
