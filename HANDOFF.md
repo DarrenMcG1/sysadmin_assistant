@@ -1,6 +1,25 @@
-# Handoff — 2026-10-19 (Session 387)
+# Handoff — 2026-10-19 (Session 388)
 
 ## Next action
+
+Put tests/test_ops_claims.py's four present-tense "append-only" docstrings in the past tense, as tasks.md Session 388 records. *(For: session)*
+
+## Session 388: ops_claims.py stops calling the region append-only
+
+Session 387's next action. Comments only; no restart owed.
+
+- **`SNAG-DOCS-034` closed** in `f8ce7ce`. Three statements, not the
+  two the snag listed: the third was `check_open_titles`' docstring.
+  Each now says the region *was* append-only and names the archive.
+- **Decided:** fix the third in the same commit, since it is the same
+  file and the same defect. Rejected: also fixing the four in
+  `tests/test_ops_claims.py`, which would widen the sitting past the
+  file the snag named; they are the next action instead.
+- **Seen in passing:** STATUS.md has two `**Last Updated**` lines.
+  Recorded as a task, not fixed.
+- No estate message open.
+
+## What Session 387 handed on
 
 Fix SNAG-DOCS-034: put ops_claims.py's two present-tense "append-only" statements in the past tense, as tasks.md Session 387 records. *(For: session)*
 

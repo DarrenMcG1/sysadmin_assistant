@@ -10,6 +10,25 @@
 
 ---
 
+## Session 388: `ops_claims.py` stops calling the region append-only (2026-10-19)
+
+Session 387's next action. Comments only; no restart owed.
+
+- [x] **Close `SNAG-DOCS-034`.** Three present-tense statements in
+      `sysadmin/ops_claims.py`, not two: rule 10's heading, the
+      `daemon_start` comment, and `check_open_titles`' docstring, which
+      the snag did not list. Each now says the region *was* append-only
+      and names `docs/roadmap/archive/status_opening_block_2026-10-19.md`.
+      Code in `f8ce7ce`.
+- [ ] **The same tense in the tests.** `tests/test_ops_claims.py` still
+      says the region *is* append-only at lines 1571, 1977, 2486 and
+      3558 (docstrings). Lines 1195, 1611 and 3047, and
+      `tests/test_claude_md_registry.py:402`, speak of the past or of
+      append-only documents in general and stay. Left out to keep this
+      sitting to the file the snag named.
+- [ ] **STATUS.md carries `**Last Updated**` twice** (2026-10-19 and
+      2026-10-18, lines 2 and 3). Seen in passing; delete the older line.
+
 ## Session 387: STATUS.md's opening block is archived (2026-10-19)
 
 Session 386's next action. Docs and tests only; no daemon code changed,
@@ -48,10 +67,10 @@ no restart owed.
 - [x] **Nothing else reads the moved text.** `check-snag-claims.sh`
       reports the same as before the move apart from live readings, and
       estate-manager's `estate_service` has no reader of STATUS.md.
-- [ ] **Fix `SNAG-DOCS-034`**: `sysadmin/ops_claims.py` still says in
+- [x] **Fix `SNAG-DOCS-034`**: `sysadmin/ops_claims.py` still says in
       the present tense that the printed region is append-only (rule 10
       at line 179, the `daemon_start` comment at line 402). Comments
-      only.
+      only. Done by Session 388.
 
 ## Session 386: STATUS.md's Recently Completed is archived (2026-10-19)
 
