@@ -1157,6 +1157,26 @@ class TestExpiry:
         assert all(claim.verdict == "match" for claim in claims)
 
 
+#: Where STATUS.md's opening block went on 2026-10-19 (Session 387).  The
+#: live block is rewritten in place since then, so it no longer collects
+#: the clocks and superseded restarts the drives below need; this is the
+#: same prose, frozen, so it cannot age out either.
+ARCHIVED_BLOCK = REPO_ROOT / "docs" / "roadmap" / "archive" / "status_opening_block_2026-10-19.md"
+
+
+def with_history(region: str) -> str:
+    """The archived block's prose ahead of the live ``region``.
+
+    Flattened before its markers are blanked, because a marker wrapped
+    across two blockquote lines only matches :data:`MARKER_RE` once the
+    ``>`` is gone.  Blanked because they are inert where they stand: the
+    checker reads STATUS.md alone, and a copy would be a second statement
+    of a live marker.
+    """
+    history = MARKER_RE.sub(" ", flatten(ARCHIVED_BLOCK.read_text()))
+    return f"{history}\n{region}"
+
+
 class TestThePinIsNarrowedToOneSentence:
     """SNAG-DOCS-008 — rule 9's pin reads the marker's sentence, not the block.
 
@@ -1252,10 +1272,12 @@ class TestThePinIsNarrowedToOneSentence:
         Falsified by pinning against the whole region.  Driven at the real
         188 kB block rather than a fixture, because the fixture cannot
         *have* the property under test — an unrelated sentence naming the
-        clock is what accumulates, and no fixture accumulates.
+        clock is what accumulates, and no fixture accumulates.  That block
+        is archived now, so it is read through :func:`with_history`.
         """
         region, problem = load_region()
         assert region, problem
+        region = with_history(region)
         planted = region + (
             "\n> **The disk review row clears at 04:45 with nothing done.**"
             f"<!--check:expires {self.COPIED} the disk review row-->\n"
@@ -1584,16 +1606,18 @@ class TestTheBlockIsItsOwnRegressionTest:
     def test_the_region_states_clocks_to_collide_with(self):
         """The anti-vacuity premise, and it refuses because it cannot age out.
 
-        An append-only region stating fewer clocks than it did on 2026-09-04
-        has lost history rather than hazard, which means
-        :func:`printed_region` is reading the wrong span, and the drive below
-        would pass over a population that no longer represents the block.
+        Read with the archived block ahead of the live one: the live block
+        is rewritten in place since 2026-10-19 and states only a few clocks,
+        so the population is the history it held when it was append-only.
+        Fewer than the 86 clocks of 2026-09-04 means the archive or the
+        region is being read wrongly, and the drive below would pass over a
+        population that no longer represents the block.
         """
         region, problem = load_region()
         assert region, problem
-        assert len(self._needles(flatten(region))) >= 86, (
-            "the printed region states fewer clocks than it did on 2026-09-04 — "
-            "an append-only block shrank, so the region is being read wrongly"
+        assert len(self._needles(flatten(with_history(region)))) >= 86, (
+            "the archived and live blocks state fewer clocks than the block did on "
+            "2026-09-04 — one of them is being read wrongly"
         )
 
     def test_no_clock_the_block_states_pins_a_prediction_in_another_sentence(self):
@@ -1615,6 +1639,7 @@ class TestTheBlockIsItsOwnRegressionTest:
         """
         region, problem = load_region()
         assert region, problem
+        region = with_history(region)
         needles = sorted(self._needles(flatten(region)))
         planted = region + "".join(
             f"\n> The purge before prediction {i} runs at {clock}. "
@@ -1649,11 +1674,13 @@ class TestTheBlockIsItsOwnRegressionTest:
         hold the prediction up? Falsified by pinning against the whole
         region. A marker whose clock the block states nowhere else cannot
         tell the two pins apart and is left out, and if that leaves none the
-        test skips and says so rather than passing over an empty set.
+        test skips and says so rather than passing over an empty set.  The
+        archived block is the "elsewhere" since 2026-10-19, read through
+        :func:`with_history`, because the live block no longer accumulates.
         """
         region, problem = load_region()
         assert region, problem
-        prose = flatten(region)
+        prose = flatten(with_history(region))
         live = [m for m in read_markers(region) if m.key == "expires"]
         exercised = 0
         for marker in live:
@@ -2597,13 +2624,15 @@ class TestSupersededClaimsAreDemoted:
         rather than that nobody has restarted twice yet.  The loose pattern
         is deliberately not a second claim pattern: it is anchored on the
         verb and a digit alone, so every one of the four live demotion
-        spellings falls inside it and none of them is pinned.
+        spellings falls inside it and none of them is pinned.  The demoted
+        records are in the archived block since 2026-10-19, so the loose
+        reading runs over :func:`with_history` and the claim over the live
+        block alone.
         """
         region, problem = load_region()
         assert region is not None, problem
-        prose = flatten(region)
-        loose = re.findall(r"restarted (?:at |on )?\*{0,2}\d{2}", prose)
-        claimed = re.findall(CLAIM_PATTERNS["daemon_start"], prose)
+        loose = re.findall(r"restarted (?:at |on )?\*{0,2}\d{2}", flatten(with_history(region)))
+        claimed = re.findall(CLAIM_PATTERNS["daemon_start"], flatten(region))
         assert len(claimed) == 1
         assert len(loose) > len(claimed), (
             "the block records exactly one restart, so this class has never "
@@ -3829,15 +3858,15 @@ class TestAMarkedSentenceStatesNoFigure:
     def test_an_unmarked_sentence_is_not_reached(self):
         """The scope, so a later widening is a decision rather than a drift.
 
-        The same paragraph records that ``venture-chat unreachable`` was
-        measured at **11.3 %** across 9 episodes and is deliberately *not*
-        declared, because its mean episode is an outage rather than a
-        flap.  That figure is evidence for a judgement the document makes
-        and carries no marker, so it reads as what it is — prose — and is
+        The same paragraph states the ``flapping`` check's **7-day**
+        window in a sentence with no marker.  Until 2026-10-19 the
+        specimen was ``venture-chat unreachable``'s **11.3 %**, which went
+        to the archive with the old block.  Either figure carries no
+        marker, so it reads as what it is — prose — and is
         ``SNAG-ESTATE-012``'s class, not this one.  A gate over the region
         would delete it, which is a different judgement nobody has taken.
         """
         region, problem = load_region()
         assert region is not None, problem
-        assert "11.3 %" in region
-        assert all("11.3" not in s for s in self._sentences())
+        assert "7-day window" in region
+        assert all("7-day" not in s for s in self._sentences())
