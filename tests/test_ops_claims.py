@@ -1568,8 +1568,8 @@ class TestTheBlockIsItsOwnRegressionTest:
     **The population is the region's own needles, not a planted
     collision.** :class:`TestThePinIsNarrowedToOneSentence` drives one
     clock, ``05:45``, and fails as "aged out" the day that string leaves the
-    block. The region is append-only, so its set of ``HH:MM`` substrings
-    only grows: measured 2026-09-29 at **214** valid clocks in 535 kB, from
+    block. The region was append-only, so its set of ``HH:MM`` substrings
+    only grew: measured 2026-09-29 at **214** valid clocks in 535 kB, from
     86 in 188 kB on 2026-09-04. A drive over all of them gets harder to
     pass as the block accretes, which is the direction the hazard grows in.
 
@@ -1973,7 +1973,7 @@ class TestOpenTitlesAreNamed:
 class TestTheHaystackIsOneSentence:
     """``SNAG-ESTATE-016`` — rule 10.
 
-    The substring test was right and the region it ran over is
+    The substring test was right and the region it ran over was
     append-only, so a title written down once was named for ever.  These
     pin the narrowing itself; :class:`TestTheBlockThatOpenedTheEntry`
     drives it at the real document that produced the finding.
@@ -2483,7 +2483,7 @@ class TestSupersededClaimsAreDemoted:
     """The document convention rule 2 implies, stated at last (SNAG-DOCS-019).
 
     :func:`read_claim` refuses a region stating one claim two ways, and
-    the region is the *narrative*, which is append-only.  So every claim
+    the region is the *narrative*, which was append-only.  So every claim
     in the block carries a standing obligation on the sitting that
     rewrites it: **the sentence it supersedes must stop matching the
     pattern.**  Nothing said so — not this module, not its docstrings, not
@@ -3555,7 +3555,7 @@ class TestTheDeclarationIsReadFromTheProse:
     TITLE = "High VRAM usage on AMD Radeon RX 7900 XTX"
 
     def test_only_a_marked_sentence_offers_candidates(self):
-        """The append-only region is full of titles nobody is declaring.
+        """The append-only region was full of titles nobody is declaring.
 
         ``SNAG-ESTATE-016``'s measurement one check over: every past
         sitting's account accumulates below the current sentence, so a
