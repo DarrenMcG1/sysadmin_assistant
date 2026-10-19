@@ -162,3 +162,13 @@ The cost is stated rather than implied: the markers are HTML comments and
 do not render, but `claude-preflight.sh` prints the block as raw text, so
 the session-opening banner is slightly noisier and every figure in it now
 carries the name of the thing that would refute it.
+
+**The block is rewritten in place since 2026-10-19** (Session 387).
+Until then it was append-only: each sitting added a dated paragraph, and
+it reached 8,242 lines. Those paragraphs are in
+[`../roadmap/archive/status_opening_block_2026-10-19.md`](../roadmap/archive/status_opening_block_2026-10-19.md),
+with their markers inert. STATUS.md now opens with one paragraph per
+standing claim. Where this document says the region accumulates, it
+describes the old block; the rules it argues for still hold. The tests
+that needed accumulated history read the archive through
+`tests/test_ops_claims.py::with_history`.

@@ -10,6 +10,49 @@
 
 ---
 
+## Session 387: STATUS.md's opening block is archived (2026-10-19)
+
+Session 386's next action. Docs and tests only; no daemon code changed,
+no restart owed.
+
+- [x] **STATUS.md went from 8,310 lines to 110.** The opening block,
+      Sessions 10 to 384's dated announcements, moved unedited to
+      `docs/roadmap/archive/status_opening_block_2026-10-19.md`, newest
+      first. Only its 15 relative links changed, re-based on the
+      archive's directory; every other line was compared with the
+      original and matches.
+- [x] **A current block replaces it, one paragraph per standing claim.**
+      Nine markers moved into it: `deploy`, `daemon_start`, `health`,
+      `schema`, `alerts`, `open_titles`, two `flapping` and the
+      `expires` prediction for 2026-10-27 03:00. The tenth,
+      `migration_head`, marked a prose sentence that still said head
+      019; the Quick Status table already states head 021 beside its own
+      marker, so the stale sentence went to the archive rather than
+      being restated. The block's first paragraph asks for claims to be
+      rewritten in place from now on, not added as dated paragraphs.
+- [x] **The alert claim was already stale and is corrected: 2 → 1.**
+      `Unusual disk / usage` resolved at 11:33:32 today. The open row is
+      `Project InvestingAssistant next action idle`.
+      `check-ops-claims.sh` reads all `ok` after the move.
+- [x] **Four tests assumed the block only grows, and now read the
+      archive as history.** `tests/test_ops_claims.py` gains
+      `with_history()`, which puts the archived block's prose, markers
+      blanked, ahead of the live region. The clock-collision drives, the
+      `05:45` zone-fault drive and the superseded-restart count use it.
+      The unmarked-figure scope test now anchors on the current
+      paragraph's "7-day window" instead of the archived "11.3 %".
+      Rejected: lowering the 86-clock floor, which empties the hazard
+      drive, and `git show` of the old commit, which skips on a shallow
+      clone. Side gain: the "pinned by its own sentence alone" drive was
+      going to skip on the lean block and now runs.
+- [x] **Nothing else reads the moved text.** `check-snag-claims.sh`
+      reports the same as before the move apart from live readings, and
+      estate-manager's `estate_service` has no reader of STATUS.md.
+- [ ] **Fix `SNAG-DOCS-034`**: `sysadmin/ops_claims.py` still says in
+      the present tense that the printed region is append-only (rule 10
+      at line 179, the `daemon_start` comment at line 402). Comments
+      only.
+
 ## Session 386: STATUS.md's Recently Completed is archived (2026-10-19)
 
 Session 385's next action. Docs only; no code changed, no restart owed.
@@ -32,13 +75,13 @@ Session 385's next action. Docs only; no code changed, no restart owed.
 - [x] **A separate archive file, not an appendix to
       `completed_2026-10-19.md`**: that file's header says it came from
       tasks.md, and the same sessions would have stood in it twice.
-- [ ] **STATUS.md's opening block, lines 1 to 8,242, is left as found.**
+- [x] **STATUS.md's opening block, lines 1 to 8,242, is left as found.**
       It is about 300 dated announcements, and it is the region
       `ops_claims.py` parses. Ten live check markers sit in it, from
       line 14 (`alerts`) to line 8,136 (`migration_head`), so archiving
       it means moving those claims into a current block first. Three
       more `<!--check:` strings at lines 2,423, 2,520 and 4,341 are
-      quoted in backticks and are not markers.
+      quoted in backticks and are not markers. Done by Session 387.
 
 ## Session 385: the roadmap and the handoff are archived (2026-10-19)
 

@@ -1,6 +1,35 @@
-# Handoff — 2026-10-19 (Session 386)
+# Handoff — 2026-10-19 (Session 387)
 
 ## Next action
+
+Fix SNAG-DOCS-034: put ops_claims.py's two present-tense "append-only" statements in the past tense, as tasks.md Session 387 records. *(For: session)*
+
+## Session 387: STATUS.md's opening block is archived
+
+Session 386's next action. Docs and tests; the detail is in tasks.md,
+Session 387.
+
+- **STATUS.md is 110 lines, down from 8,310.** The dated announcements
+  went to `docs/roadmap/archive/status_opening_block_2026-10-19.md`,
+  unedited but for 15 re-based links.
+- **A current block holds the standing claims**, one paragraph each,
+  with nine of the ten markers. The tenth (`migration_head`) sat on a
+  sentence still saying head 019; the table states 021 with its own
+  marker, so the sentence was archived, not restated.
+- **Decided: rewrite claims in place from now on.** The block's first
+  paragraph says so. Rejected: keeping a dated paragraph per sitting,
+  which is how the block reached 8,242 lines.
+- **Four tests assumed the block only grows.** They now read the archive
+  as frozen history (`with_history` in `tests/test_ops_claims.py`).
+  Rejected: lowering their thresholds, or `git show` of an old commit.
+- **The alert claim was stale: 2 → 1.** `Unusual disk / usage` resolved
+  at 11:33 today. `check-ops-claims.sh` reads all `ok`.
+- **The first commit leaves four tests red until the second.** Prose and
+  code are separate commits; the docs move lands first, the test change
+  second, in the same push.
+- No estate message open.
+
+## What Session 386 handed on
 
 Archive STATUS.md's opening block (lines 1 to 8,242), first moving its ten live check markers into a current block, as tasks.md Session 386 records. *(For: session)*
 

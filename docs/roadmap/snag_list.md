@@ -10,6 +10,12 @@
 
 ## Open Issues
 
+- [P4] SNAG-DOCS-034: **`ops_claims.py` still says the printed region is append-only, and since 2026-10-19 it is rewritten in place** (2026-10-19, opened by Session 387)
+  - **Symptom**: Session 387 archived STATUS.md's opening block and left a current block whose sentences are rewritten, not appended to. Two present-tense statements in `sysadmin/ops_claims.py` now describe the old block: rule 10's heading at line 179 ("because the region is append-only") and the `daemon_start` comment at line 402 ("rewrites into an *append-only* narrative", so a sitting must demote the predecessor).
+  - **Left unfixed on purpose**: the session kept its code commit to the tests the move broke. The rules themselves still hold: reading a membership claim from one sentence and refusing two figures are right for a short block too. Only the stated reason is out of date.
+  - **Fix**: put both sentences in the past tense and name the archive. Comments only; no behaviour moves.
+  - **Status:** Open, P4.
+
 - [P4] SNAG-GPU-008: **`venture-embed` declares `holds_vram` for every start, but a start at boot runs CPU-only, so a reset after a boot start reads `degraded` about a server that can still serve** (2026-10-16, opened by Session 379 from estate message `d2b70567`)
   - **Symptom**: whether `-ngl 0` puts the 504 MiB compute buffer on Vulkan0 depends on whether amdgpu was ready when the unit started: 10 of 10 starts after boot did, 12 of 12 boot starts did not. The declaration is one value for both, chosen for the after-boot case (ADR-0007 §2.4).
   - **Left unfixed on purpose**: the exact fix reads each start's first `compute buffer size` line and declares per start. That is a new reader, and the case has no specimen: no reset has yet followed a boot start of this unit since the declaration. A restart of the unit clears the false reading.
