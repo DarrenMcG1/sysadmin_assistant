@@ -1,6 +1,30 @@
-# Handoff — 2026-10-19 (Session 385)
+# Handoff — 2026-10-19 (Session 386)
 
 ## Next action
+
+Archive STATUS.md's opening block (lines 1 to 8,242), first moving its ten live check markers into a current block, as tasks.md Session 386 records. *(For: session)*
+
+## Session 386: STATUS.md's Recently Completed is archived
+
+Session 385's next action. Docs only; the detail is in tasks.md,
+Session 386.
+
+- **STATUS.md is 8,310 lines, down from 14,615.** Sessions 10 to 344
+  went to `docs/roadmap/archive/status_completed_2026-10-19.md`,
+  unedited but for 10 re-based links. Sessions 349 to 374 stay.
+- **Safe because nothing reads that section.** `ops_claims.py` parses
+  from the top of the file to the `## Recently Completed` heading,
+  which stays. Everything above it is byte-identical, and
+  `check-ops-claims.sh` reads all `ok`.
+- **Decided:** a separate archive file. Rejected appending to
+  `completed_2026-10-19.md`, whose header says it came from tasks.md
+  and which already holds these sessions' task records.
+- **Left: the opening block**, 8,242 lines of dated announcements. It
+  is the parsed region and carries ten live markers spread through it,
+  so it needs its own sitting.
+- No estate message open.
+
+## What Session 385 handed on
 
 Archive STATUS.md's Recently Completed (lines 8,267 to 14,611) after reading docs/design/status-claims.md, as tasks.md Session 385 records. *(For: session)*
 

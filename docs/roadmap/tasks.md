@@ -10,6 +10,36 @@
 
 ---
 
+## Session 386: STATUS.md's Recently Completed is archived (2026-10-19)
+
+Session 385's next action. Docs only; no code changed, no restart owed.
+
+- [x] **STATUS.md went from 14,615 lines to 8,310.** Sessions 10 to 344
+      moved, newest first as they stood, to
+      `docs/roadmap/archive/status_completed_2026-10-19.md`. Kept:
+      Sessions 349 to 374, the same two-week cut Session 385 made in
+      this file. One pointer line replaces the old one.
+- [x] **No check reads the moved text.** `ops_claims.printed_region`
+      ends at the first `## ` heading after `## Quick Status`, which is
+      `## Recently Completed`, and that heading stays. Lines 1 to 8,302
+      are byte-identical to HEAD; `check-ops-claims.sh` reads all
+      `ok`. No live reader in estate-manager's code; its ADR citations
+      of STATUS.md line numbers are dated history.
+- [x] **Moved text is unedited except for 10 relative links**, re-based
+      on the archive's directory, found with `tests/test_doc_links.py`'s
+      own regex. A first sweep with a hand-written `grep` found none;
+      the link test caught all 10.
+- [x] **A separate archive file, not an appendix to
+      `completed_2026-10-19.md`**: that file's header says it came from
+      tasks.md, and the same sessions would have stood in it twice.
+- [ ] **STATUS.md's opening block, lines 1 to 8,242, is left as found.**
+      It is about 300 dated announcements, and it is the region
+      `ops_claims.py` parses. Ten live check markers sit in it, from
+      line 14 (`alerts`) to line 8,136 (`migration_head`), so archiving
+      it means moving those claims into a current block first. Three
+      more `<!--check:` strings at lines 2,423, 2,520 and 4,341 are
+      quoted in backticks and are not markers.
+
 ## Session 385: the roadmap and the handoff are archived (2026-10-19)
 
 The owner's request: archive old tasks, snags and handoff items. Docs
@@ -44,11 +74,12 @@ only; no code changed, no restart owed.
       subdirectory too. The first attempt wrote 19,500, measured while
       the new archive file was still untracked; the full suite caught
       it at 48 % adrift.
-- [ ] **STATUS.md is 14,615 lines and was left as found.** Lines 1 to
+- [x] **STATUS.md is 14,615 lines and was left as found.** Lines 1 to
       8,242 come before `## Quick Status`, and Recently Completed runs
       from 8,267 to 14,611. `sysadmin/ops_claims.py` re-measures that
       file's opening block, so moving any of it is a sitting of its
-      own, after reading `docs/design/status-claims.md`.
+      own, after reading `docs/design/status-claims.md`. Done by
+      Session 386.
 
 ## Session 384: a VRAM resident evicted to GTT reads degraded (2026-10-18)
 
