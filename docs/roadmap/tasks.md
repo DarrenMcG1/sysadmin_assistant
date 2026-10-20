@@ -4,11 +4,30 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-19
+> **Last Updated**: 2026-10-20
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
 ---
+
+## Session 389: Alfred's `sysadmin-assistant` token surface (2026-10-20)
+
+Estate message `21860cb6-753f-42f5-954c-7ea872a4be83` from Alfred
+(ADR-0176). Docs only; no code, no restart owed.
+
+- [x] **Read and logged the message.** Alfred now accepts
+      `{"surface":"sysadmin-assistant"}` on `POST /auth/session`
+      (loopback, port 8100), so a session here no longer borrows `cv`,
+      `claude` or `web`. Nothing was minted: no task needed it.
+- [ ] **Use the surface when a task needs Alfred's planner for downtime
+      or sudo** (the owner's stated use). Mint with
+      `curl -s -X POST http://127.0.0.1:8100/auth/session -H 'Content-Type: application/json' -d '{"surface":"sysadmin-assistant"}'`,
+      send `Authorization: Bearer <token>`, and revoke at session end with
+      `DELETE /auth/device-tokens/<id>`. The token reads and writes every
+      domain; the server restricts nothing about changing blocks this
+      session did not create (Alfred row 387). Close message
+      `21860cb6-753f-42f5-954c-7ea872a4be83` as `sysadmin-assistant`
+      once that has been done.
 
 ## Session 388: `ops_claims.py` stops calling the region append-only (2026-10-19)
 
@@ -26,8 +45,9 @@ Session 387's next action. Comments only; no restart owed.
       `tests/test_claude_md_registry.py:402`, speak of the past or of
       append-only documents in general and stay. Left out to keep this
       sitting to the file the snag named.
-- [ ] **STATUS.md carries `**Last Updated**` twice** (2026-10-19 and
-      2026-10-18, lines 2 and 3). Seen in passing; delete the older line.
+- [x] **STATUS.md carries `**Last Updated**` twice** (2026-10-19 and
+      2026-10-18, lines 2 and 3). Seen in passing; older line deleted in
+      `d75e751`.
 
 ## Session 387: STATUS.md's opening block is archived (2026-10-19)
 

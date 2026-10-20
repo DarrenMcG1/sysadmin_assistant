@@ -1,8 +1,26 @@
-# Handoff — 2026-10-19 (Session 388)
+# Handoff — 2026-10-20 (Session 389)
 
 ## Next action
 
-Delete the older duplicate `**Last Updated**` line (2026-10-18) from docs/roadmap/STATUS.md line 3, as tasks.md Session 388 records. *(For: session)*
+Carry out a downtime or sudo task through Alfred's planner with a `sysadmin-assistant` token, then close estate message `21860cb6-753f-42f5-954c-7ea872a4be83`. *(For: none)*
+
+## Session 389: Alfred's `sysadmin-assistant` token surface
+
+Docs only; no restart owed.
+
+- **Estate message `21860cb6-753f-42f5-954c-7ea872a4be83` read and
+  logged** as a task in tasks.md Session 389. It is informational: the
+  surface exists, nothing here had to change.
+- **Decided:** leave the message open. Its close note would claim the
+  surface was used, and it has not been; closing cannot be undone.
+  Rejected: minting a token now to "act on" it, which would write to
+  Alfred for no task.
+- Also ticked the STATUS.md duplicate `Last Updated` task (done in
+  `d75e751`).
+
+## What Session 388 handed on
+
+Delete the older duplicate `**Last Updated**` line from STATUS.md, done in `d75e751`.
 
 ## Session 388: ops_claims.py stops calling the region append-only
 
