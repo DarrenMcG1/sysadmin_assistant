@@ -1,7 +1,10 @@
 """Bearer-token authentication for state-changing API endpoints.
 
-The shared token lives in ``config.yaml`` under ``api.auth_token``.
-When unset or empty, authentication is disabled (backwards compatible)
+The token is the ``api-token`` systemd credential when the unit delivers
+one (``sysadmin/core/api_token.py``), read once by ``create_app`` onto
+``app.state.api_token``; otherwise ``config.yaml``'s ``api.auth_token``,
+which must stay empty in the committed file because the repository is
+public. With neither, authentication is disabled (backwards compatible)
 and mutating endpoints are open — ``main.py`` logs a warning at startup
 in that case.
 
@@ -44,8 +47,8 @@ async def require_auth(request: Request) -> None:
 
     Raises 403 when ``Origin`` is set and not an allowed origin (see the
     module docstring), then enforces the bearer token: a no-op when
-    ``api.auth_token`` is unset/empty, and 401 with a
-    ``WWW-Authenticate: Bearer`` header on a missing or wrong token.
+    there is no token, and 401 with a ``WWW-Authenticate: Bearer``
+    header on a missing or wrong token.
     """
     origin = request.headers.get("Origin")
     if origin is not None and not origin_allowed(
@@ -53,7 +56,7 @@ async def require_auth(request: Request) -> None:
     ):
         raise HTTPException(status_code=403, detail="Cross-site request refused")
 
-    token = get_config().api.auth_token
+    token = request.app.state.api_token or get_config().api.auth_token
     if not token:
         return  # Auth disabled — backwards compatible
 

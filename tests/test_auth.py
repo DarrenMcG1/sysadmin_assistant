@@ -12,6 +12,12 @@ Covers:
 import pytest
 from fastapi.routing import APIRoute
 
+from sysadmin.core.api_token import (
+    CREDENTIAL_ID,
+    CREDENTIALS_ENV,
+    daemon_token,
+    read_token,
+)
 from sysadmin.core.auth import origin_allowed, require_auth
 
 AUTH_TOKEN = "test-token-abc123"
@@ -240,3 +246,81 @@ class TestOriginAllowed:
 
     def test_wildcard_allows_anything(self):
         assert origin_allowed("null", ["*"])
+
+
+@pytest.fixture
+def credential_client(test_app, test_client):
+    """test_client whose app was handed a delivered credential at build time."""
+    test_app.state.api_token = CREDENTIAL_TOKEN
+    yield test_client
+    test_app.state.api_token = None
+
+
+CREDENTIAL_TOKEN = "delivered-token-xyz789"
+
+
+class TestTheCredentialIsTheToken:
+    """SNAG-API-005's token half: the ``api-token`` systemd credential."""
+
+    @pytest.mark.parametrize("path", PROTECTED_ROUTES)
+    async def test_missing_token_rejected(self, credential_client, path):
+        resp = await credential_client.post(path, json={})
+        assert resp.status_code == 401
+
+    async def test_the_credential_passes(self, credential_client):
+        resp = await credential_client.post(
+            "/api/sysadmin/dnd",
+            json={"enabled": None},
+            headers={"Authorization": f"Bearer {CREDENTIAL_TOKEN}"},
+        )
+        assert resp.status_code == 200
+
+    async def test_the_credential_wins_over_the_config_token(
+        self, credential_client, mock_config
+    ):
+        mock_config.api.auth_token = AUTH_TOKEN
+        try:
+            resp = await credential_client.post(
+                "/api/sysadmin/dnd",
+                json={"enabled": None},
+                headers={"Authorization": f"Bearer {AUTH_TOKEN}"},
+            )
+            assert resp.status_code == 401
+        finally:
+            mock_config.api.auth_token = None
+
+    def test_create_app_reads_the_credentials_directory(
+        self, tmp_path, monkeypatch, mock_config
+    ):
+        from sysadmin.main import create_app
+
+        (tmp_path / CREDENTIAL_ID).write_text(f"{CREDENTIAL_TOKEN}\n", encoding="utf-8")
+        monkeypatch.setenv(CREDENTIALS_ENV, str(tmp_path))
+        assert create_app().state.api_token == CREDENTIAL_TOKEN
+
+
+class TestTokenReaders:
+    def test_outside_the_unit_there_is_no_credential(self, monkeypatch):
+        monkeypatch.delenv(CREDENTIALS_ENV, raising=False)
+        assert daemon_token() is None
+
+    def test_the_trailing_newline_is_not_part_of_the_token(self, tmp_path):
+        path = tmp_path / "t"
+        path.write_text("abc\n", encoding="utf-8")
+        assert read_token(path) == "abc"
+
+    def test_a_blank_file_is_no_token(self, tmp_path):
+        """Blank must read as absent, or a bearer of nothing would pass."""
+        path = tmp_path / "t"
+        path.write_text("\n", encoding="utf-8")
+        assert read_token(path) is None
+
+    def test_an_absent_file_is_no_token(self, tmp_path):
+        assert read_token(tmp_path / "missing") is None
+
+    def test_the_tray_reads_the_delivered_copy(self, tmp_path, monkeypatch):
+        import sysadmin.core.api_token as api_token
+
+        (tmp_path / CREDENTIAL_ID).write_text("delivered", encoding="utf-8")
+        monkeypatch.setattr(api_token, "DELIVERED_DIRECTORY", tmp_path)
+        assert api_token.tray_token() == "delivered"

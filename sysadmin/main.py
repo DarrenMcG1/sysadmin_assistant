@@ -24,6 +24,7 @@ from sysadmin.briefing.data import send_morning_briefing
 from sysadmin.briefing.router import router as summary_router
 from sysadmin.core.abandoned_runs import close_abandoned_runs
 from sysadmin.core.agent import spawn_manual_run
+from sysadmin.core.api_token import CREDENTIAL_ID, daemon_token
 from sysadmin.core.auth import require_auth
 from sysadmin.core.config import get_config, load_config, unknown_config_keys
 from sysadmin.core.contracts import ReloadResponse, ScanAllResponse
@@ -189,12 +190,20 @@ async def lifespan(app: FastAPI):
     )
 
     # API authentication status
-    if config.api.auth_token:
+    if daemon_token():
+        logger.info(
+            "API auth enabled by the %s credential — state-changing endpoints "
+            "require a bearer token",
+            CREDENTIAL_ID,
+        )
+    elif config.api.auth_token:
         logger.info("API auth enabled — state-changing endpoints require a bearer token")
     else:
         logger.warning(
-            "api.auth_token is not set — state-changing endpoints are UNAUTHENTICATED. "
-            "Set api.auth_token in config.yaml to enable bearer-token auth."
+            "no API token — neither the %s credential nor api.auth_token is set, "
+            "so state-changing endpoints are UNAUTHENTICATED. Deliver one with "
+            "LoadCredential= (sysadmin/core/api_token.py).",
+            CREDENTIAL_ID,
         )
 
     # Keys config.yaml carries that no model declares (SNAG-CFG-004).
@@ -454,6 +463,9 @@ def create_app(lifespan_ctx: LifespanFactory | None = None) -> FastAPI:
     # One list for both readers: require_auth refuses a mutating request
     # from any other origin (SNAG-API-005), and `service` is restart-only.
     app.state.cors_origins = list(get_config().service.cors_origins)
+    # Read once: systemd delivers the credential at start, so it cannot
+    # change under a running process (SNAG-API-005's token half).
+    app.state.api_token = daemon_token()
     app.add_middleware(
         CORSMiddleware,
         allow_origins=app.state.cors_origins,
