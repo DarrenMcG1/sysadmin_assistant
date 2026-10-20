@@ -1,6 +1,23 @@
-# Handoff — 2026-10-20 (Session 391)
+# Handoff — 2026-10-20 (Session 392)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 392: the scheduled-section assert is declared
+
+Closed `SNAG-TEST-018` in `0b5a39b`, test-only, so no restart is owed.
+
+- **Decided:** a `# may-not-evaluate:` declaration, as the snag proposed.
+  Rejected: treating an absent `## Scheduled action` section as an empty
+  one, which makes the assert run over nothing and silences the gate
+  without making it say anything.
+- **The gate still exits 1**, now only on `tests/test_off_loop.py:99`
+  (`SNAG-TEST-016`, open). No entry is declared owed any more;
+  `SNAG-TEST-016` and `SNAG-TEST-017` are the same shape and carry no
+  disposition yet.
+
+## What Session 391 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 

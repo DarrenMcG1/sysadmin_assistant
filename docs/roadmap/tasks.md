@@ -10,6 +10,21 @@
 
 ---
 
+## Session 392: the scheduled-section assert is declared (2026-10-20)
+
+The published next action: the highest-ranked open snag a session can
+start now. `SNAG-TEST-018` (P4) was the only entry declared owed; the
+P2 and P3 entries are decided or delegated.
+
+- [x] **Declared** (`0b5a39b`): a `# may-not-evaluate:` comment above
+      `tests/test_handoff_shape.py:133`, naming the test class that
+      drives the same pattern at forged documents. The gate lists it as
+      declared. Closed `SNAG-TEST-018`.
+- [x] **Left as found:** the gate still exits 1 on
+      `tests/test_off_loop.py:99`, which is `SNAG-TEST-016`, open and not
+      worked here. `SNAG-TEST-017` did
+      not show on this run because the GPU queue was idle.
+
 ## Session 391: the API token is a systemd credential (2026-10-20)
 
 The published next action: the highest-ranked open snag a session can

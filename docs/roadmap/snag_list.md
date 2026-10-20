@@ -4,16 +4,18 @@
 >
 > **Related**: [tasks.md](tasks.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-19
+> **Last Updated**: 2026-10-20
 
 ---
 
 ## Open Issues
 
-- [P4] SNAG-TEST-018: **`test_handoff_shape.py:129` skips when `HANDOFF.md` has no `## Scheduled action` section, so the vacuous-guard gate flags it at every close that has none** (2026-10-20, opened by Session 391, found by its postflight and not worked)
+- [P4] SNAG-TEST-018: **`test_handoff_shape.py:129` skips when `HANDOFF.md` has no `## Scheduled action` section, so the vacuous-guard gate flags it at every close that has none** (2026-10-20, opened by Session 391, found by its postflight and not worked; **CLOSED 2026-10-20 by Session 392**)
   - **Symptom**: `test_no_scheduled_item_is_an_unchecked_task` calls `pytest.skip` when the section is absent, so its `assert not offenders` never evaluates, and `check-vacuous-guards.sh` reports it. The section was absent at `14f41aa`, before this sitting touched the file.
   - **Why it is left**: a second concern for this sitting. Same shape as `SNAG-TEST-016` and `SNAG-TEST-017`: an absent section is a healthy state, so the likely fix is a `# may-not-evaluate:` declaration naming `TestTheDetectorWouldSeeOne` as the anti-vacuity half.
-  - **Status:** Open — owed, P4: a one-line declaration, startable now.
+  - **Status:** **Closed 2026-10-20 by Session 392** — a `# may-not-evaluate:` comment above the assert, now `tests/test_handoff_shape.py:133`, says the section exists only while something is gated and names `TestTheDetectorWouldSeeOne` as the witness. The gate run over a green suite lists it among the 9 declared sites and no longer as a finding.
+  - **Rejected**: reading an absent section as `[]` so the assert always runs. The assert would then run over nothing and the gate would stop reporting it, which hides the vacuity rather than declaring it.
+  - **Checked**: the file's other skip, `:514`, comes after its asserts, so it leaves none unevaluated.
 - [P4] SNAG-API-006: **the API token stops other users' processes and not the owner's own, because the tray runs as `gaddi` and must read it** (2026-10-20, opened by Session 391 as the stated limit of `SNAG-API-005`'s token half)
   - **Symptom**: `/run/credentials/sysadmin.service/api-token` is `0440 root:root` with an ACL granting `gaddi`. That ACL is what lets the tray send the token, and it lets any other `gaddi` process read it too, so such a process can fire all 13 mutating routes.
   - **Why it is left**: no design in which the tray holds the token closes it. A boundary against the owner's own processes would need the tray under a separate uid, and a same-uid process can already read the tray's memory or drive the desktop. The token does refuse every process under another uid: `postgres`, `mosquitto`, `libvirt-qemu`, `nobody` and the rest (13 uids own processes on this box, measured 2026-10-20).
