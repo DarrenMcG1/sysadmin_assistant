@@ -126,6 +126,10 @@ class TestTheScheduledSectionCarriesNoCheckbox:
         if body is None:
             pytest.skip(NO_SCHEDULED_SECTION)
         offenders = [line for line in body if _UNCHECKED_RE.match(line)]
+        # may-not-evaluate: the section exists only while something is gated,
+        # and the estate refuses a standing empty one, so most closes skip
+        # above.  Witnessed by TestTheDetectorWouldSeeOne, which drives the
+        # checkbox pattern and the section reader at forged documents.
         assert not offenders, (
             "a `- [ ]` here is published to the estate board as this "
             "repository's next action whenever the `## Next action` heading is "
