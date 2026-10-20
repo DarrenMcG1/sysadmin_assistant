@@ -10,6 +10,24 @@
 
 ---
 
+## Session 391: the API token is a systemd credential (2026-10-20)
+
+The published next action: the highest-ranked open snag a session can
+start now. `SNAG-GPU-001` (P2) waits on a real GPU reset, so the first
+startable one was `SNAG-API-005` (P3), the only entry declared owed.
+
+- [x] **Daemon half** (`4ef799f`): `sysadmin/core/api_token.py` reads
+      `$CREDENTIALS_DIRECTORY/api-token`; `require_auth` prefers it over
+      `api.auth_token`.
+- [x] **Tray half and unit line** (`17701c9`): `LoadCredential=api-token:`
+      on `sysadmin.service`; the tray sends systemd's delivered copy, per
+      request, to the daemon's origin only.
+- [x] **Installed by the owner** (20:25:27) and probed live: 401 without
+      the token, 200 with it, the tray's worker 200 with the header on
+      8500 and without it on 8400.
+- [x] **Closed `SNAG-API-005`; opened `SNAG-API-006`** for what a token
+      the tray can read cannot stop: the owner's own processes.
+
 ## Session 390: the token surface becomes a standing rule (2026-10-20)
 
 The owner asked this session to act on estate message
@@ -1388,7 +1406,8 @@ Config / ops:
   disabled because config.yaml is committed. *Superseded by
   `SNAG-API-005` (2026-10-10): this repository is public now, so a token
   in that file is a published token. The entry describes two routes that
-  do not need one.*
+  do not need one.* *Done another way 2026-10-20 (Session 391): the token is the
+  `api-token` systemd credential, never in config.yaml.*
 - PA-auto's 224 branches will take 12 confirmed calls at the current
   `max_deletions: 20`; raising it for a one-off sweep is a config change,
   deliberately not a request parameter

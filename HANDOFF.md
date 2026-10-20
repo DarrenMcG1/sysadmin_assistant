@@ -1,6 +1,35 @@
-# Handoff — 2026-10-20 (Session 390)
+# Handoff — 2026-10-20 (Session 391)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 391: the API token is a systemd credential
+
+Closed `SNAG-API-005`'s token half. Code in `4ef799f` and `17701c9`; the
+owner installed the unit and the credential at 20:25:27, and the tray was
+restarted onto its new code at 20:26:14.
+
+- **Every POST to :8500 now needs a bearer token**, including a session's
+  `POST /api/sysadmin/reload`: send
+  `-H "Authorization: Bearer $(cat /run/credentials/sysadmin.service/api-token)"`.
+  A 401 there means a missing header, not a missing handler. `kill -HUP`
+  needs none.
+- **Decided:** a fixed credential id `api-token` in `/etc/credstore`,
+  with the tray reading systemd's delivered copy so the two cannot
+  disagree. Rejected: a token file in the home directory (could drift
+  from what the daemon loaded) and a config key for the id (a mismatch
+  with the unit fails open).
+- **Decided:** the tray reads the token per request and scoped to the
+  daemon's origin. The old client-wide header would have sent a real
+  token to the estate on 8400.
+- **Not used:** `scripts/setup-systemd.sh` under `pkexec`. It takes the
+  user from `SUDO_USER`, which `pkexec` does not set, so it would install
+  the tray unit under `/home/root`.
+- **Limit recorded:** `SNAG-API-006`, the owner's own processes can read
+  the token as the tray does.
+
+## What Session 390 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 
