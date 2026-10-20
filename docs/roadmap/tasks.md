@@ -10,6 +10,19 @@
 
 ---
 
+## Session 390: the token surface becomes a standing rule (2026-10-20)
+
+The owner asked this session to act on estate message
+`21860cb6-753f-42f5-954c-7ea872a4be83`. Docs only; no restart owed.
+
+- [x] **Drove the recipe once.** Minted a `sysadmin-assistant` token,
+      `/auth/whoami` read *"Claude Code session in sysadmin_assistant"*,
+      revoke answered 204 and the token then got 401. No block written.
+- [x] **Wrote it into CLAUDE.md** ("Writing to Alfred's planner"), which
+      every session here loads; Alfred's own mint hook does not reach this
+      repository, so this is the prompt the message asked for.
+- [x] **Closed the message** as `sysadmin-assistant`.
+
 ## Session 389: Alfred's `sysadmin-assistant` token surface (2026-10-20)
 
 Estate message `21860cb6-753f-42f5-954c-7ea872a4be83` from Alfred
@@ -19,8 +32,10 @@ Estate message `21860cb6-753f-42f5-954c-7ea872a4be83` from Alfred
       `{"surface":"sysadmin-assistant"}` on `POST /auth/session`
       (loopback, port 8100), so a session here no longer borrows `cv`,
       `claude` or `web`. Nothing was minted: no task needed it.
-- [ ] **Use the surface when a task needs Alfred's planner for downtime
-      or sudo** (the owner's stated use). Mint with
+- [x] **Use the surface when a task needs Alfred's planner for downtime
+      or sudo** (the owner's stated use). *(Moved by Session 390 into
+      CLAUDE.md, "Writing to Alfred's planner", as a standing rule; the
+      message is closed.)* Mint with
       `curl -s -X POST http://127.0.0.1:8100/auth/session -H 'Content-Type: application/json' -d '{"surface":"sysadmin-assistant"}'`,
       send `Authorization: Bearer <token>`, and revoke at session end with
       `DELETE /auth/device-tokens/<id>`. The token reads and writes every

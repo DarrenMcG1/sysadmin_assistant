@@ -548,6 +548,28 @@ before then are not a record of neglect — the register did not exist
 until that day, and it is worth knowing that the *route* is one day older
 than this paragraph.
 
+## Writing to Alfred's planner — the `sysadmin-assistant` token surface
+
+**A session here that writes to Alfred mints its own surface and never
+borrows `cv`, `claude` or `web`** (Alfred's ADR-0176, estate message
+`21860cb6`). The owner's stated use is a task needing downtime or
+`sudo`, written as a planner block (`/api/planning/blocks` on 8100).
+Alfred's hook that asks before a borrowed-surface mint lives in Alfred's
+`.claude/` and does not reach this repository, so this section is the
+only prompt:
+
+    curl -s -X POST http://127.0.0.1:8100/auth/session \
+      -H 'Content-Type: application/json' -d '{"surface":"sysadmin-assistant"}'
+    # -> {id, token}; send Authorization: Bearer <token>
+    curl -s -X DELETE http://127.0.0.1:8100/auth/device-tokens/<id> \
+      -H 'Authorization: Bearer <token>'   # at session end; 204
+
+**It is an audit label, not access control**: the token reads and writes
+every domain, and nothing on the server stops it changing a block it did
+not create (Alfred row 387), so leave other blocks alone by convention.
+Driven 2026-10-20: `/auth/whoami` reads *"Claude Code session in
+sysadmin_assistant"*, revoke answers 204, and the token then gets 401.
+
 ---
 
 **Decision records** live in `docs/adr/`:

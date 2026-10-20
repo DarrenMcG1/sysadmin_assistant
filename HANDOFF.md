@@ -1,6 +1,26 @@
-# Handoff — 2026-10-20 (Session 389)
+# Handoff — 2026-10-20 (Session 390)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 390: the token surface becomes a standing rule
+
+The owner asked for estate message
+`21860cb6-753f-42f5-954c-7ea872a4be83` to be acted on. Docs only; no
+restart owed.
+
+- **CLAUDE.md now says how to mint, use and revoke** a
+  `sysadmin-assistant` token for Alfred's planner (section "Writing to
+  Alfred's planner"), driven once: whoami labelled, revoke 204, then 401.
+- **Message closed.** Session 389 left it open because a close note would
+  claim the surface was used; the note says it was recorded and driven,
+  not used for a task, so it claims nothing false.
+- **Decided:** mint-and-revoke to test the recipe. Rejected: writing a
+  planner block, since no open task needs downtime or `sudo` (checked
+  tasks.md and the open snags).
+
+## What Session 389 handed on
 
 Carry out a downtime or sudo task through Alfred's planner with a `sysadmin-assistant` token, then close estate message `21860cb6-753f-42f5-954c-7ea872a4be83`. *(For: none)*
 
