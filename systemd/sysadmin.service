@@ -129,6 +129,16 @@ Environment=PATH=/home/gaddi/projects/sysadmin_assistant/.venv/bin:/usr/local/bi
 # systemd reads it as root before dropping to gaddi. NOTE: if the source
 # file is absent the unit FAILS to start — install the credential first.
 LoadCredential=mqtt:/etc/credstore/sysadmin-mqtt
+# SNAG-API-005's token half, the same door for the same reason: the API's
+# bearer token cannot live in config.yaml because this repository is
+# public (ADR-0010). Read as $CREDENTIALS_DIRECTORY/api-token by
+# sysadmin/core/api_token.py. The tray reads systemd's delivered copy,
+# /run/credentials/sysadmin.service/api-token, which carries an ACL for
+# gaddi, so it always sends what this process loaded. NOTE: like the line
+# above, a missing source file FAILS the start — create it first:
+#   umask 077; head -c 32 /dev/urandom | base64 | tr -d '=+/\n' \
+#     > /etc/credstore/sysadmin-api-token
+LoadCredential=api-token:/etc/credstore/sysadmin-api-token
 ExecStart=/home/gaddi/projects/sysadmin_assistant/.venv/bin/uvicorn sysadmin.main:app --host 127.0.0.1 --port 8500 --workers 1
 Restart=always
 RestartSec=10

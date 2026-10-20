@@ -40,6 +40,21 @@ def _directives(unit: str) -> dict[str, str]:
     return values
 
 
+def _credentials(unit: str) -> dict[str, str]:
+    """``LoadCredential=`` id → source, every line of it.
+
+    ``_directives`` keeps the last value of a key, and this directive is
+    the one the daemon's unit repeats.
+    """
+    values: dict[str, str] = {}
+    for raw in (UNITS / unit).read_text(encoding="utf-8").splitlines():
+        key, _, value = raw.strip().partition("=")
+        if key.strip() == "LoadCredential":
+            cred_id, _, source = value.strip().partition(":")
+            values[cred_id] = source
+    return values
+
+
 def _script_lines(name: str) -> list[str]:
     return (SCRIPTS / name).read_text(encoding="utf-8").splitlines()
 
@@ -182,14 +197,28 @@ class TestFailureIsReportable:
         will read ``$CREDENTIALS_DIRECTORY/mqtt`` by that name.
         """
         directives = _directives("sysadmin.service")
-        credential = directives.get("LoadCredential", "")
-        cred_id, _, source = credential.partition(":")
-        assert cred_id == "mqtt", f"LoadCredential id must be 'mqtt', got {credential!r}"
-        assert source.startswith("/"), "credential source must be an absolute path"
+        credentials = _credentials("sysadmin.service")
+        assert "mqtt" in credentials, f"no 'mqtt' credential in {credentials!r}"
+        assert credentials["mqtt"].startswith("/"), "credential source must be an absolute path"
         assert "EnvironmentFile" not in directives, (
             "an EnvironmentFile= would reintroduce the env-var door this "
             "repository's conventions keep closed"
         )
+
+    def test_the_api_token_arrives_by_the_id_the_code_reads(self):
+        """SNAG-API-005: the bearer token is a credential, for ADR-0003's reasons.
+
+        The id is pinned to ``CREDENTIAL_ID`` rather than spelt twice: a
+        unit and a reader that disagree leave the daemon with no token,
+        and that fails open — the warning at startup is all that says so.
+        """
+        from sysadmin.core.api_token import CREDENTIAL_ID, DELIVERED_DIRECTORY
+
+        credentials = _credentials("sysadmin.service")
+        assert CREDENTIAL_ID in credentials, f"no {CREDENTIAL_ID!r} in {credentials!r}"
+        assert credentials[CREDENTIAL_ID].startswith("/etc/credstore/")
+        # The tray reads systemd's delivered copy, named after this unit.
+        assert DELIVERED_DIRECTORY.name == "sysadmin.service"
 
     def test_the_handler_writes_to_the_journal_before_the_session_bus(self):
         """Journald is the destination that does not need anyone logged in.

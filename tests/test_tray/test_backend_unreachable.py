@@ -572,8 +572,14 @@ class TestTheRetiredChecksDetector:
         from sysadmin_tray import client as client_module
 
         tree = ast.parse(Path(client_module.__file__).read_text())
-        init = next(
+        # Inside ApiWorker: the module's first __init__ stopped being its
+        # once DaemonBearerAuth was defined above it.
+        worker = next(
             node for node in ast.walk(tree)
+            if isinstance(node, ast.ClassDef) and node.name == "ApiWorker"
+        )
+        init = next(
+            node for node in ast.walk(worker)
             if isinstance(node, ast.FunctionDef) and node.name == "__init__"
         )
         assigned = [

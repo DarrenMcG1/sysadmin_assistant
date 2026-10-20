@@ -2,9 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
-from sysadmin_tray.client import ApiWorker
+from sysadmin_tray.client import ApiWorker, DaemonBearerAuth
 from sysadmin_tray.models import AlertsResponse, ResourceResponse, StatusResponse
 
 # ── Fixtures ─────────────────────────────────────────────────────────
@@ -53,22 +54,65 @@ def _mock_response(json_data, status_code=200):
     return resp
 
 
+def _sent_authorization(
+    auth: httpx.Auth, url: str = "http://test:8500/api/sysadmin/scan-all"
+) -> str | None:
+    """The ``Authorization`` header a request through ``auth`` reaches the wire with."""
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("Authorization"))
+        return httpx.Response(200, json={})
+
+    with httpx.Client(transport=httpx.MockTransport(handler), auth=auth) as client:
+        client.post(url)
+    return seen[0]
+
+
 class TestApiWorkerAuth:
-    """Bearer token wiring on the underlying httpx client."""
+    """Bearer token wiring on the underlying httpx client (SNAG-API-005).
 
-    def test_auth_token_sets_authorization_header(self):
-        worker = ApiWorker("http://test:8500", auth_token="secret-token")
-        assert worker._client.headers["Authorization"] == "Bearer secret-token"
-        worker.cleanup()
+    Every test injects the credential reader: on a box where the daemon
+    runs with its credential, the real reader would find the real token.
+    """
 
-    def test_no_token_sends_no_authorization_header(self):
-        worker = ApiWorker("http://test:8500")
+    def test_the_delivered_credential_is_sent(self):
+        auth = DaemonBearerAuth("http://test:8500", read=lambda: "delivered")
+        assert _sent_authorization(auth) == "Bearer delivered"
+
+    def test_the_credential_wins_over_the_config_token(self):
+        auth = DaemonBearerAuth(
+            "http://test:8500", fallback="from-config", read=lambda: "delivered"
+        )
+        assert _sent_authorization(auth) == "Bearer delivered"
+
+    def test_the_config_token_stands_in_while_nothing_is_delivered(self):
+        auth = DaemonBearerAuth("http://test:8500", fallback="from-config", read=lambda: None)
+        assert _sent_authorization(auth) == "Bearer from-config"
+
+    @pytest.mark.parametrize("fallback", [None, ""])
+    def test_no_token_sends_no_authorization_header(self, fallback):
+        auth = DaemonBearerAuth("http://test:8500", fallback=fallback, read=lambda: None)
+        assert _sent_authorization(auth) is None
+
+    def test_the_credential_is_read_per_request(self):
+        """A tray started while the daemon was down picks the token up later."""
+        tokens = iter([None, "delivered"])
+        auth = DaemonBearerAuth("http://test:8500", read=lambda: next(tokens))
+        assert _sent_authorization(auth) is None
+        assert _sent_authorization(auth) == "Bearer delivered"
+
+    def test_the_estate_never_receives_the_token(self):
+        """One client polls both services; the token is the daemon's alone."""
+        auth = DaemonBearerAuth("http://test:8500", fallback="t", read=lambda: "t")
+        assert _sent_authorization(auth, "http://test:8400/api/projects/overview") is None
+
+    def test_the_worker_sends_through_the_scoped_auth(self):
+        with patch("sysadmin_tray.client.tray_token", return_value="delivered"):
+            worker = ApiWorker("http://test:8500", auth_token="from-config")
+        assert isinstance(worker._client.auth, DaemonBearerAuth)
         assert "Authorization" not in worker._client.headers
-        worker.cleanup()
-
-    def test_empty_token_sends_no_authorization_header(self):
-        worker = ApiWorker("http://test:8500", auth_token="")
-        assert "Authorization" not in worker._client.headers
+        assert _sent_authorization(worker._client.auth) == "Bearer delivered"
         worker.cleanup()
 
 
@@ -87,7 +131,6 @@ class TestApiWorkerNamesItself:
 
         worker = ApiWorker("http://test:8500", auth_token="secret-token")
         assert worker._client.headers[CLIENT_HEADER] == TRAY_CLIENT
-        assert worker._client.headers["Authorization"] == "Bearer secret-token"
         worker.cleanup()
 
 

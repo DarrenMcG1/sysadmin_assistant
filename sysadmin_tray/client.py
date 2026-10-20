@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable, Iterator
 
 import httpx
 from PyQt6.QtCore import QMutex, QObject, QThread, pyqtSignal, pyqtSlot
 
+from sysadmin.core.api_token import tray_token
 from sysadmin_tray.models import (
     CLIENT_HEADER,
     TRAY_CLIENT,
@@ -44,6 +46,42 @@ from sysadmin_tray.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class DaemonBearerAuth(httpx.Auth):
+    """The bearer token, on requests to the daemon and nowhere else.
+
+    The token is read **per request** from the copy systemd delivered to
+    the daemon (``sysadmin/core/api_token.py``), so a tray started while
+    the daemon was down, or left running across a rotation, sends what
+    the daemon holds now rather than what it held at the tray's start.
+    ``fallback`` is ``config.yaml``'s ``api.auth_token``, used only when
+    no credential is delivered.
+
+    Scoped by origin because this client also polls the estate on 8400:
+    a header set on the client would hand that service the token too.
+    """
+
+    def __init__(
+        self,
+        api_url: str,
+        fallback: str | None = None,
+        read: Callable[[], str | None] | None = None,
+    ) -> None:
+        self._origin = _origin(httpx.URL(api_url))
+        self._fallback = fallback or None
+        self._read = read or tray_token
+
+    def auth_flow(self, request: httpx.Request) -> Iterator[httpx.Request]:
+        if _origin(request.url) == self._origin:
+            token = self._read() or self._fallback
+            if token:
+                request.headers["Authorization"] = f"Bearer {token}"
+        yield request
+
+
+def _origin(url: httpx.URL) -> tuple[str, str, int | None]:
+    return url.scheme, url.host, url.port
 
 
 class ApiWorker(QObject):
@@ -95,15 +133,16 @@ class ApiWorker(QObject):
         # cutover (ADR-0005): /api/projects/overview and /api/projects/{name}
         # are served there now; /api/projects/managed stays on api_url.
         self._estate_api_url = estate_api_url.rstrip("/")
-        # Send the bearer token on every request (only mutating endpoints
-        # require it, but sending it everywhere is harmless and simpler).
-        headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
-        # Name the tray on every request for the same reason.  Only the
-        # alerts route reads it: a poll carrying it is what tells the
-        # daemon the tray is watching, so the daemon's own desktop
-        # notifier stays quiet (sysadmin/monitor/desktop.py, gate 1).
-        headers[CLIENT_HEADER] = TRAY_CLIENT
-        self._client = httpx.Client(timeout=10.0, headers=headers)
+        # The bearer token goes on every request to the daemon (only
+        # mutating endpoints require it, but sending it everywhere is
+        # harmless and simpler) and on none to the estate.
+        auth = DaemonBearerAuth(self._api_url, fallback=auth_token)
+        # Name the tray on every request.  Only the alerts route reads it:
+        # a poll carrying it is what tells the daemon the tray is
+        # watching, so the daemon's own desktop notifier stays quiet
+        # (sysadmin/monitor/desktop.py, gate 1).
+        headers = {CLIENT_HEADER: TRAY_CLIENT}
+        self._client = httpx.Client(timeout=10.0, headers=headers, auth=auth)
         # Tri-state, and the third state is the whole of SNAG-TRAY-009's
         # first face.  ``False`` used to be the initial value, so a tray
         # that started against an already-dead backend had "never
