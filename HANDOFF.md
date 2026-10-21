@@ -1,6 +1,32 @@
-# Handoff — 2026-10-21 (Session 404)
+# Handoff — 2026-10-21 (Session 405)
 
 ## Next action
+
+Fix the preflight's scheduled-section match in scripts/claude-preflight.sh to take only `## Scheduled action`, per tasks.md's Session 404 item. *(For: session)*
+
+## Session 405: no open snag could be started
+
+The published next action asked for the highest-ranked open snag a
+session can start now. There was none, so the session fixed the one
+register fault the preflight reported. No code changed.
+
+- **Measured:** every open entry is decided, blocked or delegated.
+  `SNAG-LOG-021` waits on a boot, and the box has not booted since
+  2026-10-18, before estate-manager changed the gate. `SNAG-LOG-012`'s
+  check still holds: estate-lib's `strip_markdown` keeps backticks.
+  `SNAG-TEST-014`'s probe record holds 387 runs, all `closed`.
+- **Fixed:** `SNAG-TEST-014`'s status read `Open — decided:`, and the
+  disposition reader took `decided:` as the word, so the preflight
+  counted it as declaring nothing. Now `Open — decided, P3:`.
+- **Rejected:** letting `disposition_word` strip a trailing colon. Its
+  docstring says the strict parse is deliberate, and the other 37
+  entries already use the comma form.
+- **Next action chosen from tasks.md:** the preflight's scheduled-section
+  bug Session 404 recorded is the one item a session can start now; it
+  made this session's preflight print Session 392's block as a
+  scheduled action.
+
+## What Session 404 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 

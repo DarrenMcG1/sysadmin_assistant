@@ -10,6 +10,20 @@
 
 ---
 
+## Session 405: SNAG-TEST-014's disposition is readable again (2026-10-21)
+
+The published next action: the highest-ranked open snag a session can
+start now. None could be started: every entry is decided, blocked or
+delegated, `SNAG-LOG-021` still waits on a boot (the box last booted
+2026-10-18, before the estate's fix), and `SNAG-LOG-012`'s pre-staged
+check still holds. The preflight's one warning was `SNAG-TEST-014`.
+
+- [x] **`SNAG-TEST-014`'s status line uses the comma form**:
+      `Open — decided:` read as the token `decided:` and the sweep
+      reported it as declaring no disposition. Now `decided, P3:`;
+      the open tally reads decided 31, blocked 4, delegated 3, with
+      no unknown.
+
 ## Session 404: venture-embed stops declaring holds_vram (2026-10-21)
 
 The published next action: the highest-ranked open snag a session can
