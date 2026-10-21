@@ -10,6 +10,23 @@
 
 ---
 
+## Session 403: the route's condense pass waits out its own first pass (2026-10-21)
+
+The published next action: the highest-ranked open snag a session can
+start now. Every P3 entry is still decided, blocked or delegated;
+`SNAG-API-006` is decided, `SNAG-GPU-008` waits on a restart and
+`SNAG-LOG-021` on estate message `571f2f12`, so `SNAG-GPU-007` was
+first.
+
+- [x] **The condense call waits for its own tail**: `generate` takes
+      `follows_own_inference` and polls the counter for up to 1 s
+      before its single read. Closed `SNAG-GPU-007` in `baa48ca`.
+- [x] **5 tests** in `tests/test_llm_client.py` and
+      `tests/test_word_limit.py`; 3 go red with the wait removed.
+- [ ] **Restart `sysadmin.service`** so the routes' condense pass
+      waits: `kill -TERM` on its main PID, no sudo while it is up.
+      Then update STATUS.md's daemon start time.
+
 ## Session 402: mosquitto's boot refusal is asked of the estate (2026-10-21)
 
 The published next action: the highest-ranked open snag a session can

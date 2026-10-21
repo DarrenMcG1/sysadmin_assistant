@@ -1097,6 +1097,7 @@ pass brought all six long drafts to 52–134 and none was trimmed. It is
 not free: the 163→52 condense kept the three headings and lost every
 service name under the second, which a trim of the original would have
 kept. The health review is not held, because its two stored reviews ran
-65 and 74 words. The route's behaviour is `SNAG-GPU-007`'s, as for the
+65 and 74 words. The route's behaviour was `SNAG-GPU-007`'s, as for the
 disk review: one unleased drive's second pass was refused by the gate
-and the 154-word first pass was trimmed to 150.
+and the 154-word first pass was trimmed to 150. Since 2026-10-21 the
+condense call waits for its own first pass to leave the counter.

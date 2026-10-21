@@ -172,8 +172,10 @@ is deliberately not a sentence end, because `strip_markdown` leaves the
 model's headings on lines of their own and a cut there publishes a
 heading with nothing under it. Neither `n_predict` nor the second pass
 alone guarantees the limit: the first stops mid-section, and the second
-missed once in six. Which step does the work depends on the invocation;
-see `SNAG-GPU-007`. The mechanism moved to `sysadmin/core/word_limit.py`
+missed once in six. Until 2026-10-21 the route's condense pass was
+refused by the GPU gate reading the first pass still on the card, so a
+route trimmed where the Monday job condensed (`SNAG-GPU-007`). The
+condense call now waits for that tail to drain first. The mechanism moved to `sysadmin/core/word_limit.py`
 on 2026-09-30, when the log review adopted it; each review passes its
 own condense prompt and log-event prefix.
 

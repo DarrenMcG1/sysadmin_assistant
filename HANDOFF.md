@@ -1,6 +1,33 @@
-# Handoff — 2026-10-21 (Session 402)
+# Handoff — 2026-10-21 (Session 403)
 
 ## Next action
+
+Restart the daemon onto `baa48ca`: `kill -TERM $(systemctl show -p MainPID --value sysadmin.service)`; Restart=always brings it back. *(For: owner, ~2 min)*
+
+## Session 403: the route's condense pass waits out its own first pass
+
+Closed `SNAG-GPU-007` in `baa48ca`. **A restart is owed**: until then
+the three `POST …/review/generate` routes still trim a long first pass
+where the Monday jobs condense it. After it, STATUS.md's daemon start
+time reads stale until a session updates it, and the next session goes
+back to the highest-ranked open snag.
+
+- **Why this one:** every P3 entry is still decided, blocked or
+  delegated. `SNAG-API-006` is decided, `SNAG-GPU-008` waits on a
+  restart and `SNAG-LOG-021` on the estate's answer to `571f2f12`.
+- **Decided:** `generate(follows_own_inference=True)` on the condense
+  call polls the busy counter every 0.05 s until it reads idle, for at
+  most 1 s, then takes its usual single read. Our own tail lasts one
+  50 ms sample (six of eight drives); another holder's 96–99 % does not
+  drain and is still refused.
+- **Rejected:** `gpu_lease_held=True` on the second call (it claims a
+  hold nobody has), a lease on the route (a queue wait inside a
+  request), and `sustained_busy` (a fixed ~1.5 s window, refused by its
+  own docstring where a request is held open).
+- **Live A/B** through `LLMClient` on the card: 0 of 5 unleased second
+  calls answered without the wait, 5 of 5 with it.
+
+## What Session 402 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 
