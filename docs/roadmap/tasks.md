@@ -10,6 +10,23 @@
 
 ---
 
+## Session 394: the alerts sentence names four rows; the off-loop assert has a witness (2026-10-21)
+
+The published next action: rewrite STATUS.md's alerts sentence, then
+the highest-ranked open snag a session can start now. Every P3 entry is
+decided, blocked or delegated; of the P4 entries with no disposition,
+`SNAG-TEST-016` is the one the vacuous-guard gate reports at every close.
+
+- [x] **Rewrote the alerts sentence**: 4 open rows, all named, and both
+      `alerts` and `open_titles` checks read `ok`. The new row is
+      `Project clyde-automation-site next action idle`; the ProductHunt
+      429 Session 393 saw had resolved.
+- [x] **Closed `SNAG-TEST-016`**: the comprehension moved into
+      `_dependency_calls`, and a new test drives it on
+      `/api/units/status`, which does take the request session. The
+      gate's line now turns, and the assert is shown able to fail
+      (`7881ca3`).
+
 ## Session 393: the GPU-context reader fired on real resets (2026-10-21)
 
 The published next action: the highest-ranked open snag a session can
@@ -23,9 +40,11 @@ the owner.
       while flagged; `llama-server` was flagged 2 h 41 m and was never
       submitted to; both `degraded` alerts opened 53 minutes before the
       first abort. Docs only, so no restart is owed.
-- [ ] **STATUS.md's alerts sentence is stale**: the block names 3
+- [x] **STATUS.md's alerts sentence is stale**: the block names 3
       unresolved rows; the preflight measured 4 at this session's start
       and 5 at its close. A second concern, named and not worked here.
+      Rewritten by Session 394 to name all 4 open rows (the ProductHunt
+      429 had resolved by then).
 
 ## Session 392: the scheduled-section assert is declared (2026-10-20)
 

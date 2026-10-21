@@ -1,6 +1,29 @@
-# Handoff — 2026-10-21 (Session 393)
+# Handoff — 2026-10-21 (Session 394)
 
 ## Next action
+
+Give `SNAG-TEST-017`'s idle-queue assert a witness or a declaration, the same shape `SNAG-TEST-016` closed with in `7881ca3`. *(For: session)*
+
+## Session 394: four alerts named, and the off-loop assert has a witness
+
+Code in `7881ca3`, test-only, so no restart is owed.
+
+- **Alerts sentence rewritten**: 4 open rows, all named; the new one is
+  `Project clyde-automation-site next action idle`. The ProductHunt 429
+  Session 393 saw had resolved. Every ops claim reads `ok`.
+- **Closed `SNAG-TEST-016`**: the dependency reader in
+  `tests/test_off_loop.py` is a helper now, also driven on
+  `/api/units/status`, which takes the request session. Blinding the
+  reader turns that test red. The vacuous-guard gate exits 0, for the
+  first time since 2026-10-08.
+- **Decided:** the witness alone. Rejected: a `# may-not-turn:`
+  declaration, which silences the gate and leaves the assert unable to
+  fail.
+- **Why `SNAG-TEST-017` is next:** it is the last undecided entry of
+  this shape. The gate reports it only while a GPU lease is held at
+  close, so this session's clean run does not show it.
+
+## What Session 393 handed on
 
 Rewrite STATUS.md's alerts sentence to name every open row the preflight measures, then work the highest-ranked open snag a session can start now. *(For: session)*
 

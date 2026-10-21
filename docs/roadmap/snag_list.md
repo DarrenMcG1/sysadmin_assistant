@@ -90,13 +90,16 @@
   - **No check names this entry**: the vacuous-guard gate is the check, and it already reports the site.
   - **Status:** Open
 
-- [P4] SNAG-TEST-016: **`test_the_route_takes_no_request_session` builds its set from a list that is empty on a healthy tree, so the vacuous-guard gate flags it at every close** (2026-10-08, opened by Session 352, found by its postflight and not worked)
+- [P4] SNAG-TEST-016: **`test_the_route_takes_no_request_session` builds its set from a list that is empty on a healthy tree, so the vacuous-guard gate flags it at every close** (2026-10-08, opened by Session 352, found by its postflight and not worked; **CLOSED 2026-10-21 by Session 394**)
   - **Symptom**: `check-vacuous-guards.sh` reports `tests/test_off_loop.py:99`, `calls = {d.call for d in route.dependant.dependencies}`, as a comprehension that turned zero times on a green suite, and `claude-postflight.sh` counts it as an issue.
   - **Where**: both parametrised routes, `/api/services/actions` and `/api/services/reliability`, declare no FastAPI dependencies at all since Session 333 (`57188ef`, 2026-10-02) moved them off the event loop. So `dependencies` is empty, and `get_db_session not in calls` holds because there is nothing to look in.
   - **Why it is left**: a second concern for Session 352, which changed only `services.yaml`. Its own change cannot have caused it: the comprehension reads route objects built by `create_app()`, not the services file.
   - **Shape of a fix, unpriced**: either a `# may-not-turn:` comment saying an empty dependency list is the state the test exists to keep, with a sibling that proves the comprehension finds `get_db_session` on a route that does take a session, or the sibling alone, if it makes the assert discriminating.
   - **No check names this entry**: the vacuous-guard gate is the check, and it already reports the site.
-  - **Status:** Open
+  - **Status:** **Closed 2026-10-21 by Session 394** — the sibling alone, in `7881ca3`. The comprehension moved into `_dependency_calls`, now `tests/test_off_loop.py:97`, and `test_the_reader_finds_the_session_on_a_route_that_takes_it` drives it on `/api/units/status`, which takes `get_db_session`. The gate's run over a green suite exits 0, where it exited 1 on this site alone.
+  - **Falsified**: with the reader blinded (`if False` added to the comprehension), the new test fails and the two route tests still pass. That is the vacuity the entry described, and now one test reports it.
+  - **Rejected**: a `# may-not-turn:` declaration. It would stop the gate reporting the site without giving the assert any way to fail.
+  - **Not added**: a recursive walk of sub-dependencies. Of the 34 routes that take the session, all 34 take it directly, so the nested branch would have nothing to walk.
 
 - [P3] SNAG-FILES-002: **the junk-growth fit on `/api/files/trends` takes the 10 newest scans rather than a span of days, so its slope, and every milestone date built on it, depends on how the scans happened to cluster** (2026-10-04, opened by Session 342 when its milestone ladder made the dates visible; **CLOSED 2026-10-04 by Session 343**, the fit spans the last 30 days of audits)
   - **Symptom**: on 2026-10-04 the tray's disk panel read "Reaches 50GB 2029-01-04" and "Reaches 100GB 2040-01-27", from a fitted slope of 12.67 MB/day. The whole stored series (215 audits since 2026-08-06) grows 125.7 MB/day and reaches 50 GB in about 83 days.
