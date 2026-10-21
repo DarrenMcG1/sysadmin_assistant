@@ -11,6 +11,7 @@ Provides:
 import asyncio
 import json
 import logging
+import threading
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -111,6 +112,24 @@ MANUAL_RUN_FAILED_EVENT = "manual_run_failed"
 #: reaching no tray.  A second suppression list would be a second
 #: statement of what the severity already says.
 MANUAL_RUN_CANCELLED_EVENT = "manual_run_cancelled"
+
+#: The log event :meth:`BaseAgent.run` writes when it declines to start
+#: because a run of the same agent is already in progress.
+#:
+#: ``SNAG-AGENT-014``.  At ``info``: a declined run is the rule working,
+#: and the run that holds the lock is doing the same work now.
+AGENT_RUN_DECLINED_EVENT = "agent_run_declined"
+
+#: One lock per agent name, held for the whole of :meth:`BaseAgent.run`.
+#:
+#: ``SNAG-AGENT-014``.  Keyed by **name** because that is the key
+#: ``uq_alerts_open_agent_title`` refuses on, so it serialises exactly
+#: the runs that can collide there.  A ``threading.Lock`` rather than an
+#: ``asyncio.Lock``: a scheduled run is ``asyncio.run`` in an APScheduler
+#: worker thread and a manual run is on the API loop, so the two never
+#: share an event loop.  Only ever acquired without blocking, so no loop
+#: waits on it and a cancelled run cannot leave it held.
+_run_locks: dict[str, threading.Lock] = {}
 
 #: Tasks :func:`spawn_manual_run` is holding.
 #:
@@ -331,7 +350,36 @@ class BaseAgent(ABC):
         ``duration`` is now measured after ``_execute``'s transaction
         commits rather than before, so it includes the commit — a slower
         number than the old one, and the honest one.
+
+        **A run of an agent already running is declined, not queued**
+        (``SNAG-AGENT-014``).  It returns ``None`` and writes no
+        ``agent_runs`` row, as the scheduler's ``max_instances: 1`` skip
+        writes none.  That rule covers only the scheduler's own jobs, so a
+        manual run could overlap a scheduled one: both read the open set,
+        both could raise the same new fault, and
+        ``uq_alerts_open_agent_title`` then failed the second.  The two also shared this instance's
+        :attr:`_pending_events` from two threads, so one run could drop
+        or early-publish the other's events.  Declining rather than
+        waiting because the running run is already doing the work asked
+        for. Waiting would need a lock that blocks across two event loops.
+        It would also need to be released when the waiter is cancelled.
+        Lock scope is this process: a run started by another process is
+        not seen.
         """
+        lock = _run_locks.setdefault(self.name, threading.Lock())
+        if not lock.acquire(blocking=False):
+            logger.info(
+                AGENT_RUN_DECLINED_EVENT,
+                extra={"agent": self.name, "run_type": run_type},
+            )
+            return None
+        try:
+            return await self._run_locked(run_type)
+        finally:
+            lock.release()
+
+    async def _run_locked(self, run_type: str) -> AgentResult | None:
+        """:meth:`run`'s body, entered only while the agent's lock is held."""
         start = time.monotonic()
         started_at = datetime.now(UTC)
         self._pending_events = []
