@@ -1,6 +1,34 @@
-# Handoff — 2026-10-21 (Session 401)
+# Handoff — 2026-10-21 (Session 402)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 402: mosquitto's boot refusal is asked of the estate
+
+Worked `SNAG-LOG-021`, the self-closing `Failed to start` warning that
+estate-manager's mosquitto gate causes on every boot. Its preferred fix
+is in their drop-in, so this session filed estate message
+`571f2f12-f7fc-46d6-89ae-5d9488c67e5e` asking whether the gate could
+wait for the address, bounded, instead of refusing. The snag stays open
+on their answer. No code changed.
+
+- **Why this one:** every P3 entry is still decided, blocked or
+  delegated, and `SNAG-API-006` and `SNAG-GPU-008` are as Session 398
+  left them.
+- **Measured:** 5 boots under the gate, one `warning` row each, closing
+  about 16 minutes later. `eno1` came up 3.9–4.6 s after the refusal on
+  the four readable boots.
+- **Found:** the shape as the snag wrote it would break the gate's
+  promise. A wait inside each attempt spaces the attempts about 20 s
+  apart, so the 30-in-180 s start limit never trips and a missing
+  address retries for ever. The message says the limit would have to
+  change with it.
+- **Rejected:** shape (b) for now, pairing the two lines of one start
+  job in the aggregator. It asks more of this side and is only needed
+  if the estate declines.
+
+## What Session 401 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 

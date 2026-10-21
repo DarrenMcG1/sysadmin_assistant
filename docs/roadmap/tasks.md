@@ -10,6 +10,25 @@
 
 ---
 
+## Session 402: mosquitto's boot refusal is asked of the estate (2026-10-21)
+
+The published next action: the highest-ranked open snag a session can
+start now. Every P3 entry is still decided, blocked or delegated, and
+`SNAG-API-006` and `SNAG-GPU-008` are as Session 398 left them, so
+`SNAG-LOG-021` was first. Its preferred fix is in estate-manager's
+drop-in, so the work here was a measurement and a filing.
+
+- [x] **Re-measured the refusal**: 5 boots under the gate, one
+      self-closing `warning` each; `eno1` arrives 3.9–4.6 s after the
+      refusal on the four readable boots.
+- [x] **Asked estate-manager for a waiting gate**, estate message
+      `571f2f12-f7fc-46d6-89ae-5d9488c67e5e`, with the start-limit cost
+      a wait inside each attempt adds.
+- [ ] **Act on estate-manager's answer to `571f2f12`.** If they change
+      the gate, check the next boot logs no `Failed to start` and close
+      `SNAG-LOG-021`. If they decline, price shape (b), pairing the two
+      lines of one start job in the aggregator.
+
 ## Session 400: the advice reads stream in partitions (2026-10-21)
 
 The published next action: the highest-ranked open snag a session can
