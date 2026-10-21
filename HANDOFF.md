@@ -1,6 +1,30 @@
-# Handoff — 2026-10-21 (Session 395)
+# Handoff — 2026-10-21 (Session 396)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 396: the roll-up sat unread five days, not eight
+
+Closed `SNAG-DOCS-033` in `2ec118d`. Docstrings and prose only, so no
+restart is owed. The postflight's "daemon serves the code on disk"
+check still reads ✗, because it compares file times, until the next
+restart for any reason.
+
+- **Why this one:** every P3 entry is decided, blocked or delegated.
+  `SNAG-GPU-008`, the P4 above it, waits on a GPU reset after a boot
+  start, which has not happened.
+- **Decided:** "five days", not the snag's "a day". `sysadmin.alerts`
+  holds the roll-up open from the detector's first run (2026-08-07
+  10:20) to 2026-08-12 16:08, re-titled at each count change. "A day"
+  was only the `17 findings` title's age.
+- **Rejected:** fixing `scan.py:947` and `agent.py:839`. They speak of
+  the loop's eight days, which is true, as the snag ruled.
+- **Found:** two sites outside the snag's sweep, plus the design doc's
+  copy of `agent.py`'s sentence. Also removed a stray `Status: Open`
+  line under the closed `SNAG-TEST-017`.
+
+## What Session 395 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 

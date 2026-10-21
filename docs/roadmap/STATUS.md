@@ -69,6 +69,13 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 396 — the roll-up sat unread five days, not eight (2026-10-21)
+
+- `SNAG-DOCS-033` closed. Twelve docstrings and documents said the
+  unmonitored-units alert sat unread eight days, which was the restart
+  loop's age. The database holds the alert open five days, from the
+  detector's first run, so they say five now.
+
 ### Session 395 — the idle-queue assert is declared (2026-10-21)
 
 - `SNAG-TEST-017` closed. The live arbiter test's idle-only assert now

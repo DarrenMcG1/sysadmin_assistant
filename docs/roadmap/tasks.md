@@ -10,6 +10,21 @@
 
 ---
 
+## Session 396: the roll-up sat unread five days, not eight (2026-10-21)
+
+The published next action: the highest-ranked open snag a session can
+start now. Every P3 entry is decided, blocked or delegated; `SNAG-GPU-008`
+waits on a reset after a boot start, so `SNAG-DOCS-033` was first.
+
+- [x] **Measured** the roll-up's life in `sysadmin.alerts`: open from
+      2026-08-07 10:20 to 2026-08-12 16:08 under four titles, five days.
+      The snag's "one day" was the `17 findings` title's age alone.
+- [x] **Corrected** twelve sites and the `SNAG-ESTATE-001` bullet
+      (`2ec118d`), two of them outside the snag's sweep. Closed
+      `SNAG-DOCS-033`.
+- [x] **Removed** a stray `Status: Open` line Session 395 left under
+      the closed `SNAG-TEST-017`.
+
 ## Session 395: the idle-queue assert is declared (2026-10-21)
 
 The published next action: give `SNAG-TEST-017`'s idle-queue assert a
