@@ -92,12 +92,24 @@ async def test_an_exception_in_the_work_reaches_the_caller():
 # ── the routes use it ────────────────────────────────────────────────
 
 
+def _dependency_calls(path):
+    route = next(r for r in create_app().routes if getattr(r, "path", None) == path)
+    return {d.call for d in route.dependant.dependencies}
+
+
 @pytest.mark.parametrize("path", ["/api/services/actions", "/api/services/reliability"])
 def test_the_route_takes_no_request_session(path):
     """The request session is the loop's: a route depending on it reads there."""
-    route = next(r for r in create_app().routes if getattr(r, "path", None) == path)
-    calls = {d.call for d in route.dependant.dependencies}
-    assert get_db_session not in calls
+    assert get_db_session not in _dependency_calls(path)
+
+
+def test_the_reader_finds_the_session_on_a_route_that_takes_it():
+    """Both routes above declare no dependencies at all, so their set is empty.
+
+    Without this the assert above could not fail: it would hold over an
+    empty set whatever the reader looked at (SNAG-TEST-016).
+    """
+    assert get_db_session in _dependency_calls("/api/units/status")
 
 
 # ── fetch_timer_series reads four keys, not the blob ─────────────────
