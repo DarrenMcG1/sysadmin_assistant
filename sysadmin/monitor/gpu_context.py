@@ -40,7 +40,9 @@ argument.
    the weights off the card but not the compute buffer, which lands on
    Vulkan0 on every start after boot, and every reset the journal still
    shows fell while the unit was a boot start running CPU-only.  It
-   declares ``holds_vram`` now.  The rule stands on its other leg:
+   declared ``holds_vram`` from then until 2026-10-21, when its owner's
+   ``-dev none`` had kept the buffer on the CPU at both kinds of start
+   (§2.5), so it declares nothing again.  The rule stands on its other leg:
    residency is decided at start-up by things no role names, so
    ``ServiceEntry.holds_vram`` is honoured as a *statement*, which is
    :func:`~sysadmin.monitor.journal.unwrap_json_message`'s rule met from

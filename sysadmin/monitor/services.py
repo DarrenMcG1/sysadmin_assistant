@@ -235,8 +235,9 @@ class ServiceEntry(BaseModel):
     #: by things no role names — ``-ngl``, where llama.cpp puts its
     #: compute buffer, whether amdgpu was ready.  ``venture-embed`` was
     #: the specimen that decided it and was voided on 2026-10-16 (ADR-0007
-    #: §2.4): its ``-ngl 0`` keeps the weights off the card and not the
-    #: compute buffer, so it declares this now.  ``venture-chat-large``
+    #: §2.4): its ``-ngl 0`` kept the weights off the card and not the
+    #: compute buffer, so it declared this until ``-dev none`` moved the
+    #: buffer too and it stopped on 2026-10-21 (§2.5).  ``venture-chat-large``
     #: shares the role and cannot declare it, being ``kind: static``.
     #:
     #: Default ``False``, and the polarity is the safe one in both

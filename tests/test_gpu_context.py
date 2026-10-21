@@ -121,9 +121,10 @@ class TestThePopulationIsADeclaration:
         """The role is not the key, so a server may carry it and not declare.
 
         Named after ``venture-embed``, whose 267 of 823 embeddings served
-        while flagged first decided this.  It declares ``holds_vram`` in
-        ``services.yaml`` since 2026-10-16 (ADR-0007 §2.4), so this fixture
-        is synthetic now; the rule does not need a live specimen.
+        while flagged first decided this.  It declared ``holds_vram`` in
+        ``services.yaml`` from 2026-10-16 to 2026-10-21 (ADR-0007 §2.4 and
+        §2.5) and declares nothing again, so the fixture matches the
+        shipped entry once more; the rule does not need it to.
         Falsified by keying the production check on
         ``svc.role == "inference"``, which turns this red and nothing else.
         """
@@ -169,15 +170,16 @@ class TestThePopulationIsADeclaration:
                 "holds_vram": True,
             })
 
-    def test_the_shipped_file_declares_exactly_the_measured_three(self):
+    def test_the_shipped_file_declares_exactly_the_measured_two(self):
         """The declaration is a fact about this box, so it is read here.
 
         Not a restatement: the point of the entry is *which* services
         hold VRAM, and a test over a fixture could not notice one being
-        added without a measurement behind it.  ``venture-embed`` was
-        added on 2026-10-16 on estate message ``d2b70567``'s journal
-        read (ADR-0007 §2.4); ``venture-chat-large`` keeps the strict
-        superset, sharing the role as ``kind: static``.
+        added without a measurement behind it.  ``venture-embed``
+        declared it from 2026-10-16 (ADR-0007 §2.4) and stopped on
+        2026-10-21, once its ``-dev none`` had kept the compute buffer
+        on the CPU at both kinds of start (§2.5); it and
+        ``venture-chat-large`` keep the role a strict superset.
         """
         from sysadmin.monitor.services import load_services
 
@@ -186,7 +188,7 @@ class TestThePopulationIsADeclaration:
         ).services
         declared = sorted(s.name for s in entries if s.holds_vram)
         inference = sorted(s.name for s in entries if s.role == "inference")
-        assert declared == ["llama-server", "venture-chat", "venture-embed"]
+        assert declared == ["llama-server", "venture-chat"]
         assert set(declared) < set(inference), (
             "the role is a strict superset, which is why it is not the key"
         )

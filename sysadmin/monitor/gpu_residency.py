@@ -50,9 +50,10 @@ settled against the live readings of 2026-10-18 21:53 BST:
    ``llm.gpu_pci_slot``, the one :func:`~sysadmin.monitor.gpu.get_gpu_usage`
    and the LLM gate read.
 4. **No client on the card is a reading, not a verdict.**
-   ``venture-embed`` declares ``holds_vram`` and had **no** dGPU client
-   at 21:53: it runs ``-ngl 0`` and its process is a boot start, which
-   ADR-0007 §2.4 records as running CPU-only.  Whether a declared
+   ``venture-embed`` declared ``holds_vram`` and had **no** dGPU client
+   at 21:53: it ran ``-ngl 0`` and its process was a boot start, which
+   ADR-0007 §2.4 records as running CPU-only.  It no longer declares
+   (§2.5), so the rule has no live specimen today.  Whether a declared
    resident with nothing on the card is a fault is the 2026-08-06
    CPU-fallback question, which ``wait-for-dgpu`` answers at start-up
    and which this term does not take over: it records ``clients: 0``
