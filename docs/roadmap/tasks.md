@@ -10,6 +10,19 @@
 
 ---
 
+## Session 395: the idle-queue assert is declared (2026-10-21)
+
+The published next action: give `SNAG-TEST-017`'s idle-queue assert a
+witness or a declaration, the shape `SNAG-TEST-016` closed with.
+
+- [x] **Declared** (`74b919d`): a `# may-not-evaluate:` comment above
+      `tests/test_arbitrated_stops_live.py:210`, the reverse of the
+      granted branches' declarations in the same file, naming the
+      recorded half's `test_no_active_lease_is_idle_and_not_unread` as
+      the witness. Closed `SNAG-TEST-017`.
+- [x] **Checked** at the gate's reader with the assert marked
+      unexecuted: undeclared before, declared after.
+
 ## Session 394: the alerts sentence names four rows; the off-loop assert has a witness (2026-10-21)
 
 The published next action: rewrite STATUS.md's alerts sentence, then

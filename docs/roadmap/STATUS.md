@@ -14,15 +14,15 @@
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **4** unresolved rows <!--check:alerts-->,
+> **Alerts.** `alerts` holds **3** unresolved rows <!--check:alerts-->,
 > not counting the two flapping titles below. The open rows are
 > `Project InvestingAssistant next action idle`,
 > `Project clyde-automation-site next action idle` (opened 05:26 on
-> 2026-10-21; that repository waits on a venture filing),
-> `High disk usage on /` (81.4 % against 80 %) and
-> `llama-server degraded` (2.2 GiB of its VRAM evicted to GTT; the unit
-> is Alfred's) <!--check:open_titles-->. Session 394 read them and acted
-> on none: each is another repository's or the owner's to act on.
+> 2026-10-21; that repository waits on a venture filing) and
+> `High disk usage on /` (81.4 % against 80 %) <!--check:open_titles-->.
+> `llama-server degraded` resolved at 08:25 on 2026-10-21. Sessions 394
+> and 395 read them and acted on none: each is another repository's or
+> the owner's to act on.
 >
 > **Two titles flap and are set aside from that count.** `High VRAM
 > usage on AMD Radeon RX 7900 XTX` is declared flapping
@@ -68,6 +68,13 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 395 — the idle-queue assert is declared (2026-10-21)
+
+- `SNAG-TEST-017` closed. The live arbiter test's idle-only assert now
+  declares why it skips while a GPU lease is held, and names the
+  recorded test that checks the same predicate every run. It was the
+  last open entry of the three the vacuous-guard gate had raised.
 
 ### Session 391 — the API token is a systemd credential (2026-10-20)
 

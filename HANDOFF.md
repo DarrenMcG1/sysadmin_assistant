@@ -1,6 +1,29 @@
-# Handoff — 2026-10-21 (Session 394)
+# Handoff — 2026-10-21 (Session 395)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 395: the idle-queue assert is declared
+
+Closed `SNAG-TEST-017` in `74b919d`, test-only, so no restart is owed.
+
+- **Decided:** a `# may-not-evaluate:` declaration above
+  `tests/test_arbitrated_stops_live.py:210`, naming the recorded half's
+  `test_no_active_lease_is_idle_and_not_unread` as the witness, which
+  asserts the same predicate on every run.
+- **Rejected:** a new projected-idle witness in the live file. It
+  repeats the recorded test and leaves line 210 unevaluated under a
+  lease, so it needs the declaration anyway. Session 394 rejected a
+  declaration for `SNAG-TEST-016` because that assert could not fail;
+  this one fails on any idle run, so the reason does not carry over.
+- **Checked** at the gate's reader, not the full gate: the queue was
+  idle, so a full run would have evaluated the line. With the line
+  marked unexecuted, `74b919d~1` reads undeclared and `74b919d` declared.
+- **All three entries of this shape are closed** (`SNAG-TEST-016`,
+  `-017`, `-018`). The next pick is the preflight's.
+
+## What Session 394 handed on
 
 Give `SNAG-TEST-017`'s idle-queue assert a witness or a declaration, the same shape `SNAG-TEST-016` closed with in `7881ca3`. *(For: session)*
 
