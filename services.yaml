@@ -478,6 +478,21 @@ services:
     systemd: { unit: go-to-market-watch-replies.timer, scope: user }
     controllable: false
 
+  # Its read-only API on :8950, declared the day the unit was made
+  # (2026-10-21; go-to-market ADR-0003, Decision 7): GET /api/pursues for
+  # Alfred's First passes panel. /api/health reads the table it serves and
+  # says "degraded" in a 200 when its database is gone, so `expect:`
+  # judges that down, as venture-manager's entry does.
+  - project: go-to-market
+    name: go-to-market-api
+    role: backend
+    kind: http
+    url: http://localhost:8950/api/health
+    port: 8950
+    expect: { path: status, equals: healthy }
+    systemd: { unit: go-to-market-api.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
   # --- clyde-automation-site ------------------------------------------
   # The public site, live since 2026-10-05 and declared at its request
   # (estate message 6db6bf4c). Served by Cloudflare Workers static assets
