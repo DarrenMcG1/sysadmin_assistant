@@ -10,6 +10,19 @@
 
 ---
 
+## Session 397: go-to-market's API on 8950 is watched (2026-10-21)
+
+Estate message `495f072e`: go-to-market committed its own
+`services.yaml` entry (`970ba50`) the day `go-to-market-api.service`
+was made. Applied by reload, no restart.
+
+- [x] **`go-to-market-api` applied** by `POST /api/sysadmin/reload` at
+      09:32:10 UTC, which reported that one entry added and nothing
+      needing a restart. A scan stored it `ok` at 09:32:15 UTC, 4 ms;
+      `/api/health` answered `healthy` with the database connected.
+- [x] **Estate message `495f072e` closed**, with a note naming the
+      commit and the first stored check.
+
 ## Session 396: the roll-up sat unread five days, not eight (2026-10-21)
 
 The published next action: the highest-ranked open snag a session can

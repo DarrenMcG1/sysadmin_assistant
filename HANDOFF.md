@@ -1,6 +1,25 @@
-# Handoff — 2026-10-21 (Session 396)
+# Handoff — 2026-10-21 (Session 397)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 397: go-to-market's API on 8950 is watched
+
+Acted on estate message `495f072e`. go-to-market had already committed
+its `go-to-market-api` entry to `services.yaml` (`970ba50`, reviewed in
+`f98d896`), so this session only applied and checked it.
+
+- **Decided:** a hot reload instead of the restart the message
+  expected. The reload re-reads `services.yaml`, and the restart needs
+  the owner's `sudo`. It reported `services_added: go-to-market-api`
+  and nothing needing a restart. The first poll stored the entry `ok`.
+- **Token:** sent the reload with the copy systemd delivered to
+  `/run/credentials/sysadmin.service/api-token`, the same file the
+  tray reads.
+- **Closed** the message with a note.
+
+## What Session 396 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 
