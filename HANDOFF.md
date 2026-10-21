@@ -1,6 +1,22 @@
-# Handoff — 2026-10-21 (Session 398)
+# Handoff — 2026-10-21 (Session 399)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 399: the daemon runs `99f52ab`
+
+The owner ran the restart Session 398 handed on, from this session's
+prompt, after the permission check refused this session's own `kill
+-TERM` again. The daemon came back at 2026-10-21 12:33:27 (PID 2250559,
+one restart counted) and `/api/health` answers `healthy`, so a run of
+an agent already running is now declined live. STATUS.md's deploy
+sentence carries the new start time, and its alerts sentence drops
+`venture-chat unreachable`, which resolved once the unit came back at
+11:09: the preflight measured 3 open rows against the block's 4. Every
+ops claim re-measures green. No code changed.
+
+## What Session 398 handed on
 
 Restart the daemon onto `99f52ab`: `kill -TERM $(systemctl show -p MainPID --value sysadmin.service)`; Restart=always brings it back. *(For: owner, ~2 min)*
 

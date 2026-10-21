@@ -8,21 +8,21 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-10-20 20:25:27**
-> <!--check:deploy--> <!--check:daemon_start-->, when the owner installed
-> Session 391's `api-token` credential. `/health` answers
+> **Deploy.** The daemon restarted at **2026-10-21 12:33:27**
+> <!--check:deploy--> <!--check:daemon_start-->, when the owner moved it
+> onto `99f52ab`, Session 398's decline of an overlapping agent run. `/health` answers
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **4** unresolved rows <!--check:alerts-->,
+> **Alerts.** `alerts` holds **3** unresolved rows <!--check:alerts-->,
 > not counting the two flapping titles below. The open rows are
 > `Project InvestingAssistant next action idle`,
 > `Project clyde-automation-site next action idle` (opened 05:26 on
-> 2026-10-21; that repository waits on a venture filing),
-> `venture-chat unreachable` (opened 10:55 on 2026-10-21 at `info`;
-> the unit is inactive, venture-assistant's) and
+> 2026-10-21; that repository waits on a venture filing) and
 > `High disk usage on /` (81.4 % against 80 %) <!--check:open_titles-->.
-> `llama-server degraded` resolved at 08:25 on 2026-10-21. Sessions 394
+> `llama-server degraded` resolved at 08:25 on 2026-10-21, and
+> `venture-chat unreachable` resolved after its unit came back at 11:09
+> the same day. Sessions 394
 > and 395 read them and acted on none: each is another repository's or
 > the owner's to act on.
 >
