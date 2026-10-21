@@ -19,7 +19,7 @@ from sysadmin.monitor.reliability_history import (
 )
 from sysadmin.monitor.routers.services import summarise, to_contract
 from sysadmin.monitor.services import get_services
-from tests.conftest import set_services
+from tests.conftest import set_services, stream_rows
 
 NOW = datetime(2026, 8, 7, 12, 0, tzinfo=UTC)
 INTERVAL = 60  # mock_config's health_check_interval_seconds
@@ -49,10 +49,8 @@ def _pinned_route_clock():
 
 
 def _rows(mock_session, rows):
-    """Make ``session.execute`` yield ``(service_name, status, checked_at)``."""
-    result = MagicMock()
-    result.all.return_value = rows
-    mock_session.execute = AsyncMock(return_value=result)
+    """Make the streamed read yield ``(service_name, status, checked_at)``."""
+    stream_rows(mock_session, rows)
 
 
 def _checks(name: str, statuses: list[str], *, end: datetime = NOW) -> list[tuple]:
@@ -101,7 +99,7 @@ async def test_no_configured_services_yields_no_scores(mock_config, mock_session
     set_services()
     scores = await compute_reliability(mock_session, mock_config, now=NOW)
     assert scores == []
-    mock_session.execute.assert_not_called()
+    mock_session.connection.assert_not_called()
 
 
 async def test_the_configured_window_and_interval_are_used(

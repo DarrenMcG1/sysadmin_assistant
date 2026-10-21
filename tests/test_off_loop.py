@@ -7,21 +7,28 @@ Three things keep it off: :func:`run_off_loop` moves the work to a
 thread with its own loop, both routes go through it rather than the
 request session, and ``fetch_timer_series`` has Postgres extract the
 four keys it reads instead of decoding ~86,000 JSONB blobs here.
+
+A fourth keeps the worker from holding the GIL for a whole result set:
+both reads stream a partition at a time (SNAG-SVC-008).
 """
 
 import asyncio
 import threading
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy.dialects import postgresql
 
 from sysadmin.core.database import get_db_session, run_off_loop
 from sysadmin.main import create_app
-from sysadmin.monitor.reliability_history import fetch_timer_series
-from tests.conftest import set_services
+from sysadmin.monitor.reliability_history import (
+    ROWS_PER_PARTITION,
+    compute_reliability,
+    fetch_timer_series,
+)
+from tests.conftest import set_services, stream_rows
 
 NOW = datetime(2026, 10, 2, 12, 0, tzinfo=UTC)
 
@@ -127,9 +134,7 @@ def timer_service():
 
 
 def _rows(session, rows):
-    result = MagicMock()
-    result.all.return_value = rows
-    session.execute = AsyncMock(return_value=result)
+    stream_rows(session, rows)
 
 
 async def test_the_query_extracts_keys_rather_than_selecting_details(
@@ -138,7 +143,7 @@ async def test_the_query_extracts_keys_rather_than_selecting_details(
     _rows(mock_session, [])
     await fetch_timer_series(mock_session, mock_config, now=NOW)
 
-    statement = mock_session.execute.call_args.args[0]
+    statement = mock_session.connection.return_value.stream.call_args.args[0]
     sql = str(
         statement.compile(
             dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
@@ -180,3 +185,37 @@ async def test_only_a_json_false_reads_inactive(timer_service, mock_config, mock
     _rows(mock_session, [("nightly-timer", NOW, None, None, None, "false")])
     [series] = await fetch_timer_series(mock_session, mock_config, now=NOW)
     assert series.points[0].is_active is False
+
+
+# ── both reads stream in partitions (SNAG-SVC-008) ───────────────────
+
+
+@pytest.mark.parametrize("read", [compute_reliability, fetch_timer_series])
+async def test_the_read_streams_a_partition_at_a_time(
+    read, timer_service, mock_config, mock_session
+):
+    """Read whole, the row loops held the GIL for the whole result set.
+
+    ``execute`` buffers every row before it returns; the streamed cursor
+    makes each partition a round trip, and the worker gives the GIL up
+    while it waits for one.
+    """
+    _rows(mock_session, [])
+    await read(mock_session, mock_config, now=NOW)
+
+    mock_session.execute.assert_not_called()
+    statement = mock_session.connection.return_value.stream.call_args.args[0]
+    assert statement.get_execution_options()["yield_per"] == ROWS_PER_PARTITION
+
+
+async def test_every_partition_is_read(timer_service, mock_config, mock_session):
+    rows = [
+        ("nightly-timer", NOW - timedelta(minutes=i), None, None, None, "true")
+        for i in range(5, 0, -1)
+    ]
+    _rows(mock_session, rows)
+    with patch("sysadmin.monitor.reliability_history.ROWS_PER_PARTITION", 2):
+        [series] = await fetch_timer_series(mock_session, mock_config, now=NOW)
+
+    # Three partitions of 2, 2 and 1.
+    assert [p.checked_at for p in series.points] == [r[1] for r in rows]

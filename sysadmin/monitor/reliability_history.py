@@ -12,10 +12,12 @@ about how a score was arrived at.
 """
 
 import logging
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Row, Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.core.config import AppConfig, get_config
@@ -31,6 +33,36 @@ from sysadmin.monitor.service_recommendations import TimerPoint, TimerSeries
 from sysadmin.monitor.services import get_services
 
 logger = logging.getLogger(__name__)
+
+#: Rows fetched per round trip by :func:`_partitions` (SNAG-SVC-008).
+#: Not sensitive: 500 and 10,000 measured within noise of 2,000.
+ROWS_PER_PARTITION = 2000
+
+
+async def _partitions(
+    session: AsyncSession, statement: Select[Any]
+) -> AsyncIterator[Sequence[Row[Any]]]:
+    """``statement``'s rows, a server-side cursor's batch at a time.
+
+    These reads run on :func:`~sysadmin.core.database.run_off_loop`'s
+    worker, which shares the GIL with the API's event loop.  Read whole,
+    asyncpg's row parse and SQLAlchemy's row loops each cross every row
+    in compiled code, which never reaches CPython's 5 ms switch check,
+    so the loop waited up to 0.66 s behind ``/actions`` under the unit's
+    ``CPUQuota=``.  Each batch here is a round trip, and the worker
+    releases the GIL while it waits for one: 0.27 to 0.35 s measured
+    (SNAG-SVC-008).
+
+    On the session's connection rather than ``session.stream``: these
+    are column reads, and the ORM's per-row loading wrapper was a
+    quarter of the GIL samples for nothing it adds here.
+    """
+    connection = await session.connection()
+    result = await connection.stream(
+        statement.execution_options(yield_per=ROWS_PER_PARTITION)
+    )
+    async for partition in result.partitions():
+        yield partition
 
 
 def muted_service_names(config: AppConfig) -> set[str]:
@@ -75,28 +107,27 @@ async def compute_reliability(
 
     series: dict[str, list[HealthPoint]] = {name: [] for name in names}
 
-    rows = (
-        await session.execute(
-            select(
-                ServiceHealth.service_name,
-                ServiceHealth.status,
-                ServiceHealth.checked_at,
-            )
-            .where(ServiceHealth.checked_at >= window_start)
-            .where(ServiceHealth.service_name.in_(names))
+    statement = (
+        select(
+            ServiceHealth.service_name,
+            ServiceHealth.status,
+            ServiceHealth.checked_at,
         )
-    ).all()
-
-    for service_name, status, checked_at in rows:
-        # The IN filter should make this total, but a row for a service
-        # no longer configured is dropped rather than raising: retired
-        # services (ollama, personal-assistant) keep rows here for 30
-        # days after they stop being monitored, and a scoring job is not
-        # the place to discover that a config entry went away.
-        if service_name in series:
-            series[service_name].append(
-                HealthPoint(checked_at=checked_at, status=status)
-            )
+        .where(ServiceHealth.checked_at >= window_start)
+        .where(ServiceHealth.service_name.in_(names))
+    )
+    async for partition in _partitions(session, statement):
+        for service_name, status, checked_at in partition:
+            # The IN filter should make this total, but a row for a
+            # service no longer configured is dropped rather than raising:
+            # retired services (ollama, personal-assistant) keep rows here
+            # for 30 days after they stop being monitored, and a scoring
+            # job is not the place to discover that a config entry went
+            # away.
+            if service_name in series:
+                series[service_name].append(
+                    HealthPoint(checked_at=checked_at, status=status)
+                )
 
     bands = settings.grade_bands
     return score_services(
@@ -170,40 +201,39 @@ async def fetch_timer_series(
     by_name: dict[str, list[TimerPoint]] = {s.name: [] for s in timers}
 
     details = ServiceHealth.details
-    rows = (
-        await session.execute(
-            select(
-                ServiceHealth.service_name,
-                ServiceHealth.checked_at,
-                details["last_run"].astext,
-                details["last_result"].astext,
-                details["triggered_unit"].astext,
-                details["is_active"].astext,
-            )
-            .where(ServiceHealth.checked_at >= window_start)
-            .where(ServiceHealth.service_name.in_(list(by_name)))
-            .order_by(ServiceHealth.checked_at)
+    statement = (
+        select(
+            ServiceHealth.service_name,
+            ServiceHealth.checked_at,
+            details["last_run"].astext,
+            details["last_result"].astext,
+            details["triggered_unit"].astext,
+            details["is_active"].astext,
         )
-    ).all()
-
-    for service_name, checked_at, last_run, last_result, triggered, active in rows:
-        if service_name not in by_name:
-            continue
-        by_name[service_name].append(
-            TimerPoint(
-                checked_at=checked_at,
-                last_run=last_run,
-                last_result=last_result,
-                triggered_unit=triggered,
-                # Absent means the check could not say, and an armed
-                # timer is the default reading — the *inactive* case is
-                # already a failing check the outage family owns, so
-                # guessing "inactive" here would duplicate it rather
-                # than catch anything.  ``->>`` reads a JSON ``false`` as
-                # the text "false", and absent or JSON null as NULL.
-                is_active=active != "false",
+        .where(ServiceHealth.checked_at >= window_start)
+        .where(ServiceHealth.service_name.in_(list(by_name)))
+        .order_by(ServiceHealth.checked_at)
+    )
+    async for partition in _partitions(session, statement):
+        for service_name, checked_at, last_run, last_result, triggered, active in partition:
+            if service_name not in by_name:
+                continue
+            by_name[service_name].append(
+                TimerPoint(
+                    checked_at=checked_at,
+                    last_run=last_run,
+                    last_result=last_result,
+                    triggered_unit=triggered,
+                    # Absent means the check could not say, and an armed
+                    # timer is the default reading — the *inactive* case
+                    # is already a failing check the outage family owns,
+                    # so guessing "inactive" here would duplicate it
+                    # rather than catch anything.  ``->>`` reads a JSON
+                    # ``false`` as the text "false", and absent or JSON
+                    # null as NULL.
+                    is_active=active != "false",
+                )
             )
-        )
 
     return [
         TimerSeries(service=name, unit=units[name], points=points)

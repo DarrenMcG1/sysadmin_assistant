@@ -20,6 +20,7 @@ from sysadmin.core.contracts import (
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
+from tests.conftest import stream_rows
 
 
 def _mock_scalars_all(mock_session, rows):
@@ -252,9 +253,7 @@ class TestReliabilityRoundTrip:
             ("test-api", "critical", now - timedelta(seconds=60 * (50 - i)))
             for i in range(50)
         ]
-        result = MagicMock()
-        result.all.return_value = rows
-        mock_session.execute = AsyncMock(return_value=result)
+        stream_rows(mock_session, rows)
 
         resp = await test_client.get("/api/services/reliability")
         assert resp.status_code == 200
@@ -276,9 +275,7 @@ class TestReliabilityRoundTrip:
         error or an omission — it is a low-confidence 100."""
         from sysadmin_tray.models import ReliabilityResponse
 
-        result = MagicMock()
-        result.all.return_value = []
-        mock_session.execute = AsyncMock(return_value=result)
+        stream_rows(mock_session, [])
 
         resp = await test_client.get("/api/services/reliability")
         parsed = ReliabilityResponse.from_dict(resp.json())
