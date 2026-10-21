@@ -202,6 +202,11 @@ class TestTheArbiterSeamLive:
             f"8400 answered its health route but not its queue: {stops.error}"
         )
         if stops.reading == ARBITRATION_IDLE:
+            # may-not-evaluate: reachable only while the queue is idle; a
+            # held lease reads granted and skips it, the reverse of the
+            # granted branches above.  test_arbitrated_stops.py's
+            # test_no_active_lease_is_idle_and_not_unread asserts the same
+            # predicate on every run.
             assert stops.stopped("venture-chat.service") is False
 
     @pytest.mark.asyncio
