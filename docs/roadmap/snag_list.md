@@ -64,13 +64,16 @@
   - **Falsified at the original defect**: with the pre-fix map and the pre-fix `service_grid.py` restored verbatim, 13 of its 25 tests turn red: the four map tests, plus `critical`, `warning` and `skipped` at each site.
   - **Deployed**: not yet. The running tray shows the new colours only after `systemctl --user restart sysadmin-tray`.
 
-- [P4] SNAG-AGENT-014: **a manual run is not serialised against the scheduled run of the same agent, so since migration 019 a fault both runs raise fails the second run instead of writing a duplicate** (2026-10-13, opened by Session 359 as the stated consequence of `SNAG-DB-007`'s fix)
+- [P4] SNAG-AGENT-014: **a manual run is not serialised against the scheduled run of the same agent, so since migration 019 a fault both runs raise fails the second run instead of writing a duplicate** (2026-10-13, opened by Session 359 as the stated consequence of `SNAG-DB-007`'s fix; **CLOSED 2026-10-21 by Session 398**)
   - **Symptom**: `spawn_manual_run` (`sysadmin/core/agent.py`, from `POST /api/sysadmin/scan-all`) starts a run outside the scheduler, whose `max_instances: 1` caps only its own jobs. Two runs of one agent each read the open set at their start, so both can decide to raise one new fault. Before 2026-10-13 both inserts landed and the second row stayed open until a sweep closed it; now the second insert waits on the first transaction and `uq_alerts_open_agent_title` refuses it.
   - **Measured 2026-10-13**: never observed. Replaying every `(agent, title)` pair's history, no row was created while an earlier one was open since 2026-08-14, and the window is one run's duration after a manual scan.
   - **Why it is left**: a refused duplicate is the schema doing what `SNAG-DB-007` asked, and a failed run is reported where a duplicate row was silent. Serialising the runs is its own change to the agent lifecycle.
   - **Shape of a fix, unpriced**: a per-agent `asyncio.Lock` held around `BaseAgent.run`, so a manual run waits for a scheduled one, or `spawn_manual_run` declining while the agent is running.
   - **No check names this entry**: the population is overlapping runs, which `agent_runs` holds.
-  - **Status:** Open
+  - **Status:** **Closed 2026-10-21 by Session 398** (`99f52ab`): `BaseAgent.run` takes a per-name `threading.Lock` without blocking and declines a run while one is in progress. It returns `None`, writes no `agent_runs` row and logs `agent_run_declined` at `info`. Live once `sysadmin.service` restarts.
+  - **Decided:** decline, the shape's second half, not a wait. The running run is already doing the work. An `asyncio.Lock` cannot serialise the two, because a scheduled run is `asyncio.run` in a worker thread and a manual run is on the API loop. A cross-thread wait could be stranded by a cancelled waiter.
+  - **Found:** the overlap also shared the agent instance's `_pending_events` from two threads, so one run could drop or early-publish the other's events. The lock closes that too.
+  - **Tested:** 8 tests in `tests/test_agent_run_overlap.py`, one across two threads. Removing the check reds the 3 overlap tests; removing the release reds the 3 release tests.
 
 - [P3] SNAG-DB-007: **`sysadmin.alerts` allows two open rows for one alert and a `resolved`/`acknowledged` flag without its timestamp, and only application code prevents either** (2026-10-10, opened by Session 355 from estate message `dca21976`, the October design review's R35; **CLOSED 2026-10-13 by Session 359**, migration 019 adds both)
   - **Symptom**: `sysadmin/core/models/alert.py:30-37` declares `acknowledged`/`acknowledged_at` and `resolved`/`resolved_at` as independent columns. `__table_args__` (`:39-76`) has CHECKs on `severity` and `agent` only, and no unique index on the open set.

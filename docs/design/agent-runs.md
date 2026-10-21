@@ -191,3 +191,28 @@ this repository keeps finding: `status == CANCELLED_STATUS` compared the
 module's constant to itself, and **nothing drove `_record_start`**, so
 deleting the stamp passed all twenty tests while the sweep went on being
 proved correct about rows nothing in production would produce.
+
+**A run of an agent already running is declined, not queued**
+(`SNAG-AGENT-014`, Session 398). `BaseAgent.run` takes a lock per agent
+name without blocking and returns `None` when it is held, writing no
+`agent_runs` row and an `agent_run_declined` line at `info`. Three
+rules, two of them the opposite of the obvious implementation:
+
+1. **A `threading.Lock`, not an `asyncio.Lock`.** A scheduled run is
+   `asyncio.run` in an APScheduler worker thread and a manual run is on
+   the API loop, so the two runs that overlap never share a loop.
+2. **Declined, not waited for.** The run holding the lock is doing the
+   work the second was asked for. A wait that blocks across two loops
+   could also be stranded: a waiter cancelled after its thread had taken
+   the lock would leave it held. The decline is the scheduler's own
+   `max_instances: 1` skip, extended to manual runs.
+3. **Keyed by name, not by instance**, because the name is what
+   `uq_alerts_open_agent_title` refuses on. The scope is this process; a
+   run started by another process is not seen.
+
+The overlap also shared `_pending_events` between the two runs, from
+two threads, which the snag had not named. Falsified by removing the
+check (the three overlap tests go red) and the release (the three
+release tests go red); both mutations hung the file before its waits
+were bounded, so `tests/test_agent_run_overlap.py` bounds every wait on
+a run that should not start.

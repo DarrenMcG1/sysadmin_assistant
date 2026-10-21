@@ -1,6 +1,41 @@
-# Handoff — 2026-10-21 (Session 397)
+# Handoff — 2026-10-21 (Session 398)
 
 ## Next action
+
+Restart the daemon onto `99f52ab`: `kill -TERM $(systemctl show -p MainPID --value sysadmin.service)`; Restart=always brings it back. *(For: owner, ~2 min)*
+
+## Session 398: a run of an agent already running is declined
+
+Closed `SNAG-AGENT-014` in `99f52ab`. **A restart is owed**: the
+daemon still runs the code it started with at 2026-10-20 20:25:27, so
+until then a manual scan can still overlap a scheduled run, as before.
+This session's `kill -TERM` was refused by the permission check, so it
+is the owner's. No sudo is needed while the daemon is up. After it,
+STATUS.md's daemon start time reads stale until a session updates it,
+and the next session goes back to the highest-ranked open snag.
+
+- **Also:** STATUS.md's alerts sentence now names a fourth open row,
+  `venture-chat unreachable` (10:55, `info`; the unit is inactive). It
+  is venture-assistant's unit, so it was named and not acted on.
+
+- **Why this one:** every P3 entry is decided, blocked or delegated.
+  `SNAG-API-006` is decided, and `SNAG-GPU-008` waits on a reset after
+  a boot start.
+- **Decided:** decline, not wait. The running run is already doing the
+  work. A scheduled run is `asyncio.run` in a worker thread and a
+  manual run is on the API loop, so the lock is a `threading.Lock`,
+  taken without blocking. A blocking cross-thread wait could be left
+  held by a cancelled waiter.
+- **Rejected:** the snag's `asyncio.Lock`. It cannot serialise two
+  event loops.
+- **Found:** the overlap also shared `_pending_events` between threads,
+  which the snag had not named. The same lock closes it.
+- **Slip:** the first falsification ran without a bound and hung, and
+  `pkill -f` then killed its own shell, leaving `agent.py` mutated for
+  a minute. Restored from a scratch copy and checked by grep; the tests
+  now bound every wait on a run that should not start.
+
+## What Session 397 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 

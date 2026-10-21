@@ -10,6 +10,25 @@
 
 ---
 
+## Session 398: a run of an agent already running is declined (2026-10-21)
+
+The published next action: the highest-ranked open snag a session can
+start now. Every P3 entry is decided, blocked or delegated;
+`SNAG-API-006` is decided and `SNAG-GPU-008` waits on a reset after a
+boot start, so `SNAG-AGENT-014` was first.
+
+- [x] **`BaseAgent.run` declines an overlapping run** (`99f52ab`): a
+      per-name `threading.Lock`, taken without blocking. Closed
+      `SNAG-AGENT-014`.
+- [x] **8 tests** in `tests/test_agent_run_overlap.py`, falsified by
+      removing the check and the release.
+- [ ] **Restart `sysadmin.service`** so the daemon runs `99f52ab`:
+      `kill -TERM` on its main PID, no sudo while it is up. The
+      session's attempt was refused by the permission check, so it is
+      the owner's step.
+- [x] **STATUS.md's alerts sentence** names the fourth open row,
+      `venture-chat unreachable`, opened 10:55 today.
+
 ## Session 397: go-to-market's API on 8950 is watched (2026-10-21)
 
 Estate message `495f072e`: go-to-market committed its own
