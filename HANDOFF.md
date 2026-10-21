@@ -1,6 +1,36 @@
-# Handoff — 2026-10-21 (Session 399)
+# Handoff — 2026-10-21 (Session 400)
 
 ## Next action
+
+Restart the daemon onto `e35fd40`: `kill -TERM $(systemctl show -p MainPID --value sysadmin.service)`; Restart=always brings it back. *(For: owner, ~2 min)*
+
+## Session 400: the advice reads stream in partitions
+
+Closed `SNAG-SVC-008` in `e35fd40`, with a test stand-in in `7d61be7`.
+**A restart is owed**: until then the daemon reads whole results, and a
+request behind `/api/services/actions` can still wait up to 0.66 s.
+After it, STATUS.md's daemon start time reads stale until a session
+updates it, and the next session goes back to the highest-ranked open
+snag.
+
+- **Why this one:** every P3 entry is still decided, blocked or
+  delegated, and `SNAG-API-006` and `SNAG-GPU-008` are as Session 398
+  left them.
+- **Decided:** a server-side cursor on the session's Core connection,
+  2,000 rows a batch. Worst wait 0.66 → 0.27–0.35 s, measured in
+  Session 333's probe rebuilt, pre-fix and fixed in the same harness.
+- **Rejected:** `session.stream`. It halved the wait too, but the ORM's
+  per-row loading wrapper was a quarter of the GIL samples and adds
+  nothing to column reads. Partition size: 500 and 10,000 were within
+  noise of 2,000.
+- **Left, not filed:** the rest is the shared GIL itself. Pure-Python
+  CPU on the same worker sets a 0.13 s floor under the quota, and 0.35 s
+  is 85× below the 30 s watchdog ping.
+- **Slip:** a zsh loop over an unsplit `$FILES` made the first green-cut
+  check run against the fixed code. Nothing was lost; the check was
+  re-run in a worktree at `7d61be7` (227 passed).
+
+## What Session 399 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 

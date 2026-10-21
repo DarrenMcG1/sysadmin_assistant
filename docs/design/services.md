@@ -430,4 +430,14 @@ and a test pins that**: putting one back reads on the loop again.
 keys, never the `details` column. The whole blob was 1.3 of 1.8 s
 unthrottled. A worker thread alone left a 1.06 s worst wait, because
 the GIL is shared and compiled row loops do not reach the 5 ms switch
-check. The residue, 0.67 s, is `SNAG-SVC-008`.
+check. The residue, 0.67 s, was `SNAG-SVC-008`.
+
+**Both reads stream a partition at a time** (Session 400, 2026-10-21).
+`_partitions` in `reliability_history.py` reads through a server-side
+cursor, 2,000 rows a round trip, and the worker gives the GIL up while
+it waits for each batch. The worst wait fell to 0.27–0.35 s behind
+`/actions`. It reads on the session's Core connection, not
+`session.stream`: these are column selects, and the ORM's per-row
+loading wrapper was a quarter of the GIL samples. What is left is the
+shared GIL itself: pure-Python CPU on the same worker sets a floor of
+0.13 s under the quota.

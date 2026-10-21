@@ -10,6 +10,23 @@
 
 ---
 
+## Session 400: the advice reads stream in partitions (2026-10-21)
+
+The published next action: the highest-ranked open snag a session can
+start now. Every P3 entry is still decided, blocked or delegated, and
+`SNAG-API-006` and `SNAG-GPU-008` are as Session 398 left them, so
+`SNAG-SVC-008` was first.
+
+- [x] **Both advice reads stream through a server-side cursor**, 2,000
+      rows a round trip, on the session's Core connection. Worst
+      `/ping` wait behind `/actions` 0.66 → 0.27–0.35 s under the
+      unit's quota. Closed `SNAG-SVC-008` in `e35fd40`.
+- [x] **3 tests** in `tests/test_off_loop.py`, and `StreamedResult` in
+      `tests/conftest.py` for the routes' existing tests.
+- [ ] **Restart `sysadmin.service`** so the daemon runs the streamed
+      reads: `kill -TERM` on its main PID, no sudo while it is up. The
+      owner's step under auto mode.
+
 ## Session 398: a run of an agent already running is declined (2026-10-21)
 
 The published next action: the highest-ranked open snag a session can
@@ -22,10 +39,11 @@ boot start, so `SNAG-AGENT-014` was first.
       `SNAG-AGENT-014`.
 - [x] **8 tests** in `tests/test_agent_run_overlap.py`, falsified by
       removing the check and the release.
-- [ ] **Restart `sysadmin.service`** so the daemon runs `99f52ab`:
+- [x] **Restart `sysadmin.service`** so the daemon runs `99f52ab`:
       `kill -TERM` on its main PID, no sudo while it is up. The
       session's attempt was refused by the permission check, so it is
-      the owner's step.
+      the owner's step. Done by the owner at 12:33:27 on 2026-10-21,
+      recorded by Session 399.
 - [x] **STATUS.md's alerts sentence** names the fourth open row,
       `venture-chat unreachable`, opened 10:55 today.
 
