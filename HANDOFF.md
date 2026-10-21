@@ -2,15 +2,18 @@
 
 ## Next action
 
-Restart the daemon onto `baa48ca`: `kill -TERM $(systemctl show -p MainPID --value sysadmin.service)`; Restart=always brings it back. *(For: owner, ~2 min)*
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 
 ## Session 403: the route's condense pass waits out its own first pass
 
-Closed `SNAG-GPU-007` in `baa48ca`. **A restart is owed**: until then
-the three `POST …/review/generate` routes still trim a long first pass
-where the Monday jobs condense it. After it, STATUS.md's daemon start
-time reads stale until a session updates it, and the next session goes
-back to the highest-ranked open snag.
+Closed `SNAG-GPU-007` in `baa48ca`, and restarted the daemon onto it
+at 2026-10-21 16:53:03 (PID 271346, `/api/health` healthy), so the
+three `POST …/review/generate` routes now condense a long first pass
+as the Monday jobs do.
+
+- **Owner's standing ruling (2026-10-21):** a session may run the
+  no-sudo daemon restart itself, `kill -TERM` on the main PID, without
+  handing it on.
 
 - **Why this one:** every P3 entry is still decided, blocked or
   delegated. `SNAG-API-006` is decided, `SNAG-GPU-008` waits on a

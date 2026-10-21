@@ -23,9 +23,8 @@ first.
       before its single read. Closed `SNAG-GPU-007` in `baa48ca`.
 - [x] **5 tests** in `tests/test_llm_client.py` and
       `tests/test_word_limit.py`; 3 go red with the wait removed.
-- [ ] **Restart `sysadmin.service`** so the routes' condense pass
-      waits: `kill -TERM` on its main PID, no sudo while it is up.
-      Then update STATUS.md's daemon start time.
+- [x] **Restarted `sysadmin.service`** onto `baa48ca` at 16:53:03
+      (PID 271346); `/api/health` answers `healthy`.
 
 ## Session 402: mosquitto's boot refusal is asked of the estate (2026-10-21)
 

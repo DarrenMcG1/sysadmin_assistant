@@ -8,9 +8,10 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-10-21 15:25:08**
-> <!--check:deploy--> <!--check:daemon_start-->, when Session 401 moved
-> it onto `e35fd40`, Session 400's streamed advice reads. `/health` answers
+> **Deploy.** The daemon restarted at **2026-10-21 16:53:03**
+> <!--check:deploy--> <!--check:daemon_start-->, when Session 403 moved
+> it onto `baa48ca`, the condense pass that waits out its own first
+> pass. `/health` answers
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
@@ -77,7 +78,7 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
   shorter pass was refused by the GPU gate, which read the first pass
   still on the card, so the prose was trimmed. The condense call now
   waits up to 1 s for that tail to drain. Live: 0 of 5 second calls
-  answered before, 5 of 5 after. Live from the next daemon restart.
+  answered before, 5 of 5 after. Live since the 16:53 restart.
 
 ### Session 400 — the advice reads stream in partitions (2026-10-21)
 
