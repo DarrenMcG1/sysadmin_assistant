@@ -113,8 +113,11 @@ async def hold_to_word_limit(
     none trimmed.  The ``POST …/review/generate`` routes hold no lease, so
     the second call reads the busy counter — and reads *this service's
     own first pass* still on it: seven of seven calls made straight after
-    an inference were refused.  On a route the trim is therefore the
-    usual step, not the rare one (``SNAG-GPU-007``).
+    an inference were refused, and the trim was the usual step on a
+    route.  So the second call says it ``follows_own_inference``, and the
+    client waits for that tail to drain before its single read
+    (``SNAG-GPU-007``, closed 2026-10-21).  A card someone else is using
+    is still refused, and the trim is what remains for that case.
     """
     words = word_count(prose)
     if words <= NARRATIVE_WORD_LIMIT:
@@ -124,6 +127,7 @@ async def hold_to_word_limit(
         build_condense_prompt(instructions, prose),
         system=system,
         gpu_lease_held=gpu_lease_held,
+        follows_own_inference=True,
     )
     condensed = strip_markdown(condensed).strip() if condensed else ""
     if condensed and word_count(condensed) <= NARRATIVE_WORD_LIMIT:

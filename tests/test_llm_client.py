@@ -299,6 +299,96 @@ class TestGpuGate:
             assert await client.generate(prompt="hi") == "still fine"
         await client.shutdown()
 
+    @staticmethod
+    def _counter(monkeypatch, *readings):
+        """A busy counter that answers ``readings`` in turn, then the last
+        one for ever; returns the list of reads taken."""
+        taken: list[int | None] = []
+
+        def sample(*a, **k):
+            reading = readings[min(len(taken), len(readings) - 1)]
+            taken.append(reading)
+            return reading
+
+        monkeypatch.setattr("estate.gpu.sample_gpu_busy", sample)
+        return taken
+
+    @pytest.mark.asyncio
+    async def test_a_call_after_our_own_waits_for_its_tail(
+        self, gated_config, monkeypatch
+    ):
+        """``SNAG-GPU-007``: the first pass's tail is on the counter for
+        one sample, and the condense pass used to read it and give up."""
+        taken = self._counter(monkeypatch, 95, 8)
+
+        client = LLMClient(
+            transport=httpx.MockTransport(lambda request: _chat_response("short"))
+        )
+        with _patch_config(gated_config):
+            reply = await client.generate(prompt="hi", follows_own_inference=True)
+        await client.shutdown()
+
+        assert reply == "short"
+        # Two reads while waiting, then the gate's own single read.
+        assert taken == [95, 8, 8]
+
+    @pytest.mark.asyncio
+    async def test_someone_elses_load_is_still_refused_after_the_wait(
+        self, gated_config, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "sysadmin.core.llm_client.OWN_TAIL_BUDGET_SECONDS", 0.12
+        )
+        taken = self._counter(monkeypatch, 97)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise AssertionError("no dispatch while another holder has the GPU")
+
+        client = LLMClient(transport=httpx.MockTransport(handler))
+        with _patch_config(gated_config):
+            assert (
+                await client.generate(prompt="hi", follows_own_inference=True)
+                is None
+            )
+        await client.shutdown()
+
+        # Bounded: a few polls inside the budget, never an open-ended wait.
+        assert 2 <= len(taken) <= 6
+
+    @pytest.mark.asyncio
+    async def test_without_the_flag_the_gate_is_still_one_read(
+        self, gated_config, monkeypatch
+    ):
+        taken = self._counter(monkeypatch, 95, 8)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise AssertionError("the single read refused, so no dispatch")
+
+        client = LLMClient(transport=httpx.MockTransport(handler))
+        with _patch_config(gated_config):
+            assert await client.generate(prompt="hi") is None
+        await client.shutdown()
+
+        assert taken == [95]
+
+    @pytest.mark.asyncio
+    async def test_a_lease_holder_reads_nothing_even_after_its_own(
+        self, gated_config, monkeypatch
+    ):
+        taken = self._counter(monkeypatch, 95)
+
+        client = LLMClient(
+            transport=httpx.MockTransport(lambda request: _chat_response("held"))
+        )
+        with _patch_config(gated_config):
+            reply = await client.generate(
+                prompt="hi", gpu_lease_held=True, follows_own_inference=True
+            )
+        await client.shutdown()
+
+        assert reply == "held"
+        assert taken == []
+
     @pytest.mark.asyncio
     async def test_probe_is_not_gated(self, gated_config, monkeypatch):
         # is_available answers "is the server up", not "may I dispatch" —

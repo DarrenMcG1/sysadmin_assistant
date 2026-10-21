@@ -92,6 +92,16 @@ class TestHoldToWordLimit:
         assert kwargs["gpu_lease_held"] is True
 
     @pytest.mark.asyncio
+    async def test_the_second_pass_says_it_follows_the_first(self):
+        """``SNAG-GPU-007``: without it, an unleased second call reads the
+        first pass still on the busy counter and is refused."""
+        client = _llm_sequence(_prose(8))
+
+        await _hold(client, _prose(28))
+
+        assert client.generate.await_args.kwargs["follows_own_inference"] is True
+
+    @pytest.mark.asyncio
     async def test_a_condensed_review_still_over_is_trimmed_visibly(self):
         """The 206-word condense of 2026-09-29: the pass ran and missed."""
         client = _llm_sequence(_prose(21))

@@ -11,9 +11,11 @@ Note: llama-server serves a single loaded model, so the ``model`` field in
 requests is largely informational — it is recorded but does not switch models.
 """
 
+import asyncio
 import logging
 
 import httpx
+from estate import gpu as estate_gpu
 from estate.gpu import GpuBusy, ensure_gpu_idle
 from estate.llama import (
     LlamaConnectError,
@@ -30,6 +32,39 @@ from sysadmin.core.async_http import LoopBoundClient
 from sysadmin.core.config import get_config
 
 logger = logging.getLogger(__name__)
+
+#: How long a call that follows one of this service's own inferences may
+#: wait for that inference to leave the busy counter (``SNAG-GPU-007``).
+#: Measured 2026-10-21 over eight drives on llama-server: in six the
+#: counter read at most 25 by the second sample, 0.05 s after the reply;
+#: in the other two another holder had the card at 96–99 % and it stayed
+#: there for the whole 4 s watched.  So the tail is one sample long, the
+#: budget is twenty times it, and a card someone else is using is still
+#: refused, one second later than before.
+OWN_TAIL_BUDGET_SECONDS = 1.0
+
+#: The interval between reads while waiting; one sysfs read each.
+OWN_TAIL_POLL_SECONDS = 0.05
+
+
+async def wait_for_own_tail(pci_slot: str, threshold: int) -> None:
+    """Return once the counter reads idle, unreadable, or the budget is spent.
+
+    This does not decide anything.  The single read in
+    :meth:`LLMClient.generate` still follows it and still refuses, so a
+    wait that runs out ends in the same ``llm_gpu_busy`` as before.  It
+    exits on the first idle read, unlike ``estate.gpu.sustained_busy``'s
+    fixed window, so an idle card costs one read and no sleep.
+    """
+    if not pci_slot:
+        return
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + OWN_TAIL_BUDGET_SECONDS
+    while True:
+        busy = estate_gpu.sample_gpu_busy(pci_slot)
+        if busy is None or busy <= threshold or loop.time() >= deadline:
+            return
+        await asyncio.sleep(OWN_TAIL_POLL_SECONDS)
 
 
 class LLMClient:
@@ -70,6 +105,7 @@ class LLMClient:
         system: str | None = None,
         *,
         gpu_lease_held: bool = False,
+        follows_own_inference: bool = False,
     ) -> str | None:
         """Generate a chat completion from llama-server.
 
@@ -159,6 +195,20 @@ class LLMClient:
         ``tests/test_gpu_gate_invocations.py`` holds that as a measured
         premise rather than as prose.
 
+        **``follows_own_inference`` waits for this service's own tail,
+        then reads once as before** (``SNAG-GPU-007``, 2026-10-21).  A
+        call made straight after one of ours reads that call still on the
+        counter: seven of seven condense passes on the routes were
+        refused that way on 2026-09-29, on a card that read 6–12 % a
+        moment later.  :func:`wait_for_own_tail` polls until the counter
+        reads idle, for at most :data:`OWN_TAIL_BUDGET_SECONDS`, and the
+        single read then decides.  This is not the window refused above.
+        That one was a fixed min-of-N for every call, to rescue a
+        transient seen once in about forty weeks.  This one exits on the
+        first idle read, and only the call after our own pays for it, and
+        that call was refused every time.  It does nothing when
+        ``gpu_lease_held`` is set, because no gate is read then.
+
         Free-text path: ``temperature=None`` keeps the server's own
         sampling defaults — this call generates prose, not structured
         extraction, so the estate's structured-path temperature pin does
@@ -168,6 +218,10 @@ class LLMClient:
         model = model or config.llm.model
 
         if not gpu_lease_held:
+            if follows_own_inference:
+                await wait_for_own_tail(
+                    config.llm.gpu_pci_slot, config.llm.gpu_busy_threshold
+                )
             try:
                 ensure_gpu_idle(config.llm.gpu_pci_slot, config.llm.gpu_busy_threshold)
             except GpuBusy as e:
