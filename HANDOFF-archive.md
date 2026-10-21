@@ -6,6 +6,60 @@ file under estate rule 2's 500-line bound. The live Next action and the
 scheduled action stay there; nothing here is current. A later move puts
 its sections at the top of this file, below this paragraph.
 
+## What Session 385 handed on
+
+Archive STATUS.md's Recently Completed (lines 8,267 to 14,611) after reading docs/design/status-claims.md, as tasks.md Session 385 records. *(For: session)*
+
+## Session 385: the roadmap and the handoff are archived
+
+The owner asked for old tasks, snags and handoff items to be archived.
+Docs only; the counts are in tasks.md, Session 385.
+
+- **tasks.md is about 1,270 lines, down from 18,831.** Sessions 24 to
+  344 went to `docs/roadmap/archive/completed_2026-10-19.md`, unedited
+  but for 44 re-based links. Session 286 and the Backlog stay, because
+  they hold the file's only two unticked items.
+- **The snag list's open entries were not touched.** Closing one is a
+  judgement about the box. Only the Session 34 and 37 write-ups moved;
+  the fixed `SNAG-ESTATE-*` rows stay because estate-manager's markers
+  read them in this file.
+- **HANDOFF.md kept Sessions 380 to 385**; 369 to 379 are at the top of
+  `HANDOFF-archive.md`.
+- **Left: STATUS.md**, 14,615 lines. Its opening block is re-measured
+  by `sysadmin/ops_claims.py`, so it gets its own sitting.
+- No estate message open.
+
+## What Session 384 handed on
+
+Nothing is owed: estate message af170afe is closed, and alfred-inference was restarted at 22:05 and reads fully on the card. *(For: none)*
+
+## Session 384: an evicted VRAM resident reads degraded
+
+Estate message `af170afe-54d0-4997-8a10-42267c6a2214`. Code in
+`08a2235`; the detail is in tasks.md, Session 384.
+
+- **What it does.** A `holds_vram` service whose buffers a game or a
+  HIP job pushed into GTT now reads `degraded`, with the fdinfo figures
+  in `details['gpu_residency']`. The estate refused to publish the
+  split, and the monitor is what says a service cannot do its job.
+- **Decided:** the figure is `drm-total-vram` less `drm-resident-vram`.
+  Rejected `amd-evicted-vram`, which read 0 KiB beside a 1.0 GiB
+  shortfall. Rejected judging a declared service with no client on the
+  card: that is `venture-embed`'s CPU-only boot start, and the CPU
+  fallback is `wait-for-dgpu`'s question.
+- **The 128 MiB floor is a judgement, not a measurement.** The live
+  population is 0 KiB and 1,048,320 KiB with nothing between.
+- **Deployed at 22:03:29 and read back.** `alfred-inference` was
+  restarted at 22:05:33, not by this session, so the first stored row
+  (22:08:29, service `llama-server`) reads `ok` with 2,349,364 KiB of
+  2,349,364 on the card. That proves the system daemon can read a user
+  unit's fdinfo. The `degraded` verdict was proved only by driving the
+  same function from the session at the evicted process before the
+  restart; no stored row carries it yet.
+- **The suite was red at HEAD** on three handoff-shape tests that
+  required `## Scheduled action`, which Session 383 rightly removed.
+  They skip when it is absent; folded into `08a2235`.
+
 ## What Session 383 handed on
 
 

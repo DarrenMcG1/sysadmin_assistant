@@ -10,6 +10,37 @@
 
 ---
 
+## Session 404: venture-embed stops declaring holds_vram (2026-10-21)
+
+The published next action: the highest-ranked open snag a session can
+start now. Every open entry is decided, blocked or delegated except
+`SNAG-GPU-008` and `SNAG-LOG-021`, and both had moved: the race
+`SNAG-GPU-008` waited on was settled by venture-assistant on
+2026-10-17, and estate-manager answered `571f2f12` at 15:51 today.
+
+- [x] **`venture-embed` drops `holds_vram`** in `services.yaml`; the
+      shipped-declaration test expects two services and goes red with
+      the old line restored. Closed `SNAG-GPU-008` in `1687713`.
+- [x] **ADR-0007 §2.5**, and the comments in `gpu_context.py`,
+      `gpu_residency.py`, `services.py`, `CLAUDE.md` and
+      `docs/design/gpu.md` moved to the past tense.
+- [x] **Daemon restarted** onto `1687713` at 17:40:06 (PID 565829).
+- [x] **Estate message `571f2f12` logged**: closed by estate-manager,
+      taken as asked (their `69b11db`, ADR-0259). Recorded on
+      `SNAG-LOG-021`, which is now blocked on the next boot.
+- [ ] **At the next boot, confirm the mosquitto gate's wait**: the boot's
+      journal shows `listener address assigned after N s; starting
+      mosquitto` and `sysadmin.alerts` holds no `Log error:
+      mosquitto.service — Failed to start` row for it; then close
+      `SNAG-LOG-021`.
+- [ ] **The preflight's scheduled-section match is too wide** (found
+      this session, not worked): the awk in
+      `scripts/claude-preflight.sh` takes the first `## ` heading whose
+      text contains "scheduled", so with no `## Scheduled action`
+      section it printed `## Session 392: the scheduled-section assert
+      is declared` and its bullets as a scheduled action. Likely fix:
+      match the heading `## Scheduled action` itself.
+
 ## Session 403: the route's condense pass waits out its own first pass (2026-10-21)
 
 The published next action: the highest-ranked open snag a session can

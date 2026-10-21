@@ -1,6 +1,35 @@
-# Handoff — 2026-10-21 (Session 403)
+# Handoff — 2026-10-21 (Session 404)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 404: venture-embed stops declaring holds_vram
+
+Closed `SNAG-GPU-008` in `1687713` and restarted the daemon onto it at
+2026-10-21 17:40:06 (PID 565829, `/api/health` healthy).
+
+- **Why this one:** every open entry is decided, blocked or delegated
+  except `SNAG-GPU-008` and `SNAG-LOG-021`, and both had moved.
+  venture-assistant settled the start-order race on 2026-10-17 with
+  `-dev none` (their `e05894c`, closing estate message `d07f4176`).
+- **Measured:** both `venture-embed` starts since then, one after boot
+  and one at boot, logged `CPU compute buffer size = 564.22 MiB`. The
+  first poll after the restart, 17:45:06, wrote `venture-embed`'s row
+  with no `gpu_context` term and the two declared servers' rows with it.
+- **Decided:** drop the declaration. Rejected keeping it: a reset can
+  no longer reach the process, so it would read `degraded` after every
+  reset. Recorded, not filed (ADR-0007 §2.5): if `-dev none` is ever
+  dropped, nothing here notices.
+- **Estate message `571f2f12` closed** by estate-manager at 15:51,
+  after Session 403 began: taken as asked (their `69b11db`, ADR-0259).
+  The mosquitto gate now waits up to 15 s for the address. `SNAG-LOG-021`
+  is blocked on the next boot, and tasks.md has the check.
+- **Second concern, recorded in tasks.md:** the preflight takes any
+  `##` heading containing "scheduled" as the scheduled section, so it
+  prints Session 392's block as a scheduled action.
+
+## What Session 403 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 
@@ -431,60 +460,6 @@ Session 386.
   so it needs its own sitting.
 - No estate message open.
 
-## What Session 385 handed on
-
-Archive STATUS.md's Recently Completed (lines 8,267 to 14,611) after reading docs/design/status-claims.md, as tasks.md Session 385 records. *(For: session)*
-
-## Session 385: the roadmap and the handoff are archived
-
-The owner asked for old tasks, snags and handoff items to be archived.
-Docs only; the counts are in tasks.md, Session 385.
-
-- **tasks.md is about 1,270 lines, down from 18,831.** Sessions 24 to
-  344 went to `docs/roadmap/archive/completed_2026-10-19.md`, unedited
-  but for 44 re-based links. Session 286 and the Backlog stay, because
-  they hold the file's only two unticked items.
-- **The snag list's open entries were not touched.** Closing one is a
-  judgement about the box. Only the Session 34 and 37 write-ups moved;
-  the fixed `SNAG-ESTATE-*` rows stay because estate-manager's markers
-  read them in this file.
-- **HANDOFF.md kept Sessions 380 to 385**; 369 to 379 are at the top of
-  `HANDOFF-archive.md`.
-- **Left: STATUS.md**, 14,615 lines. Its opening block is re-measured
-  by `sysadmin/ops_claims.py`, so it gets its own sitting.
-- No estate message open.
-
-## What Session 384 handed on
-
-Nothing is owed: estate message af170afe is closed, and alfred-inference was restarted at 22:05 and reads fully on the card. *(For: none)*
-
-## Session 384: an evicted VRAM resident reads degraded
-
-Estate message `af170afe-54d0-4997-8a10-42267c6a2214`. Code in
-`08a2235`; the detail is in tasks.md, Session 384.
-
-- **What it does.** A `holds_vram` service whose buffers a game or a
-  HIP job pushed into GTT now reads `degraded`, with the fdinfo figures
-  in `details['gpu_residency']`. The estate refused to publish the
-  split, and the monitor is what says a service cannot do its job.
-- **Decided:** the figure is `drm-total-vram` less `drm-resident-vram`.
-  Rejected `amd-evicted-vram`, which read 0 KiB beside a 1.0 GiB
-  shortfall. Rejected judging a declared service with no client on the
-  card: that is `venture-embed`'s CPU-only boot start, and the CPU
-  fallback is `wait-for-dgpu`'s question.
-- **The 128 MiB floor is a judgement, not a measurement.** The live
-  population is 0 KiB and 1,048,320 KiB with nothing between.
-- **Deployed at 22:03:29 and read back.** `alfred-inference` was
-  restarted at 22:05:33, not by this session, so the first stored row
-  (22:08:29, service `llama-server`) reads `ok` with 2,349,364 KiB of
-  2,349,364 on the card. That proves the system daemon can read a user
-  unit's fdinfo. The `degraded` verdict was proved only by driving the
-  same function from the session at the evicted process before the
-  restart; no stored row carries it yet.
-- **The suite was red at HEAD** on three handoff-shape tests that
-  required `## Scheduled action`, which Session 383 rightly removed.
-  They skip when it is absent; folded into `08a2235`.
-
 ## Older sessions
 
-Sessions 383 and earlier are in [HANDOFF-archive.md](HANDOFF-archive.md).
+Sessions 385 and earlier are in [HANDOFF-archive.md](HANDOFF-archive.md).

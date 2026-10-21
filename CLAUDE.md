@@ -648,8 +648,9 @@ sysadmin_assistant"*, revoke answers 204, and the token then gets 401.
   decision — `SNAG-SVC-001` in reverse), why the population is a
   declaration in `services.yaml` rather than `role: inference` (its
   `venture-embed` specimen was voided on 2026-10-16 by §2.4: `-ngl 0`
-  still puts the compute buffer on the card after boot, so it declares
-  `holds_vram` now), and the three measurement traps
+  still put the compute buffer on the card after boot, so it declared
+  `holds_vram` until §2.5 on 2026-10-21, when `-dev none` had kept the
+  buffer on the CPU at both kinds of start), and the three measurement traps
   — `journalctl -k` implying `--boot=0`, second-granular `@epoch`
   truncation erring toward over-reporting, and an empty
   `ActiveEnterTimestamp` on an inactive unit.

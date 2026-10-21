@@ -189,6 +189,33 @@ What changed:
 - The start-order race itself (no `wait-for-dgpu` gate) is
   venture-assistant's; the estate filed it there as message `d07f4176`.
 
+### 2.5 Amended 2026-10-21: the specimen is CPU-only at every start, and declares nothing again
+
+venture-assistant answered `d07f4176` on 2026-10-17 by adding `-dev none`
+to the unit (their `e05894c`), which offloads nothing, so the compute
+buffer stays on the CPU whichever way the boot race goes. The owner chose
+that over a `wait-for-dgpu` gate. Re-measured here from the same journal,
+first `compute buffer size` line after each `main: loading model`:
+
+| start | when | compute buffer |
+|---|---|---|
+| after boot | 2026-10-17 22:32 | CPU, 564.22 MiB |
+| at boot | 2026-10-18 10:16 | CPU, 564.22 MiB |
+
+A reset can no longer reach the process, so `venture-embed` stops
+declaring `holds_vram` (`SNAG-GPU-008` closed). Kept, the declaration
+would have turned §2.4's bounded cost into a standing one: `degraded`
+after every reset about a server that can still serve.
+
+- **§2.1's rule still stands.** The unit's role and `-ngl` are unchanged;
+  what moved residency was a third flag no role names. Reading
+  `ExecStart` stays refused.
+- **The accepted cost runs the other way now.** If `-dev none` is ever
+  dropped, nothing here notices: the declaration is a statement, and
+  `gpu_residency` reads clients only for a service that declares. That
+  is §2.4's worse direction, and it would need someone to change another
+  repository's unit to reach it.
+
 ---
 
 ## 3. The reading is `degraded`, and `unwatched` is false in both halves

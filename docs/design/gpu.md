@@ -156,6 +156,6 @@ The figure is `drm-total-vram` less `drm-resident-vram`, summed over the
 main PID's distinct DRM clients on `llm.gpu_pci_slot`, clamped at zero,
 against a 128 MiB floor. `amd-evicted-vram` read 0 KiB beside the 1.0 GiB
 shortfall, so it is not the figure. A declared service with no client on
-the card (`venture-embed`'s CPU-only boot start) is recorded and not
-judged. The reading sits beside the 300 s poll, not on a feed of its
+the card (`venture-embed`'s CPU-only boot start, before it stopped
+declaring on 2026-10-21) is recorded and not judged. The reading sits beside the 300 s poll, not on a feed of its
 own, which is the continuous GPU feed the estate's ADR-0189 §4 left here.

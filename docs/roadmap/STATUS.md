@@ -8,10 +8,10 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-10-21 16:53:03**
-> <!--check:deploy--> <!--check:daemon_start-->, when Session 403 moved
-> it onto `baa48ca`, the condense pass that waits out its own first
-> pass. `/health` answers
+> **Deploy.** The daemon restarted at **2026-10-21 17:40:06**
+> <!--check:deploy--> <!--check:daemon_start-->, when Session 404 moved
+> it onto `1687713`, where `venture-embed` no longer declares
+> `holds_vram`. `/health` answers
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
@@ -71,6 +71,14 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 404 — venture-embed stops declaring holds_vram (2026-10-21)
+
+- `SNAG-GPU-008` closed. venture-assistant made `venture-embed`
+  CPU-only at every start with `-dev none` on 2026-10-17, so a card
+  reset can no longer reach it, and its `holds_vram` declaration went.
+  Kept, it would have read `degraded` after every reset. Live since the
+  17:40 restart.
 
 ### Session 403 — the route's condense pass waits out its own first pass (2026-10-21)
 
