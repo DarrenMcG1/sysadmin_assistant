@@ -1159,7 +1159,7 @@ def _arming_clause(finding: UnitFinding) -> str:
     Written into ``reason`` rather than left for the alert to assemble,
     because ``reason`` is what the drill-down and the recommendation
     detail both render.  SNAG-ESTATE-001's diagnosis was already
-    "complete, correct, machine-readable and eight days old" — what it
+    "complete, correct, machine-readable and five days old" — what it
     never said is that two of those seventeen findings were *live*.
     """
     if not finding.enabled:

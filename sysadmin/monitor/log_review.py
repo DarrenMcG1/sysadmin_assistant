@@ -369,7 +369,7 @@ def _action_facts(recs: list[LogRecommendation]) -> dict[str, Any]:
     ``members`` is carried as a **count and a list of names**, not
     dropped to a count — ``SNAG-ESTATE-001``'s rule.  A roll-up that says
     "6 signatures" and cannot say which is the ``Unmonitored systemd
-    units: 17 findings`` row that sat open and unread for eight days.
+    units: 17 findings`` roll-up that sat open and unread for five days.
     """
     by_kind: dict[str, int] = {}
     for rec in recs:

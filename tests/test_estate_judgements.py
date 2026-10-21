@@ -1460,7 +1460,7 @@ class TestAuditFindings:
         """Session 46's rule. A shared title means one fault masks the
         next behind the tray's ``{severity}:{title}`` fingerprint, which
         is how ``Unmonitored systemd units: 17 findings`` stayed open,
-        accurate and unread for eight days."""
+        accurate and unread for five days."""
         judged = judge_audit_findings({"findings": [_breach(port=8888), _breach(port=9999)]}, 5)
         assert [j.title for j in judged] == [
             "Estate port 8888 registry breach",

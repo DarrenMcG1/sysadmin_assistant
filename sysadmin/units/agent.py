@@ -21,11 +21,11 @@ durable half).  ``ALERT_TITLE`` is the rolled-up count of everything
 worth doing eventually — debt, re-raised only when the number moves.
 ``ARMED_TITLE_PREFIX`` is one row per *armed orphan*: a unit whose
 project is gone and which systemd will nonetheless start.  They are
-separate because the roll-up cannot name anything.  ``Unmonitored
-systemd units: 17 findings`` was open, accurate and unread for eight
-days while two of those seventeen restart-looped 52,178 times and
-stalled the kernel — the detector had the diagnosis in plain English
-the whole time, on a surface nobody opens.  ``GET /api/units/*`` stays
+separate because the roll-up cannot name anything.  It was open,
+accurate and unread for five days, last titled ``Unmonitored systemd
+units: 17 findings``, while two of the units it counted restart-looped
+52,178 times and stalled the kernel — the detector had the diagnosis in
+plain English the whole time, on a surface nobody opens.  ``GET /api/units/*`` stays
 GET-only and advice-only; what changed is that the dangerous subset now
 speaks without being fetched.
 """
@@ -108,7 +108,7 @@ def armed_alert_title(finding: UnitFinding) -> str:
     """The stable identity of one armed orphan.
 
     **The unit name is in the title, and that is the whole change.**  The
-    roll-up alert was open and correct for eight days
+    roll-up alert was open and correct for five days
     (SNAG-ESTATE-001): ``Unmonitored systemd units: 17 findings`` said
     the estate had debt, while two of those seventeen were restart-looping
     at 1.3/min and had stalled the kernel.  A count cannot name the thing

@@ -20,9 +20,9 @@ durable half** (Session 46). `ALERT_TITLE` is the rolled-up count of
 everything worth doing eventually; `ARMED_TITLE_PREFIX` is one row per
 **armed orphan** — a unit whose project is gone and which systemd will
 nonetheless start. The roll-up cannot name anything, and that is the
-whole defect: `Unmonitored systemd units: 17 findings` was open,
-accurate and unread for eight days while two of those seventeen
-restart-looped 52,178 times and stalled the kernel. The diagnosis was
+whole defect: the roll-up, last titled `Unmonitored systemd units: 17
+findings`, was open, accurate and unread for five days while two of the
+units it counted restart-looped 52,178 times and stalled the kernel. The diagnosis was
 complete, correct and machine-readable the entire time. A count is not
 news.
 

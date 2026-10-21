@@ -230,7 +230,7 @@ def compose_rollup(pending: list[PendingFailure]) -> tuple[str, str]:
     **It names every unit it swallows** — ``SNAG-ESTATE-001``'s rule.
     A roll-up that reports a count is the defect this repository spent
     Session 46 removing: ``Unmonitored systemd units: 17 findings`` was
-    open, accurate and unread for eight days.
+    open, accurate and unread for five days.
     """
     units = ", ".join(p.unit for p in pending)
     summary = f"STILL FAILED: {len(pending)} units"

@@ -1264,7 +1264,7 @@ def judge_audit_findings(
 
     It did not, and the cost is already measured on the other side of the
     same seam.  ``GET /api/units/status`` classified both PersonalAssistant
-    units ``orphaned``, correctly and in plain English, eight days before
+    units ``orphaned``, correctly and in plain English, five days before
     anyone looked while they restart-looped 52,178 times.  A finding that
     is complete, correct, machine-readable and unread is the shape Session
     46 spent itself removing, and an audit that files into a surface
@@ -1277,7 +1277,7 @@ def judge_audit_findings(
 
     1. **One row per port, with the port in the title.**  Session 46's
        rule: ``Unmonitored systemd units: 17 findings`` was open, accurate
-       and unread for eight days because a roll-up cannot name anything,
+       and unread for five days because a roll-up cannot name anything,
        and a shared title means one fault masks the next behind the tray's
        ``{severity}:{title}`` fingerprint.
 

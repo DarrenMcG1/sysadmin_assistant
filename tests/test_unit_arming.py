@@ -2,7 +2,7 @@
 
 The snag is not a detection failure.  ``GET /api/units/status`` had
 ``personal-assistant-idle-watcher.service`` classified ``orphaned``, with
-the dead path and the cause in plain English, eight days before anyone
+the dead path and the cause in plain English, five days before anyone
 looked — while it restart-looped 34,517 times and stalled the kernel.
 There was even an open alert: ``Unmonitored systemd units: 17 findings``.
 
@@ -441,7 +441,7 @@ def agent():
 async def test_the_title_names_the_unit_which_is_the_whole_change(agent):
     """``Unmonitored systemd units: 17 findings`` could not.
 
-    It was open, accurate and unread for eight days while two of those
+    It was open, accurate and unread for five days while two of those
     seventeen restart-looped 52,178 times.  A count cannot name the thing
     that is on fire, and the tray fingerprints on ``{severity}:{title}``
     — so a shared title also means one armed orphan masks the next.

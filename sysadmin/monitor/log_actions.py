@@ -303,7 +303,7 @@ class IncidentMember:
     Carried so the roll-up can **name** what it collapsed rather than
     count it — ``SNAG-ESTATE-001``'s rule, which cost a session to learn
     when ``Unmonitored systemd units: 17 findings`` sat open, accurate
-    and unread for eight days while two of the seventeen restart-looped
+    and unread for five days while two of the seventeen restart-looped
     52,178 times.
     """
 
