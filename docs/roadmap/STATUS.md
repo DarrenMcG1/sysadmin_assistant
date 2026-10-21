@@ -8,9 +8,9 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-10-21 12:33:27**
-> <!--check:deploy--> <!--check:daemon_start-->, when the owner moved it
-> onto `99f52ab`, Session 398's decline of an overlapping agent run. `/health` answers
+> **Deploy.** The daemon restarted at **2026-10-21 15:25:08**
+> <!--check:deploy--> <!--check:daemon_start-->, when Session 401 moved
+> it onto `e35fd40`, Session 400's streamed advice reads. `/health` answers
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >

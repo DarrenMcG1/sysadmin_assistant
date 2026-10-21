@@ -6,6 +6,92 @@ file under estate rule 2's 500-line bound. The live Next action and the
 scheduled action stay there; nothing here is current. A later move puts
 its sections at the top of this file, below this paragraph.
 
+## What Session 383 handed on
+
+
+Nothing is owed: no estate message is open, the game detector check passed, and the owner's uninstalls took `/` to 79 % and closed the critical alert. *(For: none)*
+
+## Session 383: both scheduled checks closed
+
+Session 370's scheduled check. It had been waiting on "an evening of
+play", and four evenings had passed (2026-10-15 to 18). No code; the
+counts are in tasks.md, Session 383.
+
+- **All three conditions held.** 24 spans, one per launch; 163
+  `focused` stretches and no `unknown` row, so the KWin probe always
+  answered; `focus` reads `known` on every run inside a span (1,483 of
+  1,483).
+- **Left as found:** three spans are single-poll sightings with no
+  duration. That is what a launch closed within a minute looks like at
+  a 1-minute poll, not a defect, so no snag entry.
+- **The disk check closed too.** The owner uninstalled Steam games
+  this evening: `/` went from 95 % (85 GB free) at 21:52 to 79 %
+  (337 GB free) at 21:56, and the "Critical disk usage on /" alert,
+  open since 2026-10-14, resolved itself at 21:56:56. No warning
+  opened after it. `steamapps/common` now holds 546 GB.
+- No estate message open.
+
+## What Session 382 handed on
+
+Nothing is owed: no estate message is open; the scheduled checks wait on the owner's Steam uninstalls and an evening of play. *(For: none)*
+
+## Session 382: the card stayed awake across a boot
+
+Session 381's scheduled check. No code.
+
+- **The udev rule held against amdgpu.** Boot `b6bb4935` (10:16 BST)
+  is the first since the rule was written on 2026-10-15 14:05, and
+  `power/control` reads `on`, `runtime_status` `active`. So the
+  `add|bind` match was enough; the `DRIVER=="amdgpu"` and
+  `amdgpu.runpm=0` fallbacks are not needed. Ticked in tasks.md,
+  Session 374.
+- No estate message open.
+
+## What Session 381 handed on
+
+Nothing was owed: the estate's priority-digit message is closed and no message is open; the scheduled checks wait on a boot and the owner.
+
+## Session 381: estate.snags reads an ASCII priority digit
+
+Estate message `67138a9d-3adf-45a5-a409-f4f844b0b0d9`. No code; the
+detail is in tasks.md, Session 381.
+
+- **Our `PRIORITY_RE` keeps `\d`.** It sets only `Entry.priority`,
+  which nothing reads and no database stores, so a full-width digit
+  cannot fail anything here. Both patterns find the same 177 priorities
+  in our snag list. Rejected: switching to `[0-9]`, because it changes
+  a field with no reader. Copy the estate's pattern if one is ever
+  added.
+- Closed `67138a9d` with that note.
+- **Close note on `4f851ae8` (Alfred):** the endpoint answers, with 12
+  spans on 2026-10-16 22:50. Alfred's Part 6 is unblocked. Its focus
+  stretches also carry `state` and `last_seen_at`.
+- **Close note on `89d1c61c` (estate-manager, the 2026-10-16 wipes):**
+  no session ran git or pre-commit here in that window. Their unconfirmed
+  reading is the owner's push from project-manager's Review tab: one
+  pre-commit stash, then a failed restore that ran `git checkout -- .`.
+
+## What Session 380 handed on
+
+Nothing was owed: Alfred was to close our 4f851ae8, which it did on 2026-10-16.
+
+## Session 380: ADR-0016 §4 from Alfred's answer
+
+Session 379's next action. No code; the detail is in tasks.md,
+Session 380.
+
+- **ADR-0016 §4 now says our 30 days are the only raw record of
+  gaming.** Alfred keeps one `Downtime: <game>` entry per run, with no
+  expiry, and stores no spans (estate message `36903d39`).
+- Amended in place rather than in a new section, because §4's bullet
+  waited on Alfred's answer and would otherwise still read
+  "unconfirmed".
+- Retention stays 30 days. Alfred never rebuilds a day older than the
+  window, so our expiry cannot erase its entries.
+- Closed `36903d39`. Its detail said Alfred's Part 6 still waits on
+  the endpoint, which has been live since 2026-10-15; the close note
+  says so. Our `4f851ae8` is Alfred's to close.
+
 ## What Session 379 handed on (done by Session 380)
 
 Amend ADR-0016 §4: Alfred keeps Downtime entries, not raw spans, so our 30 days are the only raw record; then close Alfred's message (tasks.md, Session 379). *(For: session)*
