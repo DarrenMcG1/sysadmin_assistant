@@ -95,11 +95,39 @@ def mock_config():
     )
 
 
+class StreamedResult:
+    """What ``AsyncConnection.stream`` answers: rows a partition at a time.
+
+    Partitioned by the ``yield_per`` the statement carries, as the real
+    server-side cursor is, so a reader that stops after its first
+    partition loses rows here too.
+    """
+
+    def __init__(self, rows, size: int | None = None) -> None:
+        self._rows = list(rows)
+        self._size = size or len(self._rows) or 1
+
+    async def partitions(self, size: int | None = None):
+        size = size or self._size
+        for start in range(0, len(self._rows), size):
+            yield self._rows[start:start + size]
+
+
+def stream_rows(session, rows) -> None:
+    """Make ``session.connection().stream`` answer ``rows``."""
+    session.connection.return_value.stream = AsyncMock(
+        side_effect=lambda statement: StreamedResult(
+            rows, statement.get_execution_options().get("yield_per")
+        )
+    )
+
+
 @pytest.fixture
 def mock_session():
     """Mock async SQLAlchemy session for unit tests.
 
-    Provides add(), flush(), execute(), commit(), rollback() as AsyncMocks.
+    Provides add(), flush(), execute(), commit(), rollback() as AsyncMocks,
+    and connection() for a streamed read (:func:`stream_rows`).
 
     ``execute`` answers with an **empty result** rather than a bare
     ``AsyncMock``.  A bare one returns a coroutine from ``.scalars()``,
@@ -118,6 +146,11 @@ def mock_session():
     result.scalars.return_value.all.return_value = []
     result.scalars.return_value.__iter__ = lambda self: iter(())
     session.execute = AsyncMock(return_value=result)
+    # ``connection().stream`` answers no rows, for the same reason.
+    session.connection = AsyncMock(return_value=MagicMock())
+    session.connection.return_value.stream = AsyncMock(
+        return_value=StreamedResult([])
+    )
     return session
 
 
