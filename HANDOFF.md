@@ -1,6 +1,35 @@
-# Handoff — 2026-10-20 (Session 392)
+# Handoff — 2026-10-21 (Session 393)
 
 ## Next action
+
+Rewrite STATUS.md's alerts sentence to name every open row the preflight measures, then work the highest-ranked open snag a session can start now. *(For: session)*
+
+## Session 393: the GPU-context reader fired on real resets
+
+Closed `SNAG-GPU-001` (the P2 entry saying a poisoned inference server
+reports `ok`) on measurement alone. Docs only, so no restart is owed.
+
+- **Why this one:** Session 392 passed over the P2 entry as decided. Its
+  rank was waiting on the first real reset since the 2026-09-08 fix, and
+  three had landed on 2026-09-30 without any sitting reading them.
+- **What the reading found:** both declared servers were flagged
+  `degraded` one poll after each reset was ingested. `venture-chat`
+  aborted on its first submission both times, and served nothing while
+  flagged. The `degraded` alerts opened 53 minutes before the first
+  abort. The full figures are in the entry.
+- **Limit, recorded in the entry:** `llama-server` was never submitted to
+  while flagged, so on its own it shows no false alarm rather than a
+  confirmed poisoning. `venture-chat` is the same build and supplies the
+  confirmation.
+- **Not worked:** STATUS.md's alerts sentence is stale. The block names
+  3 open rows; the preflight measured 4 at start and 5 at close, the new
+  ones being `Project clyde-automation-site next action idle` and a
+  ProductHunt 429 from `venture-assistant-backend`. Recorded in
+  `tasks.md` under Session 393. It is the next action.
+- **Postflight's vacuous-guard gate** still names only
+  `tests/test_off_loop.py:99`, which is `SNAG-TEST-016`, open.
+
+## What Session 392 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 

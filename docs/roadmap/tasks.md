@@ -4,11 +4,28 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-20
+> **Last Updated**: 2026-10-21
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
 ---
+
+## Session 393: the GPU-context reader fired on real resets (2026-10-21)
+
+The published next action: the highest-ranked open snag a session can
+start now. Session 392 passed over `SNAG-GPU-001` (P2) as decided, but
+its rank was waiting on a reading, and the resets it waited for had
+already happened on 2026-09-30. Taking that reading needed nothing from
+the owner.
+
+- [x] **Read and closed `SNAG-GPU-001`**: 3 resets, 3 of 3 stored;
+      `venture-chat` flagged before both of its aborts and served nothing
+      while flagged; `llama-server` was flagged 2 h 41 m and was never
+      submitted to; both `degraded` alerts opened 53 minutes before the
+      first abort. Docs only, so no restart is owed.
+- [ ] **STATUS.md's alerts sentence is stale**: the block names 3
+      unresolved rows; the preflight measured 4 at this session's start
+      and 5 at its close. A second concern, named and not worked here.
 
 ## Session 392: the scheduled-section assert is declared (2026-10-20)
 
