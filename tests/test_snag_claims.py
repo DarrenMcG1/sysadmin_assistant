@@ -3086,6 +3086,31 @@ class TestTheUnmarkedSentenceCheck:
         assert "open_titles" in measurement.note
         assert "cannot isolate the sentence" in measurement.note
 
+    def test_a_hyphenated_compound_in_both_drives_is_not_a_quotation(self):
+        """A live title containing a specimen word is the box's traffic.
+
+        The 2026-10-22 red: alert ``estate-manager-audit-timer critical``
+        sat in both drives, the baseline subtracted it as one token, and a
+        substring search then found the first specimen's
+        ``estate-manager`` inside it.  Injected here so the guard does not
+        wait on the alert table.
+        """
+        real = ops_claims.check_all
+
+        def compound(path=None, now=None):
+            return [
+                dataclasses.replace(
+                    claim, detail=(*claim.detail, "critical: estate-manager-audit-timer")
+                )
+                if claim.key == "alerts"
+                else claim
+                for claim in real(path, now)
+            ]
+
+        with patch.object(ops_claims, "check_all", compound):
+            measurement = check_unmarked_sentence_invisible()
+        assert "quotes the sentence" not in measurement.note
+
     def test_a_dead_quotation_instrument_is_declared(self):
         """Half the reach gone is reported, never served as silence.
 

@@ -3177,7 +3177,13 @@ def check_unmarked_sentence_invisible() -> Measurement:
             continue
         after = claim_projection(claims)
         shared = sorted(set(before) & set(after))
-        text = " ".join(claim_text(claim) for claim in claims)
+        # Tokens, never a substring search: ``seen`` is tokens, so a live
+        # alert title ``estate-manager-audit-timer`` subtracts as one word
+        # and a substring test then finds the sentence's ``estate-manager``
+        # inside it — the 2026-10-22 red, reporting the box's own traffic.
+        text = frozenset(
+            word for claim in claims for word in INVISIBLE_WORD_RE.findall(claim_text(claim))
+        )
         distinctive = sorted(frozenset(INVISIBLE_WORD_RE.findall(sentence)) - seen)
         readings.append(
             SentenceReading(
