@@ -1,6 +1,43 @@
-# Handoff — 2026-10-22 (Session 407)
+# Handoff — 2026-10-22 (Session 408)
 
 ## Next action
+
+Rewrite STATUS.md's Alerts paragraph to name all five open rows, so its alerts and open_titles claims read ok, per tasks.md's Session 408 item. *(For: session)*
+
+## Session 408: the blip row reads the service's own log
+
+No open snag could be started. `SNAG-SVC-001` (P3) waited only on the
+owner, who ruled (b): give the `check_interval` row evidence rather than
+delete it. Closed in `d604dfd`; daemon restarted onto it at 21:08:24
+(PID 2577593, `/api/health` healthy).
+
+- **What it does now:** the row reads the service's `error`/`critical`
+  log lines within 60 s of each one-check blip. A fault at any blip
+  says leave the check alone. Quiet at every blip, from a service that
+  logs faults elsewhere, points at the check. No declared `log:` (28 of
+  48 services), or no fault all window, keeps the old volume-only
+  wording at `evidence: rate`.
+- **Decided:** one `log_actions.correlate` call per blip. Rejected a
+  single call over the window: its anchor rule lets a line 61 s early
+  claim the line 5 s early and leave the blip uncorroborated. The test
+  for this went red under the whole-window version.
+- **Decided:** 60 s is invented and says so (six HTTP probe timeouts).
+  A coincidence errs toward "leave the check alone", and a corroborated
+  row prints the chance figure.
+- **Measured:** the retired check reported `mismatch` on its import limb
+  alone, with `known_noise` rule 3 unmoved. No service is blip-shaped
+  today (alfred-telegram has 1 one-check outage, needs 3), so the live
+  route serves what it did. Driven at a threshold of 1, alfred-telegram
+  took the no-log branch on real data.
+- **One commit mixes code and prose, on purpose:** `snag_list.md`'s
+  closure is in `d604dfd`, because a test pins each check to its
+  entry's marker both ways; precedent `b8e421f`.
+- **Second concern, recorded in tasks.md, not worked:** STATUS.md's
+  Alerts paragraph names 3 of 5 open rows. The other two are
+  estate-manager's audit alerts, opened today. That is the next action.
+- **Not mine, unchanged:** `SNAG-LOG-022`'s three red journal tests.
+
+## What Session 407 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 

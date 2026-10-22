@@ -165,6 +165,18 @@ cross-reference — disjoint populations today only because no agent on
 this box is a systemd timer, which is a property of the box and not of
 the design.
 
+**`SNAG-SVC-001` closed 2026-10-22 (Session 408)**, on the owner's
+ruling for evidence rather than deletion. The `check_interval` row now
+asks the service's own journal: `reliability_history.fetch_blip_logs`
+reads its `error` and `critical` lines within 60 s of each one-check
+blip, and the advice module pairs them with `log_actions.correlate`, one
+call per blip. A fault at any blip says leave the check alone; silence
+at every blip from a service that logs faults elsewhere points at the
+check; no declared `log:`, or no fault all window, keeps the old
+volume-only wording at `evidence: rate`. The reasoning is in
+`service_recommendations`' module docstring, "The blip row reads the
+service's own log".
+
 **What the tests were doing is the part worth carrying.** The whole suite
 passed either side of the `skipped` fix, so a wrong score was not merely
 undetected but untestable-by-omission. And **two of eight falsifications
@@ -216,7 +228,11 @@ two of them settled by controls belonging to a different entry:
    therefore applied and the module is not imported, pinned by an `ast`
    walk — a docstring mention is an `ast.Constant`, and this module
    names `log_actions` in prose four times. Driven by stash before and
-   after: all 18 checks report `still holds`, unmoved.
+   after: all 18 checks report `still holds`, unmoved. *That control
+   retired with `SNAG-SVC-001` on 2026-10-22, when the module began
+   importing `log_actions.correlate` for the blip row. The fold still
+   imports nothing of `group_incidents`, and rule 1 stands on its first
+   reason: fixing the service lapses neither watch-advice row.*
 
 3. **Points are summed, and the invariant is what decided it.** Every
    member shares one currency and one subject, so the sum is the

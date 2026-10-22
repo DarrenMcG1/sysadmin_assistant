@@ -65,6 +65,30 @@ reads `mismatch`.
       recover at the next boot and after `estate-manager-review`'s
       2026-10-26 run; tick this when they pass.
 
+## Session 408: the blip row reads the service's own log (2026-10-22)
+
+The published next action: the highest-ranked open snag a session can
+start now. None could be started; `SNAG-SVC-001` (P3) waited only on an
+owner ruling, which the owner gave this session: (b), give the row
+evidence.
+
+- [x] **Blip times leave the scorer**: `ReliabilityScore.episode_starts`,
+      dropped by `as_dict` so the wire shape is unchanged.
+- [x] **`fetch_blip_logs`** reads the service's `error`/`critical`
+      lines within 60 s of each blip, only for blip-shaped scores; a
+      live test drives the real query inside a rolled-back transaction.
+- [x] **The row's three readings**, correlated one blip at a time
+      through `log_actions.correlate`; 14 tests, and the one-call-per-blip
+      rule goes red under a whole-window call. Closed `SNAG-SVC-001` and
+      retired its check in `d604dfd`.
+- [x] **Daemon restarted** onto `d604dfd` at 21:08:24 (PID 2577593).
+- [ ] **STATUS.md's Alerts paragraph is stale** (found this session, not
+      worked): it names 3 open rows and the box holds 5. The two it
+      does not name are `Estate audit checks errored` and
+      `estate-manager-audit-timer critical`, both opened today and
+      estate-manager's to fix. Rewrite the paragraph to name all five so
+      the `alerts` and `open_titles` claims read `ok`.
+
 ## Session 404: venture-embed stops declaring holds_vram (2026-10-21)
 
 The published next action: the highest-ranked open snag a session can

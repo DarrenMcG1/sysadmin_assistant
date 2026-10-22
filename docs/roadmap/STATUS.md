@@ -8,10 +8,10 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-10-21 17:40:06**
-> <!--check:deploy--> <!--check:daemon_start-->, when Session 404 moved
-> it onto `1687713`, where `venture-embed` no longer declares
-> `holds_vram`. `/health` answers
+> **Deploy.** The daemon restarted at **2026-10-22 21:08:24**
+> <!--check:deploy--> <!--check:daemon_start-->, when Session 408 moved
+> it onto `d604dfd`, where the `check_interval` advice row reads the
+> service's own log. `/health` answers
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
@@ -71,6 +71,15 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 408 — the blip row reads the service's own log (2026-10-22)
+
+- `SNAG-SVC-001` closed on the owner's ruling for evidence. The
+  `check_interval` row no longer argues from the blip count alone: it
+  reads the service's error lines within 60 s of each one-check blip and
+  says either leave the check alone (a fault at a blip) or the check is
+  the suspect (quiet at every blip). Its check retired (`d604dfd`). No
+  service is blip-shaped today, so the live route is unchanged.
 
 ### Session 407 — the quotation instrument matches tokens (2026-10-22)
 
