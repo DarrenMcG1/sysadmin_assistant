@@ -1,6 +1,42 @@
-# Handoff — 2026-10-22 (Session 406)
+# Handoff — 2026-10-22 (Session 407)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 407: the quotation instrument matches tokens
+
+Fixed in `a68ab33`: `check_unmarked_sentence_invisible`, the check
+behind `SNAG-ESTATE-012`, no longer reads `mismatch`. Its two red tests
+in `tests/test_snag_claims.py` pass.
+
+- **Cause:** the check subtracts the baseline report's words as tokens,
+  then searched the second drive for the survivors as substrings. Alert
+  `estate-manager-audit-timer critical`, open since 05:05 today, is one
+  token, so the specimen's `estate-manager` survived and was found
+  inside it. Both drives now compare token sets.
+- **Measured:** the new test injects that title into both drives and
+  goes red against the substring search. The check's 17 tests pass.
+- **Rejected:** splitting words at hyphens. `estate-manager` is the
+  first specimen's only distinctive word, and would split into two words
+  the baseline already uses.
+- **Second concern, recorded as `SNAG-LOG-022` and in tasks.md, not
+  worked:** the full suite has three other reds, the same with or
+  without this fix, in `tests/test_services_registry.py`. Each is a
+  premise failure: no journal records for an estate-manager unit. The
+  journal now starts 2026-10-19 08:06, because `baloo_file_extractor`
+  crash-loops (172k core dumps today, 3.1M of 4.0M journal lines). The
+  records do not come back when the loop stops: the timer's need the
+  next boot, `estate-manager-review`'s its next run on 2026-10-26.
+  Until then the pre-push suite is red on those three.
+- **Owner's step, taken:** `balooctl6 disable` at about 15:55; the owner
+  parked the rest as probably inconsequential. Their Deadlock stutter
+  matches the loop only on 10-20's evening (bursts at 18:00 and 20:30).
+  `SNAG-LOG-022` closes when the three tests pass again.
+- **Not mine, unchanged:** the postflight's STATUS.md alerts figure, 3
+  stated against 5 measured, recorded by Session 406.
+
+## What Session 406 handed on
 
 Find why check_unmarked_sentence_invisible now reads mismatch: two tests in tests/test_snag_claims.py have been red since before Session 406. *(For: session)*
 
@@ -353,163 +389,6 @@ reports `ok`) on measurement alone. Docs only, so no restart is owed.
   `tasks.md` under Session 393. It is the next action.
 - **Postflight's vacuous-guard gate** still names only
   `tests/test_off_loop.py:99`, which is `SNAG-TEST-016`, open.
-
-## What Session 392 handed on
-
-Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
-
-## Session 392: the scheduled-section assert is declared
-
-Closed `SNAG-TEST-018` in `0b5a39b`, test-only, so no restart is owed.
-
-- **Decided:** a `# may-not-evaluate:` declaration, as the snag proposed.
-  Rejected: treating an absent `## Scheduled action` section as an empty
-  one, which makes the assert run over nothing and silences the gate
-  without making it say anything.
-- **The gate still exits 1**, now only on `tests/test_off_loop.py:99`
-  (`SNAG-TEST-016`, open). No entry is declared owed any more;
-  `SNAG-TEST-016` and `SNAG-TEST-017` are the same shape and carry no
-  disposition yet.
-
-## What Session 391 handed on
-
-Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
-
-## Session 391: the API token is a systemd credential
-
-Closed `SNAG-API-005`'s token half. Code in `4ef799f` and `17701c9`; the
-owner installed the unit and the credential at 20:25:27, and the tray was
-restarted onto its new code at 20:26:14.
-
-- **Every POST to :8500 now needs a bearer token**, including a session's
-  `POST /api/sysadmin/reload`: send
-  `-H "Authorization: Bearer $(cat /run/credentials/sysadmin.service/api-token)"`.
-  A 401 there means a missing header, not a missing handler. `kill -HUP`
-  needs none.
-- **Decided:** a fixed credential id `api-token` in `/etc/credstore`,
-  with the tray reading systemd's delivered copy so the two cannot
-  disagree. Rejected: a token file in the home directory (could drift
-  from what the daemon loaded) and a config key for the id (a mismatch
-  with the unit fails open).
-- **Decided:** the tray reads the token per request and scoped to the
-  daemon's origin. The old client-wide header would have sent a real
-  token to the estate on 8400.
-- **Not used:** `scripts/setup-systemd.sh` under `pkexec`. It takes the
-  user from `SUDO_USER`, which `pkexec` does not set, so it would install
-  the tray unit under `/home/root`.
-- **Limit recorded:** `SNAG-API-006`, the owner's own processes can read
-  the token as the tray does.
-
-## What Session 390 handed on
-
-Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
-
-## Session 390: the token surface becomes a standing rule
-
-The owner asked for estate message
-`21860cb6-753f-42f5-954c-7ea872a4be83` to be acted on. Docs only; no
-restart owed.
-
-- **CLAUDE.md now says how to mint, use and revoke** a
-  `sysadmin-assistant` token for Alfred's planner (section "Writing to
-  Alfred's planner"), driven once: whoami labelled, revoke 204, then 401.
-- **Message closed.** Session 389 left it open because a close note would
-  claim the surface was used; the note says it was recorded and driven,
-  not used for a task, so it claims nothing false.
-- **Decided:** mint-and-revoke to test the recipe. Rejected: writing a
-  planner block, since no open task needs downtime or `sudo` (checked
-  tasks.md and the open snags).
-
-## What Session 389 handed on
-
-Carry out a downtime or sudo task through Alfred's planner with a `sysadmin-assistant` token, then close estate message `21860cb6-753f-42f5-954c-7ea872a4be83`. *(For: none)*
-
-## Session 389: Alfred's `sysadmin-assistant` token surface
-
-Docs only; no restart owed.
-
-- **Estate message `21860cb6-753f-42f5-954c-7ea872a4be83` read and
-  logged** as a task in tasks.md Session 389. It is informational: the
-  surface exists, nothing here had to change.
-- **Decided:** leave the message open. Its close note would claim the
-  surface was used, and it has not been; closing cannot be undone.
-  Rejected: minting a token now to "act on" it, which would write to
-  Alfred for no task.
-- Also ticked the STATUS.md duplicate `Last Updated` task (done in
-  `d75e751`).
-
-## What Session 388 handed on
-
-Delete the older duplicate `**Last Updated**` line from STATUS.md, done in `d75e751`.
-
-## Session 388: ops_claims.py stops calling the region append-only
-
-Session 387's next action. Comments only; no restart owed.
-
-- **`SNAG-DOCS-034` closed** in `f8ce7ce`. Three statements, not the
-  two the snag listed: the third was `check_open_titles`' docstring.
-  Each now says the region *was* append-only and names the archive.
-- **Decided:** fix the third in the same commit, since it is the same
-  file and the same defect. Rejected: also fixing the four in
-  `tests/test_ops_claims.py`, which would widen the sitting past the
-  file the snag named; they were done afterwards in the same session (four docstrings, test commit
-  below in the log); `tests/test_claude_md_registry.py:402` stays.
-- **Seen in passing:** STATUS.md has two `**Last Updated**` lines.
-  Recorded as a task, not fixed.
-- No estate message open.
-
-## What Session 387 handed on
-
-Fix SNAG-DOCS-034: put ops_claims.py's two present-tense "append-only" statements in the past tense, as tasks.md Session 387 records. *(For: session)*
-
-## Session 387: STATUS.md's opening block is archived
-
-Session 386's next action. Docs and tests; the detail is in tasks.md,
-Session 387.
-
-- **STATUS.md is 110 lines, down from 8,310.** The dated announcements
-  went to `docs/roadmap/archive/status_opening_block_2026-10-19.md`,
-  unedited but for 15 re-based links.
-- **A current block holds the standing claims**, one paragraph each,
-  with nine of the ten markers. The tenth (`migration_head`) sat on a
-  sentence still saying head 019; the table states 021 with its own
-  marker, so the sentence was archived, not restated.
-- **Decided: rewrite claims in place from now on.** The block's first
-  paragraph says so. Rejected: keeping a dated paragraph per sitting,
-  which is how the block reached 8,242 lines.
-- **Four tests assumed the block only grows.** They now read the archive
-  as frozen history (`with_history` in `tests/test_ops_claims.py`).
-  Rejected: lowering their thresholds, or `git show` of an old commit.
-- **The alert claim was stale: 2 → 1.** `Unusual disk / usage` resolved
-  at 11:33 today. `check-ops-claims.sh` reads all `ok`.
-- **The first commit leaves four tests red until the second.** Prose and
-  code are separate commits; the docs move lands first, the test change
-  second, in the same push.
-- No estate message open.
-
-## What Session 386 handed on
-
-Archive STATUS.md's opening block (lines 1 to 8,242), first moving its ten live check markers into a current block, as tasks.md Session 386 records. *(For: session)*
-
-## Session 386: STATUS.md's Recently Completed is archived
-
-Session 385's next action. Docs only; the detail is in tasks.md,
-Session 386.
-
-- **STATUS.md is 8,310 lines, down from 14,615.** Sessions 10 to 344
-  went to `docs/roadmap/archive/status_completed_2026-10-19.md`,
-  unedited but for 10 re-based links. Sessions 349 to 374 stay.
-- **Safe because nothing reads that section.** `ops_claims.py` parses
-  from the top of the file to the `## Recently Completed` heading,
-  which stays. Everything above it is byte-identical, and
-  `check-ops-claims.sh` reads all `ok`.
-- **Decided:** a separate archive file. Rejected appending to
-  `completed_2026-10-19.md`, whose header says it came from tasks.md
-  and which already holds these sessions' task records.
-- **Left: the opening block**, 8,242 lines of dated announcements. It
-  is the parsed region and carries ten live markers spread through it,
-  so it needs its own sitting.
-- No estate message open.
 
 ## Older sessions
 

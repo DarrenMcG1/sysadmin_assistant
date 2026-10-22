@@ -34,7 +34,7 @@ recorded by Session 404.
 - [x] **2 tests** in `tests/test_handoff_shape.py` lift the awk out of
       the script and run it on forged handoffs; both go red against the
       old match.
-- [ ] **`SNAG-ESTATE-012`'s check reads `mismatch`** (found this session,
+- [x] **`SNAG-ESTATE-012`'s check reads `mismatch`** (found this session,
       not worked): `check_unmarked_sentence_invisible` reports that
       STATUS.md's unmarked sentence *"ask estate-manager the Session 33
       question"* now reaches the report, *"the report quotes the sentence
@@ -44,6 +44,26 @@ recorded by Session 404.
       already at `2f98465`, so the pre-push suite is red. The postflight
       also reads STATUS.md's block as 3 unresolved alerts against 5
       measured.
+
+## Session 407: the quotation instrument matches tokens (2026-10-22)
+
+The published next action: find why `check_unmarked_sentence_invisible`
+reads `mismatch`.
+
+- [x] **Tokens on both sides**: the baseline's words were subtracted as
+      tokens and the second drive searched as a substring, so the live
+      alert `estate-manager-audit-timer critical` held the specimen's
+      `estate-manager`. Fixed in `a68ab33`; Session 406's item above is
+      ticked by it.
+- [x] **1 test** injects the hyphenated title into both drives; it goes
+      red against the substring search.
+- [ ] **`SNAG-LOG-022`: baloo's crash loop rotates the journal** (found
+      this session, not worked): three premise failures in
+      `tests/test_services_registry.py` find no journal records for
+      estate-manager units, so the pre-push suite stays red on them. The
+      owner ran `balooctl6 disable` on 2026-10-22 and parked it. The tests
+      recover at the next boot and after `estate-manager-review`'s
+      2026-10-26 run; tick this when they pass.
 
 ## Session 404: venture-embed stops declaring holds_vram (2026-10-21)
 
