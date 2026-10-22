@@ -82,12 +82,21 @@ evidence.
       rule goes red under a whole-window call. Closed `SNAG-SVC-001` and
       retired its check in `d604dfd`.
 - [x] **Daemon restarted** onto `d604dfd` at 21:08:24 (PID 2577593).
-- [ ] **STATUS.md's Alerts paragraph is stale** (found this session, not
+- [x] **STATUS.md's Alerts paragraph is stale** (found this session, not
       worked): it names 3 open rows and the box holds 5. The two it
       does not name are `Estate audit checks errored` and
       `estate-manager-audit-timer critical`, both opened today and
       estate-manager's to fix. Rewrite the paragraph to name all five so
-      the `alerts` and `open_titles` claims read `ok`.
+      the `alerts` and `open_titles` claims read `ok`. Done by Session 409.
+
+## Session 409: STATUS.md names all five open alerts (2026-10-22)
+
+The published next action: Session 408's item above.
+
+- [x] **The Alerts paragraph names 5 rows**, adds the two estate audit
+      alerts with their open times and cause, and refreshes the disk
+      figure to 87.2 %. `sysadmin-check-claims` reads every claim `ok`,
+      `alerts` and `open_titles` among them.
 
 ## Session 404: venture-embed stops declaring holds_vram (2026-10-21)
 

@@ -1,6 +1,26 @@
-# Handoff — 2026-10-22 (Session 408)
+# Handoff — 2026-10-22 (Session 409)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
+
+## Session 409: STATUS.md names all five open alerts
+
+Docs only. STATUS.md's Alerts paragraph named 3 of the 5 open rows; it
+now names all five, and `sysadmin-check-claims` reads every claim `ok`.
+
+- **Added:** `estate-manager-audit-timer critical` (05:05 today) and
+  `Estate audit checks errored` (05:41 today; the estate's `vram` check
+  could not read `venture-model-probe.service`'s journal). Both are
+  estate-manager's alerts on their own audit, so nothing was filed.
+- **Refreshed:** the disk row now reads 87.2 %, its live message, in
+  place of 81.4 %.
+- **Dropped:** the two resolutions from 2026-10-21 (`llama-server
+  degraded`, `venture-chat unreachable`). They are history, and the
+  paragraph states what is open.
+- **Not mine, unchanged:** `SNAG-LOG-022`'s three red journal tests.
+
+## What Session 408 handed on
 
 Rewrite STATUS.md's Alerts paragraph to name all five open rows, so its alerts and open_titles claims read ok, per tasks.md's Session 408 item. *(For: session)*
 

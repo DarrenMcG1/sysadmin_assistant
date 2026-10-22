@@ -15,17 +15,18 @@
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **3** unresolved rows <!--check:alerts-->,
+> **Alerts.** `alerts` holds **5** unresolved rows <!--check:alerts-->,
 > not counting the two flapping titles below. The open rows are
 > `Project InvestingAssistant next action idle`,
 > `Project clyde-automation-site next action idle` (opened 05:26 on
-> 2026-10-21; that repository waits on a venture filing) and
-> `High disk usage on /` (81.4 % against 80 %) <!--check:open_titles-->.
-> `llama-server degraded` resolved at 08:25 on 2026-10-21, and
-> `venture-chat unreachable` resolved after its unit came back at 11:09
-> the same day. Sessions 394
-> and 395 read them and acted on none: each is another repository's or
-> the owner's to act on.
+> 2026-10-21; that repository waits on a venture filing),
+> `High disk usage on /` (87.2 % against 80 %),
+> `estate-manager-audit-timer critical` (opened 05:05 on 2026-10-22) and
+> `Estate audit checks errored` (05:41 the same day: the estate's `vram`
+> check could not read `venture-model-probe.service`'s journal)
+> <!--check:open_titles-->. Each is another repository's or the owner's
+> to act on, the last two estate-manager's; Session 409 read them and
+> acted on none.
 >
 > **Two titles flap and are set aside from that count.** `High VRAM
 > usage on AMD Radeon RX 7900 XTX` is declared flapping
