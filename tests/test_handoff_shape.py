@@ -236,6 +236,57 @@ class TestPreflightIsTheOnlyReaderAndSaysSo:
         assert "SCHEDULED=" in script
 
 
+class TestPreflightTakesOnlyTheScheduledHeading:
+    """The preflight's awk prints the section, and only that heading opens it.
+
+    Until Session 406 it took the first heading *containing* "scheduled",
+    so a handoff with no scheduled section printed Session 392's block,
+    titled "the scheduled-section assert is declared", as scheduled work.
+    The awk program is lifted out of the script and run, so the test
+    drives the script's own text rather than a copy of its rule.
+    """
+
+    SCRIPT = (
+        pathlib.Path(__file__).resolve().parent.parent
+        / "scripts"
+        / "claude-preflight.sh"
+    )
+
+    def _run(self, handoff: str) -> list[str]:
+        import subprocess
+
+        match = re.search(
+            r"SCHEDULED=\$\(awk '(.*?)' \"\$HANDOFF_FILE\"",
+            self.SCRIPT.read_text(encoding="utf-8"),
+            re.DOTALL,
+        )
+        assert match, "the preflight's SCHEDULED awk was not found in the script"
+        result = subprocess.run(
+            ["awk", match.group(1)],
+            input=handoff,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.splitlines()
+
+    def test_a_heading_that_mentions_scheduled_is_not_the_section(self):
+        handoff = (
+            "# Handoff\n\n## Next action\n\nDo it.\n\n"
+            "## Session 392: the scheduled-section assert is declared\n\n"
+            "- one\n- two\n"
+        )
+        assert self._run(handoff) == []
+
+    def test_the_scheduled_heading_is_still_read(self):
+        handoff = (
+            "# Handoff\n\n## Session 392: the scheduled-section assert\n\n- no\n\n"
+            f"{SCHEDULED_HEADING}\n\n- **2026-11-01** — one\n\n"
+            "## Session 1\n\n- not in the section\n"
+        )
+        assert self._run(handoff) == ["- **2026-11-01** — one"]
+
+
 class TestThePublishedLineNamesNoWorkNobodyIsOwed:
     """The blocking half of Session 159's guard.
 

@@ -57,7 +57,12 @@ if [ -n "$HANDOFF_FILE" ] && [ -f "$HANDOFF_FILE" ]; then
         # Dates are compared with `date -d`, so an unparseable date is
         # printed unlabelled rather than silently dropped — a scheduled item
         # nobody can see is the thing this section exists to stop.
-        SCHEDULED=$(awk '/^## / { if (seen) exit; if (tolower($0) ~ /scheduled/) { seen=1; next } }
+        #
+        # The heading is matched whole. A substring test took the first
+        # heading mentioning "scheduled", so a handoff with no scheduled
+        # section printed "## Session 392: the scheduled-section assert…"
+        # and its bullets as scheduled actions.
+        SCHEDULED=$(awk '/^## / { if (seen) exit; if ($0 ~ /^## Scheduled action[[:space:]]*$/) { seen=1; next } }
                          seen && /^- / { print }' "$HANDOFF_FILE" 2>/dev/null)
         if [ -n "$SCHEDULED" ]; then
             echo ""
