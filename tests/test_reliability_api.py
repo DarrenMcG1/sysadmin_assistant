@@ -5,21 +5,26 @@ Session 25, Tier 1.  The scorer's arithmetic lives in
 get scored, how the muted set is assembled, and the wire shape.
 """
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from sysadmin.core.config import get_config
 from sysadmin.core.contracts import ReliabilityResponse
-from sysadmin.monitor.reliability import score_service
+from sysadmin.monitor.models.log_entry import LogEntry
+from sysadmin.monitor.reliability import HealthPoint, ReliabilityScore, score_service
 from sysadmin.monitor.reliability_history import (
     compute_reliability,
+    fetch_blip_logs,
     muted_service_names,
     record_reliability_snapshot,
 )
 from sysadmin.monitor.routers.services import summarise, to_contract
 from sysadmin.monitor.services import get_services
 from tests.conftest import set_services, stream_rows
+from tests.test_log_trend_windows_live import _db_available, _rolled_back
 
 NOW = datetime(2026, 8, 7, 12, 0, tzinfo=UTC)
 INTERVAL = 60  # mock_config's health_check_interval_seconds
@@ -316,3 +321,92 @@ def test_to_contract_carries_the_deductions_through():
     assert info.service == "svc"
     assert info.deductions == []
     assert info.window_start is not None
+
+
+# ── the blip row's log read (SNAG-SVC-001) ───────────────────────────
+
+
+def test_the_scorer_records_each_episode_start_and_keeps_it_off_the_wire():
+    statuses = ["ok"] * 5 + ["critical"] + ["ok"] * 5 + ["critical"] * 2 + ["ok"]
+    score = score_service("svc", _points(statuses), now=NOW, check_interval_seconds=INTERVAL)
+    assert score.episode_starts == [
+        NOW - timedelta(seconds=INTERVAL * 8),
+        NOW - timedelta(seconds=INTERVAL * 2),
+    ]
+    assert "episode_starts" not in score.as_dict()
+    assert to_contract(score).service == "svc"
+
+
+async def test_no_blip_shaped_service_means_no_log_query(mock_config, mock_session):
+    score = score_service("svc", _points(["ok", "critical", "critical", "ok"]), now=NOW)
+    assert await fetch_blip_logs(mock_session, mock_config, [score]) == {}
+    mock_session.execute.assert_not_called()
+
+
+def _points(statuses: list[str]) -> list[HealthPoint]:
+    return [
+        HealthPoint(checked_at=at, status=status)
+        for _, status, at in _checks("svc", statuses)
+    ]
+
+
+PROBE_UNIT = "snagprobe-blip.service"
+
+
+async def _blip_drive() -> dict:
+    """Three one-check blips, read back through the real query."""
+    config = get_config()
+    window = config.agents.sysadmin.reliability.window_days
+    now = datetime.now(UTC)
+    starts = [now - timedelta(days=d) for d in (5, 3, 1)]
+    score = ReliabilityScore(
+        service="snagprobe-blip",
+        outage_episodes=3,
+        longest_outage_minutes=0.0,
+        episode_starts=starts,
+        window_days=window,
+        window_start=now - timedelta(days=window),
+    )
+    rows = [
+        ("error", "probe fault 1", starts[0] + timedelta(seconds=30)),   # near, counted
+        ("warning", "probe warn 2", starts[1] + timedelta(seconds=5)),   # near, not a fault
+        ("critical", "probe fault 3", starts[2] - timedelta(seconds=61)),  # just outside
+        ("error", "probe fault 4", starts[1] + timedelta(hours=6)),      # far, counted only
+        ("error", "probe fault 5", now - timedelta(days=window + 1)),    # before the window
+    ]
+    set_services(
+        {
+            "project": "sysadmin_assistant",
+            "name": "snagprobe-blip",
+            "kind": "http",
+            "url": "http://localhost:1/api/health",
+            "systemd": {"unit": PROBE_UNIT, "scope": "user"},
+            "log": {"type": "journalctl", "severity_filter": "warning"},
+        }
+    )
+    async with _rolled_back() as session:
+        session.add_all(
+            LogEntry(source=PROBE_UNIT, severity=severity, message=message, logged_at=at)
+            for severity, message, at in rows
+        )
+        await session.flush()
+        logs = await fetch_blip_logs(session, config, [score])
+    return {"logs": logs, "starts": starts}
+
+
+@pytest.fixture(scope="module")
+def blip_reading() -> dict:
+    if not _db_available():
+        pytest.skip("local postgres (projects DB) not reachable")
+    return asyncio.run(_blip_drive())
+
+
+class TestTheBlipLogReadAgainstTheRealQuery:
+    def test_only_fault_lines_near_a_blip_are_read(self, blip_reading):
+        log = blip_reading["logs"]["snagprobe-blip"]
+        assert log.source == PROBE_UNIT
+        assert [line.signature for line in log.lines] == ["probe fault N"]
+        assert log.lines[0].first_seen == blip_reading["starts"][0] + timedelta(seconds=30)
+
+    def test_the_count_is_every_fault_line_in_the_window(self, blip_reading):
+        assert blip_reading["logs"]["snagprobe-blip"].window_faults == 3

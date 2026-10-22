@@ -156,15 +156,12 @@ population — and the moment it could, ``GET /api/services/actions``
 served ``alfred-career-mail-timer`` twice: ``outage`` at 6 recoverable
 points beside ``timer_failed`` at 0, one fault named twice.
 
-:func:`group_faults` is ``log_actions.group_incidents``' treatment, and
-that module is **applied and never imported**.  The two rules have
-nothing in common mechanically — there is no time window here and no
-systemd graph — and an import would trip a live control belonging to a
-different entry: ``snag_claims.check_check_interval_looks_away`` uses
-this module's import set as its instrument for "the advice has the
-service's own log data now", so importing ``log_actions`` for
-convenience would report ``SNAG-SVC-001`` refuted by a change that has
-nothing to say about it.
+:func:`group_faults` is ``log_actions.group_incidents``' treatment,
+**applied rather than imported**.  The two rules have nothing in common
+mechanically — there is no time window here and no systemd graph.  This
+module does import ``log_actions``, but for :func:`~sysadmin.monitor.
+log_actions.correlate` alone and for a different row: see "The blip row
+reads the service's own log" below.
 
 Seven rules, four of them the opposite of the obvious implementation:
 
@@ -179,7 +176,8 @@ Seven rules, four of them the opposite of the obvious implementation:
    "check_interval")``, a **top-level** scan, and its synthetic subject
    produces exactly ``flapping`` + ``check_interval``.  Swallowing that
    row makes a still-live entry read as refuted, which is a landed fix
-   for one entry deleting another's instrument.
+   for one entry deleting another's instrument.  That check retired with
+   its entry on 2026-10-22, and the rule stands on its first reason.
 
 2. **The fold runs after the confidence gate and before the sort, and
    only the second half of that is observable.**  Sorting after is
@@ -272,6 +270,61 @@ Seven rules, four of them the opposite of the obvious implementation:
    consumer projecting fields renders the promoted step under the
    anchor's title with nothing saying the subject changed
    (``SNAG-SVC-004``).
+
+The blip row reads the service's own log
+----------------------------------------
+
+``SNAG-SVC-001``, closed 2026-10-22 on the owner's ruling.  A
+``check_interval`` row is offered when every one of a service's
+outages lasted a single check.  Built from the blip count alone it
+argued from volume, and its only possible step — look less often — is
+``known_noise`` rule 3's opposite: volume is what makes a fault worth
+looking at, not evidence it is harmless.  The owner chose evidence over
+deleting the kind, so the row now asks the service's own journal what
+it said at each blip.
+
+The adapter (:func:`~sysadmin.monitor.reliability_history.fetch_blip_logs`)
+reads the service's ``error`` and ``critical`` lines within
+:data:`BLIP_LOG_WINDOW_SECONDS` of each blip, and this module pairs them
+with :func:`~sysadmin.monitor.log_actions.correlate`, the rule the log
+advice uses for "one incident".  Three readings:
+
+``corroborated``
+    The service logged a fault at one blip or more.  The check is
+    seeing real failures, so it stays as it is, and the row says so.
+    Any one blip is enough, because a longer interval would hide that
+    one too.
+``quiet``
+    The service logs faults at other times but logged none at any
+    blip.  That points at the check — a timeout, or a health path slow
+    while the service works — and the row says the evidence supports
+    widening it.
+no evidence
+    The service declares no ``log:`` in ``services.yaml``, or logged no
+    fault at all this window, so its silence at the blips tells nothing
+    apart.  The row keeps the volume-only wording and ``evidence:
+    rate``, and names the declaration that would let it read the log.
+
+Three rules, two of them the opposite of the obvious implementation:
+
+1. **Each blip is correlated on its own, never the whole window at
+   once.**  ``correlate`` measures every member against the earliest
+   item of its group (its rule 3).  Over a whole window a fault line
+   61 s before a blip would anchor a group and claim a second line 5 s
+   before it, leaving the blip to anchor a group of its own and read as
+   uncorroborated.  One call per blip, over that blip's own lines,
+   makes the anchor either the blip or a line inside the window, so the
+   test is exactly "within the window either side".
+
+2. **A coincidence errs toward leaving the check alone.**  A service
+   that logs often will sometimes log near a blip by chance.  That
+   reads ``corroborated``, whose step is to change nothing — the safe
+   direction.  The row prints the chance figure, so a reader can see
+   when the match is likely luck.
+
+3. **``quiet`` needs faults elsewhere in the window.**  A service that
+   never logs an error is silent at its blips whatever caused them, so
+   that silence is no evidence, and the row says it is none.
 """
 
 from __future__ import annotations
@@ -286,6 +339,7 @@ from sysadmin.core.contracts import (
     ServiceRecommendationInfo,
     ServiceRecommendationMemberInfo,
 )
+from sysadmin.monitor.log_actions import correlate
 from sysadmin.monitor.reliability import ReliabilityScore
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -293,6 +347,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 __all__ = [
     "ADVICE_SEVERITIES",
+    "BLIP_LOG_WINDOW_SECONDS",
     "EVENT_ARGUED",
     "KIND_ORDER",
     "MIN_CADENCE_SAMPLES",
@@ -300,8 +355,11 @@ __all__ = [
     "SERIES_HOLE_FACTOR",
     "STEP_SUPERSEDES",
     "AdviceReport",
+    "LogLine",
+    "ServiceLog",
     "TimerPoint",
     "TimerSeries",
+    "is_blip_shaped",
     "group_faults",
     "recommend",
 ]
@@ -355,6 +413,14 @@ SERIES_HOLE_FACTOR = 2.5
 #: ``PRIORITY_MAP``, at the size of a two-element tuple.
 ADVICE_SEVERITIES = ("advice", "risk")
 
+#: How far either side of a blip a service's own fault line counts as
+#: being about it.  **Invented, and it says so.**  Six times the HTTP
+#: probe's 10 s timeout, so a fault logged while the probe waited, or
+#: shortly before it as the cause, falls inside.  At this width a
+#: service logging 44 errors a day, the noisiest on this box in
+#: October 2026, meets one by chance at about 6 % of blips.
+BLIP_LOG_WINDOW_SECONDS = 60.0
+
 
 @dataclass(frozen=True)
 class TimerPoint:
@@ -389,6 +455,41 @@ class TimerSeries:
 
 
 @dataclass(frozen=True)
+class LogLine:
+    """One ``error`` or ``critical`` line from a service's own journal.
+
+    Shaped to :class:`~sysadmin.monitor.log_actions.Correlatable`:
+    ``first_seen`` is the line's ``logged_at``.  A blip is passed to
+    :func:`correlate` as a ``LogLine`` too, with :data:`_BLIP_SIGNATURE`.
+    """
+
+    source: str
+    signature: str
+    first_seen: datetime
+
+
+@dataclass(frozen=True)
+class ServiceLog:
+    """What a service's own journal holds near its one-check blips.
+
+    ``source`` is the ``log_entries.source`` its lines carry.  ``lines``
+    are the fault lines within :data:`BLIP_LOG_WINDOW_SECONDS` of any
+    blip; ``window_faults`` counts every fault line in the scoring
+    window, which is what tells ``quiet`` from a service that never
+    logs a fault at all.
+    """
+
+    source: str
+    lines: list[LogLine]
+    window_faults: int
+
+
+#: The signature a blip carries into :func:`correlate`.  Never a real
+#: log signature, so a group's lines are its members that are not this.
+_BLIP_SIGNATURE = "(one-check blip)"
+
+
+@dataclass(frozen=True)
 class AdviceReport:
     """What :func:`recommend` produced, and what it declined to.
 
@@ -410,6 +511,7 @@ def recommend(
     settings: ServiceActionsConfig,
     *,
     timers: list[TimerSeries] | None = None,
+    logs: dict[str, ServiceLog] | None = None,
     check_interval_seconds: int = 300,
     now: datetime,
 ) -> AdviceReport:
@@ -419,11 +521,16 @@ def recommend(
     returned; nothing is recomputed here, so the endpoint and the advice
     cannot disagree about how a score was arrived at.
 
+    ``logs`` maps a service to what its own journal said near its blips,
+    for the services :func:`is_blip_shaped` picks out.  A service missing
+    from it has no readable log, and its ``check_interval`` row says so.
+
     Ordering: ``risk`` first, then recoverable points descending, then
     :data:`KIND_ORDER`, then service name for stability — the files
     module's ordering with its own currency substituted.
     """
     timers = timers or []
+    logs = logs or {}
     by_service = {t.service: t for t in timers}
 
     recs: list[ServiceRecommendationInfo] = []
@@ -437,7 +544,9 @@ def recommend(
 
         confident = score.confidence == "high"
 
-        for rec in _service_rows(score, settings, check_interval_seconds):
+        for rec in _service_rows(
+            score, settings, check_interval_seconds, logs.get(score.service)
+        ):
             if rec.kind in RATE_ARGUED and not confident:
                 suppressed += 1
                 continue
@@ -671,10 +780,27 @@ def _folded_row(
 # --- service rows ---
 
 
+def is_blip_shaped(score: ReliabilityScore, settings: ServiceActionsConfig) -> bool:
+    """Whether a score is the shape the ``check_interval`` row is about.
+
+    At least ``flap_min_episodes`` outages, every one a single failed
+    check: ``longest_outage_minutes == 0`` is exact, because
+    ``_outage_episodes`` dates an episode's end to its last *failing*
+    check, so one sample has zero duration.  Public because the adapter
+    reads logs for exactly these services, and a second statement of the
+    shape there could drift from this one.
+    """
+    return (
+        score.outage_episodes >= settings.flap_min_episodes
+        and score.longest_outage_minutes == 0
+    )
+
+
 def _service_rows(
     score: ReliabilityScore,
     settings: ServiceActionsConfig,
     check_interval_seconds: int,
+    log: ServiceLog | None = None,
 ) -> list[ServiceRecommendationInfo]:
     """The rows a single reliability score justifies."""
     out: list[ServiceRecommendationInfo] = []
@@ -688,7 +814,7 @@ def _service_rows(
     if instability is not None and score.outage_episodes >= settings.flap_min_episodes:
         out.append(_flapping_row(score, instability.points))
 
-    interval = _check_interval_row(score, settings, check_interval_seconds)
+    interval = _check_interval_row(score, settings, check_interval_seconds, log)
     if interval is not None:
         out.append(interval)
 
@@ -766,63 +892,158 @@ def _check_interval_row(
     score: ReliabilityScore,
     settings: ServiceActionsConfig,
     check_interval_seconds: int,
+    log: ServiceLog | None = None,
 ) -> ServiceRecommendationInfo | None:
     """The one row that suspects the *check* rather than the service.
 
     ``tasks.md`` scoped this as "llama-server flapped 6x this week —
-    likely GPU contention, consider raising its check interval", and it
-    is built as specified.  The narrowing is what makes it defensible:
-    it fires only when **every** episode was a single failed check, which
-    is what ``longest_outage_minutes == 0`` means (``_outage_episodes``
-    dates an episode's end to its last *failing* check, so one sample has
-    zero duration).  Many episodes that each lasted one poll is the
-    shape a too-sensitive check makes; an episode spanning two polls is
-    an outage and this stays quiet about it.
+    likely GPU contention, consider raising its check interval".  It fires
+    only for :func:`is_blip_shaped` scores: many episodes that each lasted
+    one poll is the shape a too-sensitive check makes, and an episode
+    spanning two polls is an outage this stays quiet about.
 
     It is ``RATE_ARGUED``: "N blips per window" is a rate, and a window
     at 15 % coverage cannot support one.
 
-    **Filed as ``SNAG-SVC-001`` rather than resolved here.**  Advising a
-    longer interval is advising that a fault be seen less often, which is
-    the opposite of ``known_noise`` rule 3 — volume is what makes a fault
-    worth looking at, not evidence it is harmless.  The wording therefore
-    puts the sensitivity question first and never tells the reader to
-    raise the interval outright, but the tension is real and belongs on
-    the snag list, not inside a docstring that argues it away.
+    What it says depends on the service's own log (``SNAG-SVC-001``):
+    see "The blip row reads the service's own log" in the module
+    docstring.  Without that evidence it never tells the reader to widen
+    the check, because a longer interval hides a real fault as well as a
+    false one.
     """
-    if score.outage_episodes < settings.flap_min_episodes:
-        return None
-    if score.longest_outage_minutes > 0:
+    if not is_blip_shaped(score, settings):
         return None
 
+    service = score.service
+    blips = score.outage_episodes
+    hit = _corroborated_blips(score.episode_starts, log) if log else 0
+    title_head = f"{service}: {blips} one-check blips"
+
+    if log is not None and hit:
+        return _blip_row(
+            score,
+            title=f"{title_head} — its own log shows a fault at {hit}",
+            detail=(
+                f"{service}'s journal ({log.source}) holds an error or "
+                f"critical line within {BLIP_LOG_WINDOW_SECONDS:g}s of {hit} "
+                f"of its {blips} one-check outages. The check is seeing the "
+                "service fail, not misjudging it, and a longer interval would "
+                f"hide those failures. {_chance(score, log, blips)}"
+            ),
+            action=(
+                f"Leave {service}'s check as it is. Read {log.source}'s "
+                f"errors at the blip times: GET /api/logs/{log.source}."
+            ),
+            evidence="logs",
+        )
+
+    if log is not None and log.window_faults:
+        return _blip_row(
+            score,
+            title=f"{title_head} — its own log is quiet at every one",
+            detail=(
+                f"{service}'s journal ({log.source}) holds no error or "
+                f"critical line within {BLIP_LOG_WINDOW_SECONDS:g}s of any of "
+                f"its {blips} one-check outages, though it logged "
+                f"{log.window_faults} this window. A service failing usually "
+                "says so, so this points at the check: a timeout, or a "
+                "health path slow while the service works. A gap in the "
+                "journal at those times would read the same."
+            ),
+            action=(
+                f"Time {service}'s health path. If it is slow while the "
+                "service works, the check is what needs widening in "
+                "services.yaml."
+            ),
+            evidence="logs",
+        )
+
+    if log is None:
+        unread = (
+            f"{service} declares no log: in services.yaml, so its own "
+            "journal could not be read at the blip times."
+        )
+        step = (
+            f"Declare a log: for {service} in services.yaml so this row can "
+            "read it, or read its logs by hand at the blip times."
+        )
+    else:
+        unread = (
+            f"{service}'s journal ({log.source}) holds no error or critical "
+            "line this window at all, so its silence at the blips cannot "
+            "tell the two apart."
+        )
+        step = f"Read {service}'s logs by hand at the blip times."
+
+    return _blip_row(
+        score,
+        title=f"{title_head} — check sensitivity or a real flap?",
+        detail=(
+            f"Every one of {service}'s {blips} outages this window lasted a "
+            f"single check, so none was observed for longer than the "
+            f"{check_interval_seconds}s poll. That is either a service "
+            "genuinely returning within one interval or a check too tight "
+            f"for it. {unread} Confirm which before changing anything: a "
+            "longer interval hides a real fault just as well as it hides a "
+            "false one."
+        ),
+        action=(
+            f"{step} If the service was up throughout, the check is what "
+            "needs widening; if it was not, leave the check alone."
+        ),
+        evidence="rate",
+    )
+
+
+def _blip_row(
+    score: ReliabilityScore, *, title: str, detail: str, action: str, evidence: str
+) -> ServiceRecommendationInfo:
+    """The fields every ``check_interval`` reading shares."""
     return ServiceRecommendationInfo(
         kind="check_interval",
         severity="advice",
         service=score.service,
-        title=(
-            f"{score.service}: {score.outage_episodes} one-check blips — "
-            "check sensitivity or a real flap?"
-        ),
-        detail=(
-            f"Every one of {score.service}'s {score.outage_episodes} outages "
-            f"this window lasted a single check, so none was observed for "
-            f"longer than the {check_interval_seconds}s poll. That is either "
-            "a service genuinely returning within one interval or a check "
-            "too tight for it — a timeout, or a health path that is slow "
-            "while the service is fine. Confirm which before changing "
-            "anything: a longer interval hides a real fault just as well as "
-            "it hides a false one."
-        ),
-        action=(
-            f"Read {score.service}'s own logs at the blip times. If the "
-            "service was up throughout, the check is what needs widening "
-            "in services.yaml; if it was not, leave the check alone."
-        ),
+        title=title,
+        detail=detail,
+        action=action,
         recoverable_points=0,
         grade=score.grade,
         confidence=score.confidence,
         outage_episodes=score.outage_episodes,
-        evidence="rate",
+        evidence=evidence,
+    )
+
+
+def _corroborated_blips(starts: Sequence[datetime], log: ServiceLog) -> int:
+    """How many blips have one of the service's fault lines in their group.
+
+    One :func:`correlate` call per blip, over only the lines within the
+    window of it — module docstring rule 1.
+    """
+    window = timedelta(seconds=BLIP_LOG_WINDOW_SECONDS)
+    hit = 0
+    for start in starts:
+        near = [
+            line for line in log.lines
+            if line.source == log.source and abs(line.first_seen - start) <= window
+        ]
+        blip = LogLine(source=log.source, signature=_BLIP_SIGNATURE, first_seen=start)
+        groups = correlate(
+            [blip, *near], window_seconds=BLIP_LOG_WINDOW_SECONDS
+        )
+        mine = next(group for group in groups if blip in group)
+        if any(member.signature != _BLIP_SIGNATURE for member in mine):
+            hit += 1
+    return hit
+
+
+def _chance(score: ReliabilityScore, log: ServiceLog, blips: int) -> str:
+    """How many blips would meet a fault line by chance — rule 2's figure."""
+    span = max(1.0, score.window_days * 86400.0)
+    per_blip = min(1.0, log.window_faults * 2 * BLIP_LOG_WINDOW_SECONDS / span)
+    return (
+        f"At its rate of {log.window_faults} such lines this window, about "
+        f"{blips * per_blip:.1f} of {blips} blips would meet one by chance."
     )
 
 

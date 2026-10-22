@@ -25,17 +25,21 @@ from sysadmin.core.contracts import (
 )
 from sysadmin.monitor.reliability import Deduction, ReliabilityScore
 from sysadmin.monitor.service_recommendations import (
+    BLIP_LOG_WINDOW_SECONDS,
     EVENT_ARGUED,
     KIND_ORDER,
     MIN_CADENCE_SAMPLES,
     RATE_ARGUED,
     SERIES_HOLE_FACTOR,
     STEP_SUPERSEDES,
+    LogLine,
+    ServiceLog,
     TimerPoint,
     TimerSeries,
     _observed_cadence,
     _observed_fires,
     _series_holes,
+    is_blip_shaped,
     recommend,
     total_recoverable_points,
 )
@@ -60,6 +64,7 @@ def score(
     downtime: int | None = None,
     instability: int | None = None,
     waived: bool = False,
+    starts: list[datetime] | None = None,
 ) -> ReliabilityScore:
     """A scored service, with only the fields the advice module reads."""
     deductions = []
@@ -83,14 +88,16 @@ def score(
         confidence=confidence,
         muted=muted,
         deductions=deductions,
+        episode_starts=starts or [],
     )
 
 
-def run(scores, *, timers=None, cfg=None):
+def run(scores, *, timers=None, cfg=None, logs=None):
     return recommend(
         scores,
         cfg or settings(),
         timers=timers,
+        logs=logs,
         check_interval_seconds=CHECK_INTERVAL,
         now=NOW,
     )
@@ -108,10 +115,9 @@ def offered_kinds(report) -> set[str]:
     outcomes reaching one verdict, which is ``ports_checked``'s rule
     arriving inside a test helper.
 
-    ``snag_claims`` carries the same hazard against the live registry:
-    ``check_check_interval_looks_away`` finds its row with a top-level
-    scan by kind, which is why :func:`group_faults` refuses to fold a
-    ``RATE_ARGUED`` row at all.
+    A consumer scanning by kind carries the same hazard, which is one
+    reason :func:`group_faults` refuses to fold a ``RATE_ARGUED`` row at
+    all.
     """
     kinds: set[str] = set()
     for row in report.recommendations:
@@ -464,9 +470,11 @@ class TestFlapThreshold:
 class TestCheckIntervalRow:
     """``tasks.md``'s first scoped example, built as specified.
 
-    The tension it carries is ``SNAG-SVC-001``, filed rather than argued
-    away: advising a longer interval is advising that a fault be seen
-    less often, which is ``known_noise`` rule 3's opposite.
+    The tension it carried was ``SNAG-SVC-001``: advising a longer
+    interval is advising that a fault be seen less often, which is
+    ``known_noise`` rule 3's opposite.  Closed 2026-10-22 by reading the
+    service's own log (the class below); without a log the row still
+    refuses to recommend a longer interval outright.
     """
 
     def test_it_fires_only_when_every_episode_was_a_single_check(self):
@@ -502,6 +510,131 @@ class TestCheckIntervalRow:
         row = next(r for r in rows if r.kind == "check_interval")
         assert "Confirm which before changing anything" in row.detail
         assert "hides a real fault just as well" in row.detail
+
+    def test_the_shape_is_stated_once(self):
+        cfg = settings(flap_min_episodes=3)
+        assert is_blip_shaped(score(episodes=3, longest=0.0), cfg)
+        assert not is_blip_shaped(score(episodes=2, longest=0.0), cfg)
+        assert not is_blip_shaped(score(episodes=3, longest=5.0), cfg)
+
+
+SOURCE = "svc.service"
+BLIPS = [NOW - timedelta(days=d) for d in (5, 3, 1)]
+
+
+def blip_row(log: ServiceLog | None):
+    """The ``check_interval`` row for three blips at :data:`BLIPS`."""
+    report = run(
+        [score(episodes=3, longest=0.0, downtime=1, starts=BLIPS)],
+        cfg=settings(flap_min_episodes=3),
+        logs={"svc": log} if log is not None else None,
+    )
+    return next(r for r in report.recommendations if r.kind == "check_interval")
+
+
+def line(at: datetime, source: str = SOURCE) -> LogLine:
+    return LogLine(source=source, signature="boom N", first_seen=at)
+
+
+def service_log(*lines: LogLine, window_faults: int | None = None) -> ServiceLog:
+    return ServiceLog(
+        source=SOURCE,
+        lines=list(lines),
+        window_faults=len(lines) if window_faults is None else window_faults,
+    )
+
+
+class TestTheBlipRowReadsTheServicesOwnLog:
+    """``SNAG-SVC-001``'s second resolution, the one the owner chose.
+
+    The row stops arguing from the blip count alone and asks the
+    service's journal what it said at each blip.
+    """
+
+    def test_a_fault_at_one_blip_says_leave_the_check_alone(self):
+        row = blip_row(service_log(line(BLIPS[1] + timedelta(seconds=20))))
+        assert row.evidence == "logs"
+        assert row.title.endswith("its own log shows a fault at 1")
+        assert row.action.startswith("Leave svc's check as it is")
+        assert "would hide those failures" in row.detail
+
+    def test_a_service_quiet_at_every_blip_points_at_the_check(self):
+        """It logs faults elsewhere, so its silence at the blips means something."""
+        row = blip_row(service_log(line(BLIPS[0] + timedelta(hours=6))))
+        assert row.evidence == "logs"
+        assert row.title.endswith("its own log is quiet at every one")
+        assert "points at the check" in row.detail
+        assert "logged 1 this window" in row.detail
+
+    def test_a_service_that_never_logs_a_fault_is_no_evidence(self):
+        """Rule 3: silence everywhere tells nothing apart."""
+        row = blip_row(service_log(window_faults=0))
+        assert row.evidence == "rate"
+        assert "cannot tell the two apart" in row.detail
+        assert "Confirm which before changing anything" in row.detail
+
+    def test_a_service_with_no_declared_log_keeps_the_volume_wording(self):
+        row = blip_row(None)
+        assert row.evidence == "rate"
+        assert "declares no log: in services.yaml" in row.detail
+        assert row.action.startswith("Declare a log: for svc")
+        assert "hides a real fault just as well" in row.detail
+
+    @pytest.mark.parametrize(
+        ("offset", "corroborates"),
+        [
+            (BLIP_LOG_WINDOW_SECONDS, True),
+            (-BLIP_LOG_WINDOW_SECONDS, True),
+            (BLIP_LOG_WINDOW_SECONDS + 1, False),
+            (-BLIP_LOG_WINDOW_SECONDS - 1, False),
+        ],
+    )
+    def test_the_window_is_inclusive_on_both_sides(self, offset, corroborates):
+        far = line(BLIPS[0] + timedelta(hours=6))
+        near = line(BLIPS[2] + timedelta(seconds=offset))
+        row = blip_row(service_log(far, near))
+        assert row.title.endswith("shows a fault at 1") is corroborates
+
+    def test_a_line_that_would_anchor_an_earlier_group_still_counts(self):
+        """Rule 1, falsified at the defect it prevents.
+
+        A line 61 s before the blip anchors a group over the whole window
+        and claims the line 5 s before it, so a single ``correlate`` call
+        leaves the blip alone.  One call per blip does not.
+        """
+        early = line(BLIPS[2] - timedelta(seconds=61))
+        close = line(BLIPS[2] - timedelta(seconds=5))
+        row = blip_row(service_log(early, close))
+        assert row.title.endswith("shows a fault at 1")
+
+    def test_another_sources_line_is_not_the_services_own(self):
+        stray = line(BLIPS[2], source="other.service")
+        row = blip_row(service_log(stray, window_faults=4))
+        assert row.title.endswith("quiet at every one")
+
+    def test_every_corroborated_blip_is_counted(self):
+        lines = [line(start + timedelta(seconds=3)) for start in BLIPS]
+        assert blip_row(service_log(*lines)).title.endswith("shows a fault at 3")
+
+    def test_the_chance_figure_is_printed_beside_a_match(self):
+        """Rule 2: a reader can see when the match is likely luck.
+
+        5,040 lines over 7 days is one every 120 s, so a 120 s window
+        meets one at every blip by chance.
+        """
+        row = blip_row(service_log(line(BLIPS[0]), window_faults=5040))
+        assert "about 3.0 of 3 blips would meet one by chance" in row.detail
+
+    def test_the_log_reading_does_not_change_the_gate_or_the_fold(self):
+        """The kind stays ``RATE_ARGUED`` and alone, whatever its evidence."""
+        report = run(
+            [score(episodes=3, longest=0.0, instability=15, starts=BLIPS,
+                   confidence="low")],
+            cfg=settings(flap_min_episodes=3),
+            logs={"svc": service_log(line(BLIPS[0]))},
+        )
+        assert "check_interval" not in offered_kinds(report)
+        assert report.suppressed_by_confidence == 1
 
 
 class TestObservedFires:
@@ -858,16 +991,14 @@ class TestOneFaultOneRow:
 
 
 class TestTheFoldLeavesWatchAdviceAlone:
-    """Rule 1 — ``RATE_ARGUED`` rows are never folded, and the reason is
-    a control belonging to a different entry.
+    """Rule 1 — ``RATE_ARGUED`` rows are never folded.
 
-    ``snag_claims.check_check_interval_looks_away`` finds its row with
-    ``next(r for r in recommendations if r.kind == "check_interval")`` —
-    a **top-level** scan — and its synthetic subject produces exactly
-    ``flapping`` + ``check_interval``.  Folding that row would make a
-    still-live entry read as refuted: a landed fix for one entry
-    deleting another entry's instrument.  ``SNAG-SVC-002``'s check has
-    the same shape one kind over.
+    They argue about how the service is watched rather than about the
+    fault, and fixing the service lapses neither.  ``SNAG-SVC-001``'s
+    check found its row with a **top-level** scan by kind until it
+    retired with its entry on 2026-10-22, and a consumer doing the same
+    must still find it.  ``SNAG-SVC-002``'s check has that shape one
+    kind over.
     """
 
     def test_check_interval_stays_a_row_of_its_own(self):
@@ -879,14 +1010,8 @@ class TestTheFoldLeavesWatchAdviceAlone:
         assert [r.kind for r in rows] == ["flapping", "check_interval"]
         assert all(r.members == [] for r in rows)
 
-    def test_the_control_finds_its_row_by_a_top_level_scan(self):
-        """The control's own extraction, driven here rather than trusted.
-
-        Written as the check writes it, so this test fails on the day a
-        future widening of the fold breaks ``SNAG-SVC-001``'s instrument
-        — in this repository's own suite, rather than as a verdict flip
-        in a registry nobody re-reads.
-        """
+    def test_a_top_level_scan_finds_the_row(self):
+        """Fails on the day a widening of the fold swallows the row."""
         report = run(
             [score("s", grade="degraded", episodes=3, longest=0.0,
                    instability=15)],
@@ -1176,39 +1301,36 @@ class TestTheStepCanBeSuperseded:
 
 
 class TestTheTreatmentIsAppliedAndNotImported:
-    """The fold applies ``group_incidents``' treatment and imports none
-    of it — and the reason is a live control, not module hygiene.
+    """The fold applies ``group_incidents``' treatment and imports none of it.
 
-    ``snag_claims.check_check_interval_looks_away`` uses this module's
-    **import set** as its instrument for "the advice has the service's
-    own log data now", listing ``sysadmin.monitor.log_actions`` and
-    ``sysadmin.monitor.log_trends``.  An import taken for convenience
-    would report ``SNAG-SVC-001`` refuted by a change that says nothing
-    about it.  A docstring mention is an ``ast.Constant`` and does not
-    count, which is why this walks imports rather than grepping — the
-    module names ``log_actions`` in prose four times.
+    The module takes exactly one name from the log families,
+    ``correlate``, and the blip row is its only caller (``SNAG-SVC-001``).
+    The fold's rule has no window and no systemd graph, so importing
+    ``group_incidents`` for it would bring a mechanism it does not use.
+    Walks imports rather than grepping, because the module names
+    ``log_actions`` in prose several times.
     """
 
-    def test_no_log_family_is_imported(self):
+    def test_correlate_is_the_only_name_taken_from_a_log_family(self):
         import ast
         from pathlib import Path
 
         import sysadmin.monitor.service_recommendations as module
 
         tree = ast.parse(Path(module.__file__).read_text())
-        imported: set[str] = set()
+        taken: set[tuple[str, str]] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                imported.update(alias.name for alias in node.names)
+                taken.update((alias.name, "*") for alias in node.names)
             elif isinstance(node, ast.ImportFrom) and node.module:
-                imported.add(node.module)
+                taken.update((node.module, alias.name) for alias in node.names)
 
-        assert not {
-            name
-            for name in imported
-            if name.startswith(("sysadmin.monitor.log_actions",
-                                "sysadmin.monitor.log_trends"))
-        }
+        assert {
+            pair
+            for pair in taken
+            if pair[0].startswith(("sysadmin.monitor.log_actions",
+                                   "sysadmin.monitor.log_trends"))
+        } == {("sysadmin.monitor.log_actions", "correlate")}
 
 
 class TestContracts:

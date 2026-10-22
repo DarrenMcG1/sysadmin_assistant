@@ -17,11 +17,14 @@ from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Row, Select, select
+from sqlalchemy import Row, Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sysadmin.core.config import AppConfig, get_config
 from sysadmin.core.database import get_scheduler_session
+from sysadmin.monitor.log_aggregator import FAULT_SEVERITIES
+from sysadmin.monitor.log_signature import signature
+from sysadmin.monitor.models.log_entry import LogEntry
 from sysadmin.monitor.models.reliability_score import ReliabilityScore as ReliabilityScoreRow
 from sysadmin.monitor.models.service_health import ServiceHealth
 from sysadmin.monitor.reliability import (
@@ -29,8 +32,15 @@ from sysadmin.monitor.reliability import (
     ReliabilityScore,
     score_services,
 )
-from sysadmin.monitor.service_recommendations import TimerPoint, TimerSeries
-from sysadmin.monitor.services import get_services
+from sysadmin.monitor.service_recommendations import (
+    BLIP_LOG_WINDOW_SECONDS,
+    LogLine,
+    ServiceLog,
+    TimerPoint,
+    TimerSeries,
+    is_blip_shaped,
+)
+from sysadmin.monitor.services import get_services, log_sources, stored_source_name
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +249,77 @@ async def fetch_timer_series(
         TimerSeries(service=name, unit=units[name], points=points)
         for name, points in by_name.items()
     ]
+
+
+async def fetch_blip_logs(
+    session: AsyncSession,
+    config: AppConfig,
+    scores: Sequence[ReliabilityScore],
+) -> dict[str, ServiceLog]:
+    """The service's own fault lines at each one-check blip (``SNAG-SVC-001``).
+
+    Read only for the scores :func:`~sysadmin.monitor.service_recommendations.
+    is_blip_shaped` picks out, which is none on most days, so the route
+    usually makes no query here at all.  A service whose ``services.yaml``
+    entry declares no ``log:`` is left out of the result, and the row
+    reads that absence as "no log to read".
+
+    Two queries per service.  The lines: ``error`` and ``critical`` rows
+    (the aggregator's :data:`~sysadmin.monitor.log_aggregator.FAULT_SEVERITIES`)
+    within :data:`~sysadmin.monitor.service_recommendations.BLIP_LOG_WINDOW_SECONDS`
+    of any blip, one range per blip so a noisy source is never read
+    whole.  The count: every such row in the scoring window, which tells
+    a service quiet at its blips from one that never logs a fault.  Both
+    use ``idx_log_entries_source_time``.
+    """
+    settings = config.agents.sysadmin.service_actions
+    shaped = [s for s in scores if not s.muted and is_blip_shaped(s, settings)]
+    if not shaped:
+        return {}
+
+    sources = {
+        source.name: stored
+        for source in log_sources(get_services())
+        if (stored := stored_source_name(source)) is not None
+    }
+    window = timedelta(seconds=BLIP_LOG_WINDOW_SECONDS)
+    out: dict[str, ServiceLog] = {}
+
+    for score in shaped:
+        stored = sources.get(score.service)
+        if stored is None or not score.episode_starts or score.window_start is None:
+            continue
+        faults = and_(
+            LogEntry.source == stored, LogEntry.severity.in_(FAULT_SEVERITIES)
+        )
+        near = or_(
+            *(
+                LogEntry.logged_at.between(start - window, start + window)
+                for start in score.episode_starts
+            )
+        )
+        rows = (
+            await session.execute(
+                select(LogEntry.message, LogEntry.logged_at).where(faults, near)
+            )
+        ).all()
+        window_faults = (
+            await session.execute(
+                select(func.count())
+                .select_from(LogEntry)
+                .where(faults, LogEntry.logged_at >= score.window_start)
+            )
+        ).scalar_one()
+        out[score.service] = ServiceLog(
+            source=stored,
+            lines=[
+                LogLine(source=stored, signature=signature(message), first_seen=at)
+                for message, at in rows
+            ],
+            window_faults=window_faults,
+        )
+
+    return out
 
 
 async def record_reliability_snapshot() -> int:

@@ -45,12 +45,10 @@ from sysadmin.monitor.journal import (
 # exact population, reached rather than copied — ``SNAG-LOG-015``.  The
 # direction of this import is the surprising half: the *ingest* agent
 # depending on the *advice* module reads backwards, and the alternative
-# was to rehome the rule in a third module, which
-# ``snag_claims.check_check_interval_looks_away`` measures
-# ``SNAG-SVC-001`` against by watching which modules the advice side
-# imports.  Moving it would have let a later correlation fix satisfy that
-# entry while the check went on reporting *still holds*.  A backwards
-# import is cheaper than a broken control.
+# was to rehome the rule in a third module.  That was refused while
+# ``SNAG-SVC-001``'s check watched which modules the advice side
+# imported; the check retired with its entry on 2026-10-22, when
+# ``service_recommendations`` began importing this same function.
 from sysadmin.monitor.log_actions import correlate
 from sysadmin.monitor.log_query import unit_relations
 from sysadmin.monitor.log_signature import alert_title, signature

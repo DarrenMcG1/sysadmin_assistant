@@ -395,17 +395,13 @@ def correlate[T: Correlatable](
 
     The correlation rule itself, lifted out of :func:`group_incidents`
     in Session 166 so the alert family could reach it without either
-    copying it or faking a trend — ``SNAG-LOG-015``.  It stays in this
-    module rather than moving to a shared one, and that placement is
-    load-bearing in a way that has nothing to do with taste:
-    ``snag_claims.check_check_interval_looks_away`` measures
-    ``SNAG-SVC-001``'s second resolution by watching whether
-    ``service_recommendations.py`` imports ``sysadmin.monitor.log_actions``
-    or ``sysadmin.monitor.log_trends``.  Rehoming this function would let
-    a future correlation fix import a *third* module and leave that check
-    reporting *still holds* over a landed fix — another entry's control
-    broken by an unrelated tidy-up, which is the shape this repository
-    has already paid for once.
+    copying it or faking a trend — ``SNAG-LOG-015``.  Three callers since
+    2026-10-22: the log advice, the alert family, and
+    :mod:`sysadmin.monitor.service_recommendations`, which pairs a
+    service's one-check blips with its own fault lines (``SNAG-SVC-001``).
+    It stayed here rather than in a shared module because that entry's
+    check watched this module's name in the advice side's imports; the
+    check retired with the entry, so the placement is now only history.
 
     ``related`` maps a source to the sources systemd declares it has a
     relation with, already resolved to the source's own scope by the

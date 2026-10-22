@@ -209,6 +209,12 @@ class ReliabilityScore:
     #: interval, and inventing one from the window length would imply a
     #: cadence the data has not shown.
     mean_hours_between_incidents: float | None = None
+    #: When each outage episode began, oldest first.  Read by
+    #: :mod:`sysadmin.monitor.service_recommendations` to find the
+    #: service's own log lines at its one-check blips (``SNAG-SVC-001``),
+    #: and kept off the wire: :meth:`as_dict` drops it, because the
+    #: contract publishes counts and spans, not instants.
+    episode_starts: list[datetime] = field(default_factory=list)
 
     # --- how far to trust it ---
     checks_expected: int = 0
@@ -229,6 +235,7 @@ class ReliabilityScore:
     def as_dict(self) -> dict:
         """Plain dict, timestamps ISO-formatted — ready for a contract."""
         out = asdict(self)
+        del out["episode_starts"]
         for key in ("window_start", "first_check_at", "last_check_at"):
             value = out[key]
             out[key] = value.isoformat() if value else None
@@ -319,6 +326,7 @@ def score_service(
 
     episodes = _outage_episodes(measured)
     result.outage_episodes = len(episodes)
+    result.episode_starts = [start for start, _ in episodes]
     if episodes:
         result.longest_outage_minutes = round(
             max((end - start).total_seconds() for start, end in episodes) / 60, 1

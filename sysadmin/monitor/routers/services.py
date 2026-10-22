@@ -39,6 +39,7 @@ from sysadmin.core.database import run_off_loop
 from sysadmin.monitor.reliability import ReliabilityScore
 from sysadmin.monitor.reliability_history import (
     compute_reliability,
+    fetch_blip_logs,
     fetch_timer_series,
 )
 from sysadmin.monitor.service_recommendations import (
@@ -198,10 +199,12 @@ async def get_service_actions(
     async def advise(session: AsyncSession) -> AdviceReport:
         scores = await compute_reliability(session, config, now=now)
         timers = await fetch_timer_series(session, config, now=now)
+        logs = await fetch_blip_logs(session, config, scores)
         return recommend(
             scores,
             settings,
             timers=timers,
+            logs=logs,
             check_interval_seconds=config.agents.sysadmin.health_check_interval_seconds,
             now=now,
         )
