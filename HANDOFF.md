@@ -1,6 +1,31 @@
-# Handoff — 2026-10-21 (Session 405)
+# Handoff — 2026-10-22 (Session 406)
 
 ## Next action
+
+Find why check_unmarked_sentence_invisible now reads mismatch: two tests in tests/test_snag_claims.py have been red since before Session 406. *(For: session)*
+
+## Session 406: the preflight reads only `## Scheduled action`
+
+Fixed in `622cd92`: the awk in `scripts/claude-preflight.sh` matches
+the heading whole instead of any heading containing "scheduled".
+
+- **Measured:** this session's preflight printed no scheduled section;
+  before the fix it printed Session 392's block. Both new tests in
+  `tests/test_handoff_shape.py` go red with the old awk restored.
+- **Rejected:** a case-insensitive match. The estate recommends the
+  exact heading `## Scheduled action`, and a looser match is how this
+  bug came in.
+- **Second concern, recorded in tasks.md, not worked:** the postflight
+  found the suite red. `check_unmarked_sentence_invisible` (the check
+  behind `SNAG-ESTATE-012`) reads `mismatch`: an unmarked STATUS.md
+  sentence now reaches the report. Its two tests in
+  `tests/test_snag_claims.py` were already red at `2f98465`, before this
+  session, so the pre-push suite is red on them.
+- **Next action:** that red check. The mosquitto check (tasks.md,
+  Session 404) still needs the next boot; the box has been up since
+  2026-10-18 10:16.
+
+## What Session 405 handed on
 
 Fix the preflight's scheduled-section match in scripts/claude-preflight.sh to take only `## Scheduled action`, per tasks.md's Session 404 item. *(For: session)*
 

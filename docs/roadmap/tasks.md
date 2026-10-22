@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-21
+> **Last Updated**: 2026-10-22
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
@@ -23,6 +23,27 @@ check still holds. The preflight's one warning was `SNAG-TEST-014`.
       reported it as declaring no disposition. Now `decided, P3:`;
       the open tally reads decided 31, blocked 4, delegated 3, with
       no unknown.
+
+## Session 406: the preflight reads only `## Scheduled action` (2026-10-22)
+
+The published next action: fix the preflight's scheduled-section match,
+recorded by Session 404.
+
+- [x] **The awk matches the heading whole**: `/^## Scheduled action[[:space:]]*$/`
+      in place of any heading containing "scheduled". Fixed in `622cd92`.
+- [x] **2 tests** in `tests/test_handoff_shape.py` lift the awk out of
+      the script and run it on forged handoffs; both go red against the
+      old match.
+- [ ] **`SNAG-ESTATE-012`'s check reads `mismatch`** (found this session,
+      not worked): `check_unmarked_sentence_invisible` reports that
+      STATUS.md's unmarked sentence *"ask estate-manager the Session 33
+      question"* now reaches the report, *"the report quotes the sentence
+      (estate-manager)"*. Two tests in `tests/test_snag_claims.py`
+      (`test_it_holds_against_the_live_reader`,
+      `test_a_figure_that_merely_moves_is_unknown_not_a_mismatch`) are red,
+      already at `2f98465`, so the pre-push suite is red. The postflight
+      also reads STATUS.md's block as 3 unresolved alerts against 5
+      measured.
 
 ## Session 404: venture-embed stops declaring holds_vram (2026-10-21)
 
@@ -47,7 +68,7 @@ start now. Every open entry is decided, blocked or delegated except
       mosquitto` and `sysadmin.alerts` holds no `Log error:
       mosquitto.service — Failed to start` row for it; then close
       `SNAG-LOG-021`.
-- [ ] **The preflight's scheduled-section match is too wide** (found
+- [x] **The preflight's scheduled-section match is too wide** (found
       this session, not worked): the awk in
       `scripts/claude-preflight.sh` takes the first `## ` heading whose
       text contains "scheduled", so with no `## Scheduled action`
