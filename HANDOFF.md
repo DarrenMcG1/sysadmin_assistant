@@ -1,6 +1,29 @@
-# Handoff — 2026-10-22 (Session 409)
+# Handoff — 2026-10-23 (Session 410)
 
 ## Next action
+
+Rewrite STATUS.md's Alerts paragraph for the six open rows, so its alerts and open_titles claims read ok, per tasks.md's Session 410 item. *(For: session)*
+
+## Session 410: no open snag can be started
+
+Docs only. The preflight's 38 open entries are 31 decided, 4 blocked
+and 3 delegated, and none of the events they wait on has happened.
+
+- **Measured:** no reboot since 2026-10-18 10:16 (`SNAG-LOG-021`,
+  `SNAG-LOG-022`); `SNAG-TEST-014`'s probe record is 405 of 405
+  `closed`; `SNAG-AGENT-012`'s family is empty and
+  `SNAG-AGENT-013`'s `auto_restart` count is 0. `SNAG-GPU-003` is
+  P3 but the owner ruled it not built on 2026-09-23.
+- **Ticked:** Session 402's item to act on estate message `571f2f12`
+  (the mosquitto gate). Session 404 had logged the answer; the next-boot
+  check is its own open item.
+- **Second concern, recorded in tasks.md, not worked:** STATUS.md's
+  Alerts paragraph says 5 open rows and the box holds 6. The idle-nudge
+  rows moved at 05:09:24 today, seven hours after Session 409 rewrote
+  it. That is the next action.
+- **Not mine, unchanged:** `SNAG-LOG-022`'s three red journal tests.
+
+## What Session 409 handed on
 
 Run the preflight and work the highest-ranked open snag it lists that a session can start now. *(For: session)*
 

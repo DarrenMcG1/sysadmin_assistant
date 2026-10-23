@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-22
+> **Last Updated**: 2026-10-23
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
@@ -98,6 +98,32 @@ The published next action: Session 408's item above.
       figure to 87.2 %. `sysadmin-check-claims` reads every claim `ok`,
       `alerts` and `open_titles` among them.
 
+## Session 410: no open snag can be started (2026-10-23)
+
+The published next action: the highest-ranked open snag a session can
+start now. None could be started. Of 38 open entries, 31 are decided,
+4 blocked and 3 delegated, and no blocking event has happened:
+
+- the box has not rebooted since 2026-10-18 10:16, so `SNAG-LOG-021`
+  and `SNAG-LOG-022`'s timer records still wait on the next boot;
+- `SNAG-TEST-014`'s probe record holds 405 runs, every one `closed`,
+  so the popup has not recurred;
+- `SNAG-AGENT-012`'s family is empty: the one open row with
+  `arbitration` details reads `idle` at `critical`, not a quietened
+  lease stop, and `SNAG-AGENT-013`'s `auto_restart: true` count is 0;
+- `SNAG-GPU-003` (P3) was ruled "not built" by the owner on 2026-09-23.
+
+- [x] **Ticked Session 402's stale `571f2f12` item**: it was answered
+      and logged by Session 404, whose boot check is the live item.
+- [ ] **STATUS.md's Alerts paragraph is stale again** (found this
+      session, not worked): `sysadmin-check-claims` reads 6 unresolved
+      rows against the block's 5. `Project clyde-automation-site next
+      action idle` resolved at 05:09 today, and `Project Athenaeum next
+      action idle` and `Project portfolio next action idle` opened at
+      the same instant. Rewrite the paragraph for the six rows. It went
+      stale about seven hours after Session 409 wrote it, because the
+      idle-nudge rows change each morning: all three moved at 05:09:24.
+
 ## Session 404: venture-embed stops declaring holds_vram (2026-10-21)
 
 The published next action: the highest-ranked open snag a session can
@@ -159,10 +185,12 @@ drop-in, so the work here was a measurement and a filing.
 - [x] **Asked estate-manager for a waiting gate**, estate message
       `571f2f12-f7fc-46d6-89ae-5d9488c67e5e`, with the start-limit cost
       a wait inside each attempt adds.
-- [ ] **Act on estate-manager's answer to `571f2f12`.** If they change
+- [x] **Act on estate-manager's answer to `571f2f12`.** If they change
       the gate, check the next boot logs no `Failed to start` and close
       `SNAG-LOG-021`. If they decline, price shape (b), pairing the two
-      lines of one start job in the aggregator.
+      lines of one start job in the aggregator. *(Ticked 2026-10-23 by
+      Session 410: they changed the gate, Session 404 logged the answer,
+      and the boot check is Session 404's own item.)*
 
 ## Session 400: the advice reads stream in partitions (2026-10-21)
 
