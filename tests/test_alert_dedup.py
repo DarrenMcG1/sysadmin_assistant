@@ -304,6 +304,8 @@ async def _run(agent, session, mock_config, *, status: str, disk_percent: float)
                          return_value=0),
             patch.object(agent, "_check_collation", new_callable=AsyncMock,
                          return_value=0),
+            patch.object(agent, "_check_journal_horizon",
+                         new_callable=AsyncMock, return_value=0),
             patch.object(
                 estate_client, "read_arbitrated_stops",
                 new_callable=AsyncMock, return_value=_NO_ARBITRATION,

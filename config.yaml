@@ -286,6 +286,17 @@ agents:
     # rebuilding anything — a loud known risk turned into a silent one.
     collation:
       enabled: true
+    # How far back the journal reaches, and the core-dump loops that
+    # shorten it (Session 414). system and user journals share one size
+    # cap, so a crash loop's dumps push everyone's history out: baloo's
+    # did, from 2026-10-20 to 10-22, and the window fell to three days.
+    # One row for a window under the floor, one per looping executable;
+    # each resolves itself when its condition clears.
+    journal_horizon:
+      enabled: true
+      min_window_days: 7       # a weekly timer's last run must survive
+      loop_count: 10           # dumps from ONE executable in the window
+      loop_window_minutes: 60
     # Per-service reliability scoring — GET /api/services/reliability.
     # Score = 100 - downtime (100 - uptime%, cap 60) - instability
     # (5 per outage episode, cap 25). A gap in the check series means the

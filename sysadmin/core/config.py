@@ -262,6 +262,26 @@ class CollationCheckConfig(BaseModel):
     enabled: bool = True
 
 
+class JournalHorizonConfig(BaseModel):
+    """The journal's window and the core-dump loops that shorten it.
+
+    See :mod:`sysadmin.monitor.journal_horizon`.  Severity is fixed there
+    for collation's reason.
+
+    ``min_window_days`` is 7 because a weekly timer's records must
+    survive until it next fires, or every reader that looks for its last
+    run finds nothing: Session 413's three red push-gate tests were that.
+    ``loop_count`` is 10 an hour per executable: three dumps from three
+    programs in the day to 2026-10-23, and 11,963 from one in baloo's
+    worst hour, so 10 sits far from both.
+    """
+
+    enabled: bool = True
+    min_window_days: float = Field(default=7.0, gt=0)
+    loop_count: int = Field(default=10, ge=1)
+    loop_window_minutes: int = Field(default=60, ge=1)
+
+
 class SysAdminAgentConfig(BaseModel):
     """Monitoring agent settings.
 
@@ -281,6 +301,9 @@ class SysAdminAgentConfig(BaseModel):
         default_factory=ServiceActionsConfig
     )
     collation: CollationCheckConfig = Field(default_factory=CollationCheckConfig)
+    journal_horizon: JournalHorizonConfig = Field(
+        default_factory=JournalHorizonConfig
+    )
     #: Weekly LLM-narrated system health review (Session 25, Tier 3) —
     #: ``GET /api/sysadmin/review``.  Named on this agent rather than in
     #: ``schedules`` beside its clock because that is where the other two

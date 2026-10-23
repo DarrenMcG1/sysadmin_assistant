@@ -41,7 +41,14 @@ from sysadmin.core.escalation import QUIETEST_SEVERITY, may_quieten_in_place
 from sysadmin.core.models.alert import Alert, unresolved
 from sysadmin.core.text import TRUNCATION_MARKER, truncate_at_word
 from sysadmin.estate import client as estate_client
-from sysadmin.monitor import collation, failures, gpu_context, gpu_residency, stalls
+from sysadmin.monitor import (
+    collation,
+    failures,
+    gpu_context,
+    gpu_residency,
+    journal_horizon,
+    stalls,
+)
 from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
@@ -275,6 +282,9 @@ def disk_alert_title(mount: str, critical: bool) -> str:
 #:   scales.  The database name sits last in the title, which keeps it
 #:   clear of the five ``% <kind>`` patterns by construction rather than
 #:   by luck.
+#: - ``Short journal window`` and ``Core dump loop in %`` —
+#:   :mod:`sysadmin.monitor.journal_horizon` resolves its own rows by id,
+#:   for the collation reason above.
 RESOLVABLE_TITLE_PATTERNS = tuple(
     f"% {kind}" for kind in SERVICE_ALERT_KINDS
 ) + (
@@ -309,6 +319,14 @@ _NO_AGENT_FAILURES: dict[str, int] = {"failing": 0, "raised": 0, "escalated": 0}
 #: ``agent_runs.details`` reads as "the check did not run", and here that
 #: is *exactly* what it means, so the two must not look alike.
 _NO_COLLATION: dict[str, int] = {"mismatched": 0, "raised": 0, "resolved": 0}
+
+#: The journal-horizon outcome of a run that checked nothing, because
+#: ``agents.sysadmin.journal_horizon.enabled`` is false.  ``window_days``
+#: is ``None`` there and wherever both head reads failed, so "unknown"
+#: never reads as a window of zero days.
+_NO_JOURNAL_HORIZON: dict[str, Any] = {
+    "window_days": None, "loops": 0, "raised": 0, "resolved": 0,
+}
 
 
 #: Timer properties worth recording, under readable names.  ``systemctl
@@ -422,6 +440,7 @@ class SysAdminAgent(BaseAgent):
         # same reason as _stall_counts: a carried-over count reads as
         # work this run performed.
         self._collation_counts: dict[str, int] = _NO_COLLATION
+        self._journal_horizon_counts: dict[str, Any] = _NO_JOURNAL_HORIZON
         # Titles of this agent's unresolved rows, snapshotted once at
         # the top of the run. The dedup reads this; nothing writes an
         # alert without consulting it. There was a `_raised_titles` set
@@ -760,6 +779,7 @@ class SysAdminAgent(BaseAgent):
         self._stall_counts = _NO_STALLS
         self._agent_failure_counts = _NO_AGENT_FAILURES
         self._collation_counts = _NO_COLLATION
+        self._journal_horizon_counts = _NO_JOURNAL_HORIZON
         self._arbitration = None
         self._judged_titles = set()
         self._written_titles = set()
@@ -916,6 +936,10 @@ class SysAdminAgent(BaseAgent):
         # the OS provides now (SNAG-DB-002).
         alerts_raised += await self._check_collation(session, agent_config)
 
+        # How far back the journal reaches, and the core-dump loops that
+        # shorten it (Session 414).
+        alerts_raised += await self._check_journal_horizon(session, agent_config)
+
         # Everything this run measured and did not alert on has recovered.
         alerts_resolved = await self._resolve_recovered(session, unhealthy)
 
@@ -946,6 +970,9 @@ class SysAdminAgent(BaseAgent):
                 # open row, so `raised` is new faults rather than
                 # current ones — `mismatched` is the standing count.
                 "collation": self._collation_counts,
+                # The journal's window in days and the loops open now.
+                # Standing figures beside `raised`, as collation's are.
+                "journal_horizon": self._journal_horizon_counts,
                 # The two deduplicating families' standing picture.
                 # `alerts_raised` alone cannot tell "nothing is wrong"
                 # from "sixty things are wrong and every one of them is
@@ -2545,6 +2572,88 @@ class SysAdminAgent(BaseAgent):
             "mismatched": len(mismatches),
             "raised": raised,
             "resolved": len(cleared),
+        }
+        return raised
+
+    # --- Journal horizon ---
+
+    async def _check_journal_horizon(self, session, agent_config) -> int:
+        """Alert on a short journal window and on core-dump loops.
+
+        Session 414: baloo dumped core about 207k times over two and a
+        half days, the journal's 4G cap filled, and its window fell to
+        three days.  A neighbour noticed; this service did not.  Rules
+        are in :mod:`sysadmin.monitor.journal_horizon`.
+
+        Each family resolves its own rows by id, and a family whose read
+        failed resolves nothing, so an unknown never closes a true row.
+
+        Returns:
+            Rows raised.
+        """
+        cfg = agent_config.journal_horizon
+        if not cfg.enabled:
+            self._journal_horizon_counts = _NO_JOURNAL_HORIZON
+            return 0
+
+        window = await journal_horizon.read_window()
+        dumps = await journal_horizon.read_dump_counts(cfg.loop_window_minutes)
+
+        open_window: list[Any] = []
+        open_loops: dict[str, Any] = {}
+        for alert in await self._active_alerts(session):
+            details = alert.details or {}
+            if journal_horizon.HORIZON_DETAIL_KEY in details:
+                open_window.append(alert.id)
+            exe = details.get(journal_horizon.COREDUMP_DETAIL_KEY)
+            if exe:
+                open_loops[exe] = alert.id
+
+        raised = 0
+        resolved: list[Any] = []
+
+        short = journal_horizon.is_short(window, cfg.min_window_days)
+        if short and not open_window:
+            await self.raise_alert(
+                session,
+                severity=journal_horizon.HORIZON_SEVERITY,
+                title=journal_horizon.WINDOW_TITLE,
+                message=journal_horizon.window_message(window, cfg.min_window_days),
+                details=journal_horizon.window_details(window, cfg.min_window_days),
+            )
+            raised += 1
+        elif short is False:
+            resolved.extend(open_window)
+
+        loops: list[journal_horizon.Loop] = []
+        if dumps is not None:
+            loops = journal_horizon.loops_from(
+                dumps, cfg.loop_count, cfg.loop_window_minutes
+            )
+            for loop in loops:
+                if loop.exe in open_loops:
+                    continue
+                await self.raise_alert(
+                    session,
+                    severity=journal_horizon.HORIZON_SEVERITY,
+                    title=loop.title,
+                    message=loop.message,
+                    details=loop.details,
+                )
+                raised += 1
+            looping = {loop.exe for loop in loops}
+            resolved.extend(
+                open_loops[exe] for exe in sorted(set(open_loops) - looping)
+            )
+
+        await self._resolve_alert_ids(session, resolved)
+
+        days = window.days
+        self._journal_horizon_counts = {
+            "window_days": round(days, 2) if days is not None else None,
+            "loops": len(loops),
+            "raised": raised,
+            "resolved": len(resolved),
         }
         return raised
 
