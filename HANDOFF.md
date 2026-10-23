@@ -1,6 +1,28 @@
-# Handoff — 2026-10-23 (Session 410)
+# Handoff — 2026-10-23 (Session 411)
 
 ## Next action
+
+Fix SNAG-DOCS-035 so the daily idle-nudge rows stop staling STATUS.md's Alerts paragraph, per tasks.md's Session 411 item. *(For: session)*
+
+## Session 411: STATUS.md names all six open alerts
+
+Docs only. The Alerts paragraph now names the six open rows, and
+`sysadmin-check-claims` reads all 13 claims `ok`.
+
+- **Changed:** added `Project Athenaeum next action idle` and
+  `Project portfolio next action idle` (both 05:09 today), dropped the
+  resolved clyde-automation-site row, and refreshed the disk to 87.3 %.
+  The estate's `vram` check now fails on three journals
+  (`alfred-inference`, `venture-embed`, `venture-model-probe`), not
+  one. The alert is estate-manager's own, so nothing was filed.
+- **Second concern, recorded, not worked:** `SNAG-DOCS-035`. The
+  idle-nudge rows rotate most mornings, so this paragraph goes stale
+  daily. Sessions 408, 409 and 411 each spent their sitting re-pinning
+  it. The snag names a candidate fix, unruled: set the family aside by
+  title pattern, as rule 12 already does for flapping titles.
+- **Not mine, unchanged:** `SNAG-LOG-022`'s three red journal tests.
+
+## What Session 410 handed on
 
 Rewrite STATUS.md's Alerts paragraph for the six open rows, so its alerts and open_titles claims read ok, per tasks.md's Session 410 item. *(For: session)*
 

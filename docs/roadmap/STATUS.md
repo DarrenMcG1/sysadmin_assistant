@@ -15,17 +15,20 @@
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **5** unresolved rows <!--check:alerts-->,
+> **Alerts.** `alerts` holds **6** unresolved rows <!--check:alerts-->,
 > not counting the two flapping titles below. The open rows are
 > `Project InvestingAssistant next action idle`,
-> `Project clyde-automation-site next action idle` (opened 05:26 on
-> 2026-10-21; that repository waits on a venture filing),
-> `High disk usage on /` (87.2 % against 80 %),
+> `Project Athenaeum next action idle` and
+> `Project portfolio next action idle` (both opened 05:09 on
+> 2026-10-23, when `Project clyde-automation-site next action idle`
+> resolved; these nudge rows change each morning),
+> `High disk usage on /` (87.3 % against 80 %),
 > `estate-manager-audit-timer critical` (opened 05:05 on 2026-10-22) and
 > `Estate audit checks errored` (05:41 the same day: the estate's `vram`
-> check could not read `venture-model-probe.service`'s journal)
+> check could not read the journals of `alfred-inference.service`,
+> `venture-embed.service` and `venture-model-probe.service`)
 > <!--check:open_titles-->. Each is another repository's or the owner's
-> to act on, the last two estate-manager's; Session 409 read them and
+> to act on, the last two estate-manager's; Session 411 read them and
 > acted on none.
 >
 > **Two titles flap and are set aside from that count.** `High VRAM

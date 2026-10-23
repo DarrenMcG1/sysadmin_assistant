@@ -4,11 +4,17 @@
 >
 > **Related**: [tasks.md](tasks.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-21
+> **Last Updated**: 2026-10-23
 
 ---
 
 ## Open Issues
+
+- [P4] SNAG-DOCS-035: **the idle-nudge alert rows turn over each morning, so STATUS.md's Alerts paragraph goes stale daily and three sittings running have spent themselves re-pinning it** (2026-10-23, opened by Session 411, not worked)
+  - **Symptom**: `check_alerts` and `check_open_titles` pin the count and the names of every stable open row. The `Project <name> next action idle` rows are a family that changes at about 05:09 most mornings: on 2026-10-23 one resolved and two opened at 05:09:24. Session 409 wrote the paragraph and it read `no` seven hours later; Sessions 408, 409 and 411 each spent their sitting on it.
+  - **Not `SNAG-DOCS-015`'s shape**: that entry set aside titles that flap within a day. These rows are stable for days and then rotate as a family, so `check_flapping`'s half-the-window test would never admit them.
+  - **Candidate fix, not ruled**: declare the family set aside by its title pattern, as rule 12 does for a flapping title, with a check that withdraws the exemption if a member is not `info`. The cost is that the paragraph stops naming which repositories are idle, which the estate's own board already shows.
+  - **Status:** Open — owed, P4: nothing reads the figure, and the cost is a sitting a day.
 
 - [P4] SNAG-LOG-022: **`baloo_file_extractor` crash-loops with core dumps, and the journal rotates out records three live tests need** (2026-10-22, opened by Session 407, found by its full suite and not worked)
   - **Symptom**: 172k `baloo_file_extr` core dumps today, which make 3.1M of the user journal's 4.0M lines. The journal (3.1G) now starts 2026-10-19 08:06, after this boot (2026-10-18 10:16) and after `estate-manager-review`'s last run (2026-10-19 05:30). So `test_a_declared_source_really_writes_json[estate-manager-review-timer]`, `[searxng]` and `test_it_excludes_systemd_and_would_otherwise_have_counted` in `tests/test_services_registry.py` fail their premise: no records to witness.

@@ -98,6 +98,17 @@ The published next action: Session 408's item above.
       figure to 87.2 %. `sysadmin-check-claims` reads every claim `ok`,
       `alerts` and `open_titles` among them.
 
+## Session 411: STATUS.md names all six open alerts (2026-10-23)
+
+- [x] **Rewrote STATUS.md's Alerts paragraph for the six open rows.**
+      Added `Project Athenaeum next action idle` and `Project portfolio
+      next action idle`, dropped the resolved clyde-automation-site row,
+      refreshed the disk to 87.3 %, and named the three journals the
+      estate's `vram` check could not read (it named one). Every
+      `sysadmin-check-claims` claim reads `ok`.
+- [ ] **Fix `SNAG-DOCS-035`**: the idle-nudge rows rotate each morning,
+      so the paragraph goes stale daily. Opened this session, not worked.
+
 ## Session 410: no open snag can be started (2026-10-23)
 
 The published next action: the highest-ranked open snag a session can
@@ -115,7 +126,7 @@ start now. None could be started. Of 38 open entries, 31 are decided,
 
 - [x] **Ticked Session 402's stale `571f2f12` item**: it was answered
       and logged by Session 404, whose boot check is the live item.
-- [ ] **STATUS.md's Alerts paragraph is stale again** (found this
+- [x] **STATUS.md's Alerts paragraph is stale again** (found this
       session, not worked): `sysadmin-check-claims` reads 6 unresolved
       rows against the block's 5. `Project clyde-automation-site next
       action idle` resolved at 05:09 today, and `Project Athenaeum next
