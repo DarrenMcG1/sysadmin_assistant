@@ -1,6 +1,28 @@
-# Handoff — 2026-10-23 (Session 413)
+# Handoff — 2026-10-23 (Session 414)
 
 ## Next action
+
+Build the journal-horizon watch in tasks.md's Session 414 block, so a core-dump loop or a collapsed journal window alerts here. *(For: session)*
+
+## Session 414: the journal window is measured and logged
+
+Opened on estate message `4a35a2e7-46b5-40cc-a964-1adec1aee528` from
+venture-assistant: the journal reached back only to 2026-10-20 12:16.
+Docs only. The message is closed, naming tasks.md's Session 414 block.
+
+- **Cause:** journald runs on defaults, so system and user files share
+  one 4G cap, and it is full. baloo's crash loop wrote about 207k core
+  dumps from 10-20 to 10-22 15:55, when the owner disabled it.
+- **Recovery:** about 260 MB a day since then. The window lengthens by
+  most of a day per day and settles near 15 days in about two weeks.
+- **Left for the owner:** whether to raise the cap to 8G, recorded in
+  tasks.md with a recommendation. Default meanwhile: 4G stands.
+- **Rejected:** writing the drop-in this session. It is `/etc`, needs
+  `sudo`, and how much history the box keeps is the owner's call.
+- **Rejected:** building the horizon watch now. It is a feature, a
+  second concern, so it is the Next action instead.
+
+## What Session 413 handed on
 
 Run the preflight and work the highest-ranked open snag a session can start now, or record that none can, as Session 410 did. *(For: session)*
 

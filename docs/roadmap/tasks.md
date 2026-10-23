@@ -99,6 +99,40 @@ The published next action: Session 408's item above.
       figure to 87.2 %. `sysadmin-check-claims` reads every claim `ok`,
       `alerts` and `open_titles` among them.
 
+## Session 414: the journal window is measured and logged (2026-10-23)
+
+The owner asked this session to act on estate message
+`4a35a2e7-46b5-40cc-a964-1adec1aee528` from venture-assistant: the
+journal reached back only to 2026-10-20 12:16, so its nightly drain for
+10-17 to 10-20 was gone. Docs only; no code, no restart owed.
+
+- [x] **Measured the cause.** journald runs on defaults (no
+      `journald.conf.d/`), so its cap is 4G for system and user files
+      together, and it is full (4.1G in 59 files). baloo's crash loop
+      filled it: 19k `baloo_file_extractor` core dumps on 10-20, 89k on
+      10-21 and 99k on 10-22 to 15:55, when the owner ran
+      `balooctl6 disable`. Since then, 3 non-baloo dumps.
+- [x] **Forecast the recovery.** Since the loop stopped, the journal
+      writes about 260 MB a day on disk (llama-server 152k lines and
+      Steam 81k today). Each day's vacuum removes about 2.5 hours of
+      flood files, so the window lengthens by most of a day per day.
+      The flood files (about 3.6G) are gone in about two weeks, and the
+      window then settles near 15 days at today's rate, not the 34.46
+      days estate-manager's ADR-0185 once recorded.
+- [x] **Closed the message** as `sysadmin-assistant`, naming the two
+      items below.
+- [ ] **Owner: whether to raise journald's cap.** Recommendation: a
+      drop-in `/etc/systemd/journald.conf.d/size.conf` with
+      `SystemMaxUse=8G`, about two weeks more history for 0.25 % of a
+      disk with 192G free. It needs `sudo` and a journald restart, so it
+      is the owner's step. Default meanwhile: the 4G cap stands.
+- [ ] **Watch the journal's horizon here.** Nothing in this service
+      noticed three days of core dumps or the window collapsing; a
+      neighbour did. Alert when the oldest retained record is younger
+      than a threshold, or when core dumps from one executable pass a
+      rate, so the next loop is caught in hours. ADR-0185 places the
+      box's disk disposition with this repository.
+
 ## Session 413: a journal premise skips on retention (2026-10-23)
 
 - [x] **Closed `SNAG-LOG-022`** in `a3aeb4b`: the three journal-premise
