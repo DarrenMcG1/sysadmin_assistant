@@ -105,10 +105,15 @@ def _active_enter_epoch(unit: str, *, user: bool) -> int | None:
     2026-10-01).  That cannot hide a JSON record, so it cannot turn the
     witness green falsely.
     """
+    return _unit_epoch(unit, "ActiveEnterTimestamp", user=user)
+
+
+def _unit_epoch(unit: str, prop: str, *, user: bool) -> int | None:
+    """A timestamp property of ``unit`` in whole seconds, or ``None``."""
     import subprocess
 
-    command = ["systemctl", "show", "--timestamp=unix", "-p",
-               "ActiveEnterTimestamp", "--value", unit]
+    command = ["systemctl", "show", "--timestamp=unix", "-p", prop,
+               "--value", unit]
     if user:
         command.insert(1, "--user")
     try:
@@ -241,6 +246,59 @@ def _newest_plain_record_usec(unit: str, *, user: bool) -> int | None:
                 and not message.lstrip().startswith("{")):
             newest = int(record["__REALTIME_TIMESTAMP"])
     return newest
+
+
+def _journal_head_epoch(*, user: bool) -> int | None:
+    """When the oldest record journald still holds was written, or ``None``.
+
+    The retention horizon, which an empty read has to be checked against
+    before it counts as evidence.  The user journal is size-capped and
+    shared with every process in the session, so its horizon moves with
+    their traffic rather than with the calendar: measured 2026-10-23 it
+    reached back three days, llama-server and Steam writing about a
+    quarter of a million lines a day between them.  A record written
+    before the horizon is gone, and a read that finds nothing then says
+    nothing about the producer.
+    """
+    import json as _json
+    import subprocess
+
+    # The stream runs oldest first, so its first line is the head; it is
+    # read and the process closed, never the whole journal buffered.
+    command = ["journalctl", "-o", "json", "--output-fields=__REALTIME_TIMESTAMP",
+               "--no-pager", "-q"]
+    if user:
+        command.insert(1, "--user")
+    try:
+        with subprocess.Popen(command, stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, text=True) as proc:
+            assert proc.stdout is not None
+            first = proc.stdout.readline()
+            proc.kill()
+    except OSError:
+        return None
+    try:
+        return int(_json.loads(first)["__REALTIME_TIMESTAMP"]) // 1_000_000
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def _skip_if_rotated_out(unit: str, written: int | None, *, user: bool) -> None:
+    """Skip when the records a read wanted were written before the horizon.
+
+    Called only once a read has come back empty, so a non-empty read is
+    asserted on whatever the horizon is.  ``written`` is when the wanted
+    records were made — a run's start, a timer's last firing — and
+    ``None`` leaves the empty read to its caller's assertion, which is
+    where it was before the horizon was looked at.
+    """
+    head = _journal_head_epoch(user=user)
+    if written is not None and head is not None and written < head:
+        pytest.skip(
+            f"{unit}'s records from @{written} predate the journal's oldest "
+            f"retained record at @{head}; retention, not the producer, "
+            "emptied the read"
+        )
 
 def make_registry(tmp_path: Path, *ids: str):
     for project_id in ids:
@@ -685,6 +743,16 @@ class TestLiveServicesYaml:
         if found is None:
             pytest.skip(f"journalctl cannot read {source.log_unit}")
         total, json_shaped, newest_is_json = found
+        if total == 0:
+            # A daemon logs all week, so an empty window is the producer's
+            # however short retention is; the other two read one moment.
+            if declared_name in STARTUP_JSON_SOURCES:
+                written = started
+            elif scheduled:
+                written = _unit_epoch(source.unit, "LastTriggerUSec", user=user)
+            else:
+                written = None
+            _skip_if_rotated_out(source.log_unit, written, user=user)
         assert total > 0, (
             f"premise failed: no application records read for "
             f"{source.log_unit}, so this test witnessed nothing"
@@ -966,6 +1034,10 @@ class TestTheJournalHelperCanAnswerBothWays:
             1 for line in raw.stdout.splitlines()
             if isinstance(_json.loads(line).get("MESSAGE"), str)
         )
+        if unfiltered == 0:
+            # A timer writes its lines when it starts, not when it fires.
+            _skip_if_rotated_out(unit, _active_enter_epoch(unit, user=True),
+                                 user=True)
         assert unfiltered > 0, (
             f"premise failed: {unit} carries no records at all, so the "
             "exclusion is untested rather than shown to matter"
