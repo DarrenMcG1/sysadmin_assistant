@@ -21,6 +21,7 @@ import re
 import subprocess
 import sys
 import time
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -58,6 +59,7 @@ from sysadmin.ops_claims import (
     check_flapping,
     check_markers,
     check_open_titles,
+    check_rotating,
     check_tests,
     claim_sentence,
     code_spans,
@@ -65,6 +67,7 @@ from sysadmin.ops_claims import (
     daemon_modules,
     flapping_candidates,
     flatten,
+    like_matches,
     load_region,
     main,
     measure_database,
@@ -77,6 +80,7 @@ from sysadmin.ops_claims import (
     quick_status_rows,
     read_claim,
     read_markers,
+    rotating_patterns,
     states_clock,
     status_figures,
     sweep_sources,
@@ -3870,3 +3874,151 @@ class TestAMarkedSentenceStatesNoFigure:
         assert region is not None, problem
         assert "7-day window" in region
         assert all("7-day" not in s for s in self._sentences())
+
+
+NUDGES = "Project % next action idle"
+
+
+def _family_facts(open_titles, patterns=(NUDGES,)) -> DatabaseFacts:
+    """Open rows, and which title patterns the block has declared."""
+    return DatabaseFacts(
+        tables=13,
+        unresolved=len(open_titles),
+        open_titles=tuple(open_titles),
+        family_rows={pattern: 7 for pattern in patterns},
+    )
+
+
+class TestARotatingFamilyIsSetAside:
+    """Rule 13 — ``SNAG-DOCS-035``.
+
+    The idle-nudge rows turn over as a family most mornings, so a block
+    pinning them by count and by name went stale daily.  On 2026-10-23
+    ``Project clyde-automation-site next action idle`` resolved and the
+    Athenaeum and portfolio rows opened in the same second.
+    """
+
+    STABLE = "warning: High disk usage on /"
+    BEFORE = (STABLE, "info: Project clyde-automation-site next action idle")
+    AFTER = (
+        STABLE,
+        "info: Project Athenaeum next action idle",
+        "info: Project portfolio next action idle",
+    )
+    BLOCK = "> `High disk usage on /` is open <!--check:open_titles-->."
+
+    def test_the_founding_turnover_moves_neither_claim(self):
+        """Falsified by dropping the family from either check: 1 → 2 rows."""
+        for rows in (self.BEFORE, self.AFTER):
+            facts = _family_facts(rows)
+            assert check_alerts("holds **1** unresolved rows", "", facts).verdict == "match"
+            assert check_open_titles(self.BLOCK, "", facts).verdict == "match"
+
+    def test_a_set_aside_member_is_named_with_its_pattern(self):
+        facts = _family_facts(self.AFTER)
+        claim = check_alerts("holds **1** unresolved rows", "", facts)
+        aside = [line for line in claim.detail if "set aside" in line]
+        assert len(aside) == 2
+        assert all(f"`{NUDGES}`" in line for line in aside)
+        membership = check_open_titles(self.BLOCK, "", facts)
+        assert membership.documented == "1 named, 2 set aside"
+
+    def test_a_stable_row_resolving_is_still_a_fall(self):
+        facts = _family_facts(self.AFTER[1:])
+        claim = check_alerts("holds **1** unresolved rows", "", facts)
+        assert claim.verdict == "mismatch"
+        assert "1 fewer" in claim.note
+        assert "2 row(s) of a declared rotating family set aside" in claim.note
+
+    def test_an_undeclared_family_is_counted(self):
+        facts = _family_facts(self.AFTER, patterns=())
+        assert check_alerts("holds **1** unresolved rows", "", facts).measured == "3"
+
+    def test_a_pattern_matches_like_sql_does(self):
+        """``like_matches`` mirrors ``LIKE … ESCAPE ''`` — the query's reading."""
+        assert like_matches(NUDGES, "Project portfolio next action idle")
+        assert not like_matches(NUDGES, "Estate project next actions idle")
+        assert not like_matches(NUDGES, "Project portfolio next action idle!")
+        assert like_matches("a_c", "abc") and not like_matches("a_c", "ac")
+        assert like_matches("50% done", "50% done") and like_matches("a.c", "a.c")
+        assert not like_matches("a.c", "abc")
+
+
+class TestTheFamilyIsJudgedBySeverity:
+    """``check_rotating`` — what stops the exemption hiding an escalation."""
+
+    @staticmethod
+    def _marker(sentence: str) -> Marker:
+        return Marker("rotating", "", sentence)
+
+    def test_an_all_info_family_holds(self):
+        facts = _family_facts(("info: Project Athenaeum next action idle",))
+        claims = check_rotating(self._marker(f"`{NUDGES}` rotates."), facts)
+        assert [(c.key, c.verdict) for c in claims] == [(f"rotating:{NUDGES}", "match")]
+        assert claims[0].measured == "1 open, 7 row(s) in 7 days"
+
+    def test_an_empty_family_holds(self):
+        """No idle repository today is health, not a stale declaration."""
+        claims = check_rotating(self._marker(f"`{NUDGES}` rotates."), _family_facts(()))
+        assert claims[0].verdict == "match"
+
+    def test_an_escalated_member_withdraws_the_exemption(self):
+        """Falsified by judging only the first member, or none."""
+        loud = "warning: Project portfolio next action idle"
+        facts = _family_facts(("info: Project Athenaeum next action idle", loud))
+        claims = check_rotating(self._marker(f"`{NUDGES}` rotates."), facts)
+        assert claims[0].verdict == "mismatch"
+        assert claims[0].detail == (f"above info: {loud}",)
+
+    def test_a_pattern_the_window_never_saw_sets_nothing_aside(self):
+        claims = check_rotating(self._marker("`Projekt % idle` rotates."), _family_facts(()))
+        assert [(c.key, c.kind, c.verdict) for c in claims] == [
+            ("rotating:?", "convention", "unknown")
+        ]
+
+    def test_a_span_without_a_wildcard_is_not_a_pattern(self):
+        region = f"> `{NUDGES}` rotates, see `SNAG-DOCS-035` <!--check:rotating-->."
+        assert rotating_patterns(region) == (NUDGES,)
+
+    def test_a_database_that_will_not_answer_is_unknown(self):
+        facts = DatabaseFacts(None, None, (), "the database did not answer (X)")
+        claims = check_rotating(self._marker(f"`{NUDGES}` rotates."), facts)
+        assert claims[0].verdict == "unknown"
+
+    def test_it_is_a_key_a_marker_may_carry(self):
+        assert "rotating" in CHECK_KEYS
+        assert "rotating" not in CLAIM_PATTERNS
+
+
+class TestTheRealBlockDeclaresTheNudgeFamily:
+    """The live half of rule 13: the document against the table.
+
+    Like :class:`TestTheRealBlockDeclaresWhatItSetsAside`, it never
+    asserts the declaration currently *holds*; that is
+    ``check-ops-claims.sh``'s verdict.
+    """
+
+    @pytest.mark.premise
+    def test_the_block_declares_a_pattern_the_table_has_seen(self):
+        region, problem = load_region()
+        assert region is not None, problem
+        patterns = rotating_patterns(region)
+        assert patterns, "the block carries no <!--check:rotating--> pattern"
+        facts = measure_database((), patterns)
+        assert not facts.problem, facts.problem
+        assert facts.family_rows, f"no declared pattern matched a row: {patterns}"
+
+    def test_a_new_member_moves_neither_claim(self):
+        """A nudge opening for a repository nobody has named is the founding case."""
+        region, problem = load_region()
+        assert region is not None, problem
+        facts = measure_database((), rotating_patterns(region))
+        assert not facts.problem, facts.problem
+        entry = "info: Project not-a-real-repository next action idle"
+        turned = replace(
+            facts, unresolved=(facts.unresolved or 0) + 1, open_titles=(entry, *facts.open_titles)
+        )
+        assert check_alerts(region, "", turned).measured == check_alerts(region, "", facts).measured
+        membership = check_open_titles(region, "", turned)
+        assert membership.verdict == check_open_titles(region, "", facts).verdict
+        assert f"set aside: {entry}" in membership.detail

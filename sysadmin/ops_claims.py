@@ -300,6 +300,21 @@ one rule here whose population is a *place* rather than a pattern:
     the check's whole purpose, a claim reading "4 or 5 rows" being unable
     to notice a fall at all.
 
+13. **A family that rotates is declared by its title pattern**
+    (``SNAG-DOCS-035``).  ``Project <name> next action idle`` rows are
+    stable for days and then turn over as a family, usually at about
+    05:09: on 2026-10-23 one resolved and two opened in the same second.
+    Rule 12 cannot admit them, since each member is open for most of the
+    week, and three sittings running spent themselves re-pinning the
+    block.  A sentence carrying ``<!--check:rotating-->`` quotes a pattern
+    in SQL ``LIKE`` form, ``Project % next action idle``; the open rows it
+    matches are set aside from both alert claims, and
+    :func:`check_rotating` withdraws the exemption the moment a member is
+    anything but ``info``, because a nudge someone escalated is asking for
+    action and the block must name it.  The cost is stated: the block
+    stops saying which repositories are idle, which the estate's own
+    board already shows.
+
 **This module sits beside main.py** for the reason :mod:`sysadmin.reload`
 and :mod:`sysadmin.metadata` do: it composes ``core`` with every domain
 (the route count comes from :func:`sysadmin.main.create_app`, which
@@ -430,10 +445,16 @@ CLAIM_PATTERNS: dict[str, str] = {
 #: answered from the alert table against the block's *membership* sentence
 #: rather than from a figure — it reads no value, only a haystack, which is
 #: rule 10.  ``expires`` is the one family whose *members* are declared by
-#: the marker rather than by this module — rule 8.
+#: the marker rather than by this module — rule 8.  ``flapping`` and
+#: ``rotating`` declare titles and title patterns, rules 12 and 13.
 KEYLESS_CHECKS: frozenset[str] = frozenset(
-    {"schema", "deploy", "open_titles", "expires", "flapping"}
+    {"schema", "deploy", "open_titles", "expires", "flapping", "rotating"}
 )
+
+#: The one severity a rotating family may hold while it is set aside —
+#: rule 13.  A member at any other rung is asking for action, so the
+#: exemption is withdrawn rather than hiding it.
+ROTATING_SEVERITY = "info"
 
 #: Every name a marker may carry, **derived** from the two sets above
 #: rather than written beside them — ``max_priority_for`` against
@@ -1203,6 +1224,38 @@ def flapping_candidates(region: str) -> tuple[str, ...]:
     )
 
 
+def rotating_patterns(region: str) -> tuple[str, ...]:
+    """Every title pattern a ``<!--check:rotating-->`` sentence declares.
+
+    Rule 13.  Read per marker for :func:`flapping_candidates`' reason.  A
+    span is a pattern only if it carries ``%``: the sentence quotes the
+    family's pattern beside prose citations, and a span with no wildcard
+    names one title, which is rule 12's declaration and not this one's.
+    """
+    return tuple(
+        dict.fromkeys(
+            span
+            for marker in read_markers(region)
+            if marker.key == "rotating"
+            for span in code_spans(marker.sentence)
+            if "%" in span
+        )
+    )
+
+
+def like_matches(pattern: str, title: str) -> bool:
+    """SQL ``LIKE`` with no escape character, as :func:`_read_family_rows` runs it.
+
+    Mirrored rather than approximated, so the rows the window query counts
+    and the open rows set aside are one population: ``%`` is any run and
+    ``_`` any one character, everything else literal.
+    """
+    regex = "".join(
+        ".*" if char == "%" else "." if char == "_" else re.escape(char) for char in pattern
+    )
+    return re.fullmatch(regex, title, flags=re.DOTALL) is not None
+
+
 def load_region(path: Path | None = None) -> tuple[str | None, str]:
     """:func:`printed_region` of STATUS.md on disk, or ``None`` and why not."""
     target = path or STATUS_PATH
@@ -1483,9 +1536,21 @@ class DatabaseFacts:
     #: no entry is a phrase in backticks that names no alert title, which
     #: is the overwhelming majority of them.
     flap_readings: Mapping[str, FlapReading] = field(default_factory=dict)
+    #: Rows each declared title pattern matched in the window — rule 13.
+    #: A pattern with no entry has matched nothing for
+    #: :data:`FLAP_WINDOW_DAYS`, so it is misspelt or its family is gone.
+    family_rows: Mapping[str, int] = field(default_factory=dict)
 
 
-def measure_database(candidates: Iterable[str] = ()) -> DatabaseFacts:
+def family_of(entry: str, facts: DatabaseFacts) -> str | None:
+    """The declared pattern an open row belongs to, if any — rule 13."""
+    title = _title_of(entry)
+    return next((pattern for pattern in facts.family_rows if like_matches(pattern, title)), None)
+
+
+def measure_database(
+    candidates: Iterable[str] = (), patterns: Iterable[str] = ()
+) -> DatabaseFacts:
     """Table count and unresolved alerts, on one short-lived connection.
 
     The sync engine that exists for Alembic, opened and disposed —
@@ -1517,6 +1582,7 @@ def measure_database(candidates: Iterable[str] = ()) -> DatabaseFacts:
                 )
             ).fetchall()
             flaps = _read_flap_readings(conn, schema, tuple(candidates))
+            families = _read_family_rows(conn, schema, tuple(patterns))
     except Exception as exc:  # noqa: BLE001 — an unreachable database is "unknown"
         return DatabaseFacts(
             None, None, (), f"the database did not answer ({exc.__class__.__name__})"
@@ -1525,7 +1591,32 @@ def measure_database(candidates: Iterable[str] = ()) -> DatabaseFacts:
         engine.dispose()
 
     titles = tuple(f"{severity}: {title}" for severity, title in rows)
-    return DatabaseFacts(int(tables), len(titles), titles, flap_readings=flaps)
+    return DatabaseFacts(
+        int(tables), len(titles), titles, flap_readings=flaps, family_rows=families
+    )
+
+
+def _read_family_rows(
+    conn: Connection, schema: str, patterns: tuple[str, ...]
+) -> dict[str, int]:
+    """How many rows each declared pattern matched in the window — rule 13.
+
+    ``ESCAPE ''`` turns off ``LIKE``'s backslash escape, so the query and
+    :func:`like_matches` read a pattern the same way.
+    """
+    families: dict[str, int] = {}
+    for pattern in patterns:
+        rows = conn.execute(
+            text(  # noqa: S608 — the schema name is configuration, not input
+                f"SELECT count(*) FROM {schema}.alerts "
+                "WHERE title LIKE :pattern ESCAPE '' "
+                "AND coalesce(resolved_at, now()) > now() - make_interval(days => :days)"
+            ),
+            {"pattern": pattern, "days": FLAP_WINDOW_DAYS},
+        ).scalar_one()
+        if rows:
+            families[pattern] = int(rows)
+    return families
 
 
 def _read_flap_readings(
@@ -1942,10 +2033,20 @@ def check_alerts(region: str, region_problem: str, facts: DatabaseFacts) -> Clai
     set_aside = tuple(
         entry for entry in facts.open_titles if _title_of(entry) in facts.flap_readings
     )
-    measured = None if facts.unresolved is None else str(facts.unresolved - len(set_aside))
+    # Rule 13: a row a declared family matches is set aside the same way.
+    rotating = tuple(
+        entry
+        for entry in facts.open_titles
+        if entry not in set_aside and family_of(entry, facts) is not None
+    )
+    measured = (
+        None
+        if facts.unresolved is None
+        else str(facts.unresolved - len(set_aside) - len(rotating))
+    )
     aside = (
         f"; {len(set_aside)} row(s) declared flapping and set aside" if set_aside else ""
-    )
+    ) + (f"; {len(rotating)} row(s) of a declared rotating family set aside" if rotating else "")
     note = ""
     if documented is not None and measured is not None and documented != measured:
         moved = int(measured) - int(documented)
@@ -1966,6 +2067,8 @@ def check_alerts(region: str, region_problem: str, facts: DatabaseFacts) -> Clai
             f"{entry} — set aside, declared flapping "
             f"({facts.flap_readings[_title_of(entry)].reading()})"
             if _title_of(entry) in facts.flap_readings
+            else f"{entry} — set aside, declared rotating `{family_of(entry, facts)}`"
+            if entry in rotating
             else entry
             for entry in facts.open_titles
         )
@@ -2216,10 +2319,14 @@ def check_open_titles(region: str, region_problem: str, facts: DatabaseFacts) ->
     # the membership sentence would have to gain and lose it on the same
     # cadence the count did, and this check would flap in the count's
     # place rather than instead of it.
+    # A row of a declared rotating family likewise (rule 13): its members
+    # turn over most mornings, which is the cadence ``SNAG-DOCS-035`` found
+    # this sentence being re-written on.
     set_aside = tuple(
         entry
         for entry in facts.open_titles
-        if entry not in named and _title_of(entry) in facts.flap_readings
+        if entry not in named
+        and (_title_of(entry) in facts.flap_readings or family_of(entry, facts) is not None)
     )
     unnamed = tuple(
         entry for entry in facts.open_titles if entry not in named and entry not in set_aside
@@ -2329,6 +2436,63 @@ def _flapping_claim(reading: FlapReading) -> Claim:
         f"a row unresolved for {reading.fraction * 100:.1f} % of the window is standing "
         "rather than flapping, so setting it aside hides it — count it in the figure and "
         "withdraw the declaration",
+    )
+
+
+def check_rotating(marker: Marker, facts: DatabaseFacts) -> list[Claim]:
+    """One family declaration, against its open members — rule 13.
+
+    :func:`check_alerts` and :func:`check_open_titles` set the family's
+    open rows aside; this is what stops that being a place to hide one.
+    The judgement is severity, not duty cycle: every member is open for
+    most of the week by design, so rule 12's fraction would refuse them
+    all.  A member at a rung other than :data:`ROTATING_SEVERITY` reads
+    ``mismatch``.  A pattern that matched nothing in the window reads
+    ``unknown``, for :func:`check_flapping`'s reason: it sets nothing
+    aside.  A family with no member open today is a healthy state and
+    reads ``match``.
+    """
+    subject = "Block sets aside a rotating family"
+    if facts.unresolved is None:
+        return [Claim("rotating:?", subject, "claim", None, None, "unknown", facts.problem)]
+    patterns = [span for span in code_spans(marker.sentence) if "%" in span]
+    declared = [pattern for pattern in patterns if pattern in facts.family_rows]
+    if not declared:
+        return [
+            _convention(
+                "rotating:?",
+                subject,
+                "the sentence carrying <!--check:rotating--> quotes no `%` pattern that "
+                f"matched a row in the last {FLAP_WINDOW_DAYS} days — it sets nothing "
+                "aside, so either the pattern is misspelt or the family is gone and the "
+                "marker with its sentence should follow it",
+            )
+        ]
+    return [_rotating_claim(pattern, facts) for pattern in declared]
+
+
+def _rotating_claim(pattern: str, facts: DatabaseFacts) -> Claim:
+    """One declared pattern, judged by the severity of its open members."""
+    members = [entry for entry in facts.open_titles if family_of(entry, facts) == pattern]
+    loud = [entry for entry in members if not entry.startswith(f"{ROTATING_SEVERITY}: ")]
+    key = f"rotating:{pattern}"
+    subject = f"Block sets aside: {pattern}"
+    measured = (
+        f"{len(members)} open, {facts.family_rows[pattern]} row(s) in {FLAP_WINDOW_DAYS} days"
+    )
+    if not loud:
+        return Claim(key, subject, "claim", f"all {ROTATING_SEVERITY}", measured, "match")
+    return Claim(
+        key,
+        subject,
+        "claim",
+        f"all {ROTATING_SEVERITY}",
+        measured,
+        "mismatch",
+        f"{len(loud)} member(s) above {ROTATING_SEVERITY} are asking for action, so "
+        "setting the family aside hides them — name them in the block and withdraw "
+        "the declaration",
+        tuple(f"above {ROTATING_SEVERITY}: {entry}" for entry in loud),
     )
 
 
@@ -2574,7 +2738,7 @@ def check_all(path: Path | None = None, now: datetime | None = None) -> list[Cla
     # population is the document's: only the phrases a marked sentence
     # offers are asked about, which is what bounds that query by a
     # paragraph rather than by a table a log-signature storm can fork.
-    facts = measure_database(flapping_candidates(region_text))
+    facts = measure_database(flapping_candidates(region_text), rotating_patterns(region_text))
     unit = measure_unit()
     status = schema_status()
     # Local and aware — the document's prose is a local wall clock (rule 9)
@@ -2605,6 +2769,12 @@ def check_all(path: Path | None = None, now: datetime | None = None) -> list[Cla
             for marker in markers
             if marker.key == "flapping"
             for claim in check_flapping(marker, facts)
+        ),
+        *(
+            claim
+            for marker in markers
+            if marker.key == "rotating"
+            for claim in check_rotating(marker, facts)
         ),
         *check_markers(region_text, markers),
     ]
