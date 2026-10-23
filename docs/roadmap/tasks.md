@@ -99,6 +99,21 @@ The published next action: Session 408's item above.
       figure to 87.2 %. `sysadmin-check-claims` reads every claim `ok`,
       `alerts` and `open_titles` among them.
 
+## Session 415: the journal's window is watched (2026-10-23)
+
+The published next action: build the journal-horizon watch in Session
+414's block. Code in `07e0e7e`, tests in `3581299`.
+
+- [x] **The sysadmin agent watches the journal.** `Short journal
+      window` opens when the newer of the system and user journals'
+      oldest records is under 7 days old; `Core dump loop in <exe>`
+      when one executable dumps core 10 times in 60 minutes. Both are
+      `warning`, resolve their own rows by id, and hold open rows when
+      a read fails. Thresholds are in `config.yaml` under
+      `agents.sysadmin.journal_horizon`.
+- [x] **Deployed and driven.** The daemon restarted at 21:59:35; the
+      22:04:35 run raised the window row at 3.41 days and found no loop.
+
 ## Session 414: the journal window is measured and logged (2026-10-23)
 
 The owner asked this session to act on estate message
@@ -126,7 +141,8 @@ journal reached back only to 2026-10-20 12:16, so its nightly drain for
       `SystemMaxUse=8G`, about two weeks more history for 0.25 % of a
       disk with 192G free. It needs `sudo` and a journald restart, so it
       is the owner's step. Default meanwhile: the 4G cap stands.
-- [ ] **Watch the journal's horizon here.** Nothing in this service
+- [x] **Watch the journal's horizon here.** Done by Session 415 in
+      `07e0e7e` and `3581299`. Nothing in this service
       noticed three days of core dumps or the window collapsing; a
       neighbour did. Alert when the oldest retained record is younger
       than a threshold, or when core dumps from one executable pass a

@@ -1,6 +1,33 @@
-# Handoff — 2026-10-23 (Session 414)
+# Handoff — 2026-10-23 (Session 415)
 
 ## Next action
+
+Rule on journald's cap in tasks.md's Session 414 block: recommended, `SystemMaxUse=8G` in a `journald.conf.d` drop-in, then restart journald. *(For: owner, ~5 min)*
+
+## Session 415: the journal's window is watched
+
+Opened on Session 414's Next action. Code in `07e0e7e`, tests in
+`3581299`, docs in the commit after them.
+
+- **Built:** `sysadmin/monitor/journal_horizon.py` and
+  `_check_journal_horizon` in the sysadmin agent. Two `warning`
+  families, each resolving its own rows by id, as collation's does:
+  `Short journal window` under 7 days, and `Core dump loop in <exe>` at
+  10 dumps an hour from one executable.
+- **Chosen:** the window is the newer of the two heads (system 12:16,
+  user 12:21), because a reader of either scope relies on the shorter.
+  Rejected: the system head alone, which overstates the user journal's.
+- **Chosen:** a 7-day floor, so a weekly timer's last run survives.
+  Rejected: a floor the live 3.4-day window would pass; the row is true
+  now and resolves itself in about four days.
+- **Chosen:** dumps counted per executable. Rejected: a total, which
+  would sum unrelated crashes into a false loop.
+- **Driven:** the 22:04:35 run raised the window row at 3.41 days and
+  no loop; the 22:09:35 run held it, raising nothing. The daemon restarted at 21:59:35 (owner ruling of
+  2026-10-21: a session may run the no-sudo restart).
+- **Default kept:** journald's 4G cap stands until the owner rules.
+
+## What Session 414 handed on
 
 Build the journal-horizon watch in tasks.md's Session 414 block, so a core-dump loop or a collapsed journal window alerts here. *(For: session)*
 
