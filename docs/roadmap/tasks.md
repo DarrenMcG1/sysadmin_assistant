@@ -98,6 +98,14 @@ The published next action: Session 408's item above.
       figure to 87.2 %. `sysadmin-check-claims` reads every claim `ok`,
       `alerts` and `open_titles` among them.
 
+## Session 412: the idle-nudge family is set aside (2026-10-23)
+
+- [x] **Closed `SNAG-DOCS-035`** in `cfef2c8`: `<!--check:rotating-->`
+      declares a title pattern, its open rows are set aside from the
+      `alerts` and `open_titles` claims, and `check_rotating` withdraws
+      the exemption if a member is above `info`. STATUS.md's Alerts
+      paragraph declares `Project % next action idle` and pins 3 rows.
+
 ## Session 411: STATUS.md names all six open alerts (2026-10-23)
 
 - [x] **Rewrote STATUS.md's Alerts paragraph for the six open rows.**
@@ -106,8 +114,8 @@ The published next action: Session 408's item above.
       refreshed the disk to 87.3 %, and named the three journals the
       estate's `vram` check could not read (it named one). Every
       `sysadmin-check-claims` claim reads `ok`.
-- [ ] **Fix `SNAG-DOCS-035`**: the idle-nudge rows rotate each morning,
-      so the paragraph goes stale daily. Opened this session, not worked.
+- [x] **Fix `SNAG-DOCS-035`**: the idle-nudge rows rotate each morning,
+      so the paragraph goes stale daily. Done by Session 412.
 
 ## Session 410: no open snag can be started (2026-10-23)
 

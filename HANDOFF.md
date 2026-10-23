@@ -1,6 +1,27 @@
-# Handoff — 2026-10-23 (Session 411)
+# Handoff — 2026-10-23 (Session 412)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag a session can start now, or record that none can, as Session 410 did. *(For: session)*
+
+## Session 412: the idle-nudge rows no longer stale STATUS.md
+
+Closes `SNAG-DOCS-035`. Code in `cfef2c8`, docs in the commit after it.
+
+- **Changed:** `sysadmin/ops_claims.py` gains rule 13. A sentence
+  carrying `<!--check:rotating-->` quotes a SQL `LIKE` pattern, and the
+  open rows it matches are set aside from the `alerts` count and the
+  `open_titles` sentence. `check_rotating` reads `mismatch` if a member
+  is above `info`. STATUS.md now pins 3 stable rows and declares
+  `Project % next action idle`; `sysadmin-check-claims` reads all ok.
+- **Rejected:** declaring the nudges flapping. Each is open most of
+  the week, so rule 12's half-the-window test would refuse it.
+- **Limit, in the snag entry:** the estate's roll-up row,
+  `Estate project next actions idle`, is not matched by the pattern.
+- **Suite:** 4737 passed, 4 skipped; the 3 reds are `SNAG-LOG-022`'s,
+  unchanged.
+
+## What Session 411 handed on
 
 Fix SNAG-DOCS-035 so the daily idle-nudge rows stop staling STATUS.md's Alerts paragraph, per tasks.md's Session 411 item. *(For: session)*
 
