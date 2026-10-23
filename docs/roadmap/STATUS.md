@@ -76,6 +76,13 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 413 — a journal premise skips on retention (2026-10-23)
+
+- `SNAG-LOG-022` closed. Three live tests in
+  `tests/test_services_registry.py` failed the push because the user
+  journal no longer held the records they read. They now skip when those
+  records predate the journal's oldest retained record (`a3aeb4b`).
+
 ### Session 408 — the blip row reads the service's own log (2026-10-22)
 
 - `SNAG-SVC-001` closed on the owner's ruling for evidence. The

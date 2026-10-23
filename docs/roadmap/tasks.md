@@ -57,13 +57,14 @@ reads `mismatch`.
       ticked by it.
 - [x] **1 test** injects the hyphenated title into both drives; it goes
       red against the substring search.
-- [ ] **`SNAG-LOG-022`: baloo's crash loop rotates the journal** (found
+- [x] **`SNAG-LOG-022`: baloo's crash loop rotates the journal** (found
       this session, not worked): three premise failures in
       `tests/test_services_registry.py` find no journal records for
       estate-manager units, so the pre-push suite stays red on them. The
       owner ran `balooctl6 disable` on 2026-10-22 and parked it. The tests
       recover at the next boot and after `estate-manager-review`'s
       2026-10-26 run; tick this when they pass.
+      Ticked by Session 413: they skip on retention now (`a3aeb4b`).
 
 ## Session 408: the blip row reads the service's own log (2026-10-22)
 
@@ -97,6 +98,15 @@ The published next action: Session 408's item above.
       alerts with their open times and cause, and refreshes the disk
       figure to 87.2 %. `sysadmin-check-claims` reads every claim `ok`,
       `alerts` and `open_titles` among them.
+
+## Session 413: a journal premise skips on retention (2026-10-23)
+
+- [x] **Closed `SNAG-LOG-022`** in `a3aeb4b`: the three journal-premise
+      tests skip when the records they want predate the journal's oldest
+      retained record, so the pre-push suite no longer fails on the
+      box's log volume.
+- [x] **Moved Sessions 408 to 393** from `HANDOFF.md` to
+      `HANDOFF-archive.md`, under the 500-line bound.
 
 ## Session 412: the idle-nudge family is set aside (2026-10-23)
 
