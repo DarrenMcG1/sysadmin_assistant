@@ -1030,6 +1030,10 @@ class TestTheJournalHelperCanAnswerBothWays:
              "-o", "json", "--no-pager"],
             capture_output=True, text=True, timeout=30,
         )
+        # may-not-turn: a timer logs only when it starts, at boot, and the
+        # size-capped user journal can rotate those lines out within days, so
+        # the read is empty and the skip below fires.  Witnessed by Session
+        # 413's run with the horizon forced to zero, which failed here.
         unfiltered = sum(
             1 for line in raw.stdout.splitlines()
             if isinstance(_json.loads(line).get("MESSAGE"), str)
@@ -1038,6 +1042,9 @@ class TestTheJournalHelperCanAnswerBothWays:
             # A timer writes its lines when it starts, not when it fires.
             _skip_if_rotated_out(unit, _active_enter_epoch(unit, user=True),
                                  user=True)
+        # may-not-evaluate: the same rotated-out read as the sum above, which
+        # _skip_if_rotated_out skips only when the timer's start predates the
+        # journal's oldest record, so an empty read inside it still fails here.
         assert unfiltered > 0, (
             f"premise failed: {unit} carries no records at all, so the "
             "exclusion is untested rather than shown to matter"
