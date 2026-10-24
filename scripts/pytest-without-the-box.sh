@@ -26,10 +26,19 @@
 # A test reading those without the mark still passes here and fails in
 # CI. Recorded as SNAG-TEST-020.
 #
+# **uv runs offline.** The namespace has no route to PyPI either, and two
+# files bring coverage in through `uv run --with 'coverage[toml]'`, which
+# re-reads the package index once uv's cached copy goes stale. Inside a
+# fresh cache that passed; outside it, 31 tests failed on a DNS error.
+# `UV_OFFLINE` resolves from the cache alone, so the half depends on
+# coverage having been fetched once, not on the hour.
+#
 # Arguments are passed to pytest after `-m "not box"`.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+
+export UV_OFFLINE=1
 
 exec unshare -rn sh -c '
     uid=$1 gid=$2
