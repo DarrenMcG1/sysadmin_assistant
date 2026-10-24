@@ -3990,6 +3990,7 @@ class TestTheFamilyIsJudgedBySeverity:
         assert "rotating" not in CLAIM_PATTERNS
 
 
+@pytest.mark.box
 class TestTheRealBlockDeclaresTheNudgeFamily:
     """The live half of rule 13: the document against the table.
 
