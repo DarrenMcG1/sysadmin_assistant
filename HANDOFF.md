@@ -1,6 +1,27 @@
-# Handoff — 2026-10-23 (Session 415)
+# Handoff — 2026-10-24 (Session 416)
 
 ## Next action
+
+Run the preflight and work the highest-ranked open snag a session can start now, or record that none can, as Session 410 did. *(For: session)*
+
+## Session 416: journald's cap is 8G
+
+Opened on Session 415's Next action; the owner ruled 8G. Docs only in
+this repository; the change is in `/etc`.
+
+- **Applied:** `/etc/systemd/journald.conf.d/size.conf` with
+  `SystemMaxUse=8G`, written through `pkexec`, then journald restarted
+  at 11:52:22. Its own log line reads `3.9G, max 8G, 4G free`.
+- **Forecast:** no vacuum for about two weeks, so the window grows a
+  full day a day, then settles near 30 days at about 260 MB a day.
+- **Unchanged:** the `Short journal window` row (7-day floor) should
+  resolve itself around 2026-10-27, as before; the cap does not move it
+  sooner, because it only stops deleting.
+- **Rejected:** setting `SystemKeepFree=` as well. Its default keeps
+  4G free (15 % of the disk, capped at 4G); with 189G free, the 8G cap
+  binds first.
+
+## What Session 415 handed on
 
 Rule on journald's cap in tasks.md's Session 414 block: recommended, `SystemMaxUse=8G` in a `journald.conf.d` drop-in, then restart journald. *(For: owner, ~5 min)*
 

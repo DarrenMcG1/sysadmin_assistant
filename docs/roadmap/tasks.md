@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-23
+> **Last Updated**: 2026-10-24
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
@@ -99,6 +99,25 @@ The published next action: Session 408's item above.
       figure to 87.2 %. `sysadmin-check-claims` reads every claim `ok`,
       `alerts` and `open_titles` among them.
 
+## Session 416: journald's cap is 8G (2026-10-24)
+
+The owner ruled on Session 414's open item: raise the cap to 8G.
+
+- [x] **Wrote the drop-in and restarted journald** through `pkexec`.
+      `/etc/systemd/journald.conf.d/size.conf` holds `SystemMaxUse=8G`.
+      journald restarted at 11:52:22 and logged `System Journal … is
+      3.9G, max 8G, 4G free`; a `logger` line written after it reads
+      back. No change in this repository's code or config.
+- [x] **Re-forecast the window.** With 4G free at about 260 MB a day,
+      nothing is vacuumed for about two weeks, so the window lengthens
+      by a full day a day. It then settles near 30 days at today's rate,
+      against the 15 days the 4G cap would have given.
+- [ ] **Re-pin STATUS.md's Alerts paragraph.** A second concern, named
+      and not worked: `check-ops-claims.sh` measures 4 unresolved rows
+      against the paragraph's 5, because `llama-server degraded`
+      resolved at 08:24 and `estate-manager-audit-timer critical` at
+      05:04 today.
+
 ## Session 415: the journal's window is watched (2026-10-23)
 
 The published next action: build the journal-horizon watch in Session
@@ -136,11 +155,11 @@ journal reached back only to 2026-10-20 12:16, so its nightly drain for
       days estate-manager's ADR-0185 once recorded.
 - [x] **Closed the message** as `sysadmin-assistant`, naming the two
       items below.
-- [ ] **Owner: whether to raise journald's cap.** Recommendation: a
+- [x] **Owner: whether to raise journald's cap.** Ruled 8G on
+      2026-10-24 and applied by Session 416. Recommendation was: a
       drop-in `/etc/systemd/journald.conf.d/size.conf` with
       `SystemMaxUse=8G`, about two weeks more history for 0.25 % of a
-      disk with 192G free. It needs `sudo` and a journald restart, so it
-      is the owner's step. Default meanwhile: the 4G cap stands.
+      disk with 192G free.
 - [x] **Watch the journal's horizon here.** Done by Session 415 in
       `07e0e7e` and `3581299`. Nothing in this service
       noticed three days of core dumps or the window collapsing; a

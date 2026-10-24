@@ -1,5 +1,5 @@
 # Project Status Dashboard
-**Last Updated**: 2026-10-23
+**Last Updated**: 2026-10-24
 
 > **The box as it stands.** This block holds only the claims
 > `scripts/check-ops-claims.sh` re-measures at every preflight, one
@@ -25,8 +25,8 @@
 > `llama-server degraded` (20:08 on 2026-10-23: 0.1 GiB of its VRAM
 > evicted to GTT, so a restart of `alfred-inference.service` is owed)
 > and `Short journal window` (22:04 the same day: the journal reaches
-> back 3.4 days against a 7-day floor, and lengthens by most of a day a
-> day now baloo is off) <!--check:open_titles-->. The first four are
+> back 3.4 days against a 7-day floor, and lengthens by a full day a day
+> under the 8G cap set on 2026-10-24) <!--check:open_titles-->. The first four are
 > another repository's or the owner's to act on, two of them
 > estate-manager's; the last resolves itself.
 >
@@ -80,6 +80,12 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 ---
 
 ## Recently Completed
+
+### Session 416 — journald's cap is 8G (2026-10-24)
+
+- On the owner's ruling, `/etc/systemd/journald.conf.d/size.conf` sets
+  `SystemMaxUse=8G` in place of the 4G default; journald restarted at
+  11:52:22. The window should settle near 30 days rather than 15.
 
 ### Session 415 — the journal's window is watched (2026-10-23)
 
