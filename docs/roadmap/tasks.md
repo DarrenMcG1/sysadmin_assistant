@@ -112,7 +112,7 @@ The owner ruled on Session 414's open item: raise the cap to 8G.
       nothing is vacuumed for about two weeks, so the window lengthens
       by a full day a day. It then settles near 30 days at today's rate,
       against the 15 days the 4G cap would have given.
-- [ ] **Re-pin STATUS.md's Alerts paragraph.** A second concern, named
+- [x] **Re-pin STATUS.md's Alerts paragraph.** A second concern, named
       and not worked: `check-ops-claims.sh` measures 4 unresolved rows
       against the paragraph's 5, because `llama-server degraded`
       resolved at 08:24 and `estate-manager-audit-timer critical` at
@@ -134,6 +134,22 @@ The published next action: fix or retire the failing GitHub CI per
       database, so a test that reads it without the mark passes there
       and fails only on GitHub. This is the second time
       (`SNAG-TEST-015` was the first).
+
+## Session 418: the Alerts paragraph names 4 rows (2026-10-24)
+
+The published next action: re-pin STATUS.md's Alerts paragraph per
+Session 416's block, and check the newest GitHub run on `main`.
+
+- [x] **The Alerts paragraph names 4 rows**, dropping `llama-server
+      degraded` (resolved 08:24) and noting that
+      `estate-manager-audit-timer critical` reopened at 05:09, five
+      minutes after the old row resolved, when the estate's 05:05 audit
+      failed again. Disk refreshed to 88.0 %. `check-ops-claims.sh`
+      reads every claim `ok`.
+- [ ] **The CI check is still owed.** `main` is 5 commits ahead of
+      `origin/main`, so the newest run (`40072243834`, 06:57, red)
+      predates `60872fe`. Session 417's item above stays open until the
+      owner's push runs.
 
 ## Session 415: the journal's window is watched (2026-10-23)
 

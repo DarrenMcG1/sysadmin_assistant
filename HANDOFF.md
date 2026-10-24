@@ -1,6 +1,22 @@
-# Handoff — 2026-10-24 (Session 417)
+# Handoff — 2026-10-24 (Session 418)
 
 ## Next action
+
+Make the pre-push gate catch a test that reads the live database without the `box` mark, per tasks.md's Session 417 block. *(For: session)*
+
+## Session 418: the Alerts paragraph names 4 rows
+
+Opened on Session 417's Next action. Docs only.
+
+- **Re-pinned:** STATUS.md's Alerts paragraph names 4 open rows.
+  `llama-server degraded` resolved at 08:24. `estate-manager-audit-timer
+  critical` resolved at 05:04 and reopened at 05:09, because the
+  estate's 05:05 audit failed again, so it stays named.
+- **Unseen:** the GitHub run with `60872fe`. `main` is 5 ahead of
+  `origin/main`; the newest run, `40072243834`, predates the fix. The
+  first run after the owner's push confirms `SNAG-TEST-019`'s close.
+
+## What Session 417 handed on
 
 Re-pin STATUS.md's Alerts paragraph per tasks.md's Session 416 block, and check the newest GitHub run on `main` is green. *(For: session)*
 

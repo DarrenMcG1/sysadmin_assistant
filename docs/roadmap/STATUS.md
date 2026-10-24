@@ -15,20 +15,19 @@
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **5** unresolved rows <!--check:alerts-->,
+> **Alerts.** `alerts` holds **4** unresolved rows <!--check:alerts-->,
 > not counting the two flapping titles or the idle-nudge family below.
-> The open rows are `High disk usage on /` (87.7 % against 80 %),
-> `estate-manager-audit-timer critical` (opened 05:05 on 2026-10-22),
-> `Estate audit checks errored` (05:41 the same day: the estate's `vram`
-> check could not read the journals of `alfred-inference.service`,
-> `venture-embed.service` and `venture-model-probe.service`),
-> `llama-server degraded` (20:08 on 2026-10-23: 0.1 GiB of its VRAM
-> evicted to GTT, so a restart of `alfred-inference.service` is owed)
-> and `Short journal window` (22:04 the same day: the journal reaches
-> back 3.4 days against a 7-day floor, and lengthens by a full day a day
-> under the 8G cap set on 2026-10-24) <!--check:open_titles-->. The first four are
-> another repository's or the owner's to act on, two of them
-> estate-manager's; the last resolves itself.
+> The open rows are `High disk usage on /` (88.0 % against 80 %),
+> `estate-manager-audit-timer critical` (reopened 05:09 on 2026-10-24,
+> five minutes after the previous row resolved, because the estate's
+> 05:05 audit run failed again), `Estate audit checks errored` (05:41
+> on 2026-10-22: the estate's `vram` check could not read the journals
+> of `alfred-inference.service`, `venture-embed.service` and
+> `venture-model-probe.service`) and `Short journal window` (22:04 on
+> 2026-10-23: the journal reaches back 3.4 days against a 7-day floor,
+> and lengthens by a full day a day under the 8G cap set on 2026-10-24)
+> <!--check:open_titles-->. The first is the owner's to act on, the
+> next two estate-manager's; the last resolves itself.
 >
 > **The idle-nudge rows are set aside as a family.** Rows titled
 > `Project % next action idle` turn over most mornings, so the block
