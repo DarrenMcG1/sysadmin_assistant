@@ -1,6 +1,31 @@
-# Handoff — 2026-10-24 (Session 421)
+# Handoff — 2026-10-24 (Session 422)
 
 ## Next action
+
+Nothing is startable: every open task waits on the next boot, a third missing `box` mark, or an interpreter change. *(For: none)*
+
+## Scheduled action
+
+- At the next boot, confirm the mosquitto gate's wait and close `SNAG-LOG-021`, per tasks.md's Session 404 block.
+- At the next boot, `test_it_excludes_systemd_and_would_otherwise_have_counted` passes rather than skips, and the gate lists its two declarations as evaluated anyway.
+
+## Session 422: the retention skip is declared to the guard gate
+
+Opened on Session 421's Next action. Code in `f2ebbac`.
+
+- **Done:** a `# may-not-turn:` on the scan-timer test's sum and a
+  `# may-not-evaluate:` on its assert, now
+  `tests/test_services_registry.py:1037` and `:1048`. `SNAG-TEST-021`
+  closed.
+- **Tested:** `check-vacuous-guards.sh` over the full suite exits 0
+  and lists both among the declared sites.
+- **Rejected:** making the assert always run by reading the skip as
+  zero. It would then assert over nothing and hide the vacuity, as
+  `SNAG-TEST-018` found.
+- **Stated limit:** the witness is Session 413's recorded drive with the
+  horizon forced to zero, not a test.
+
+## What Session 421 handed on
 
 Declare the journal-retention skip at `tests/test_services_registry.py:1033` and `:1041` to the vacuous-guard gate, per `SNAG-TEST-021`. *(For: session)*
 

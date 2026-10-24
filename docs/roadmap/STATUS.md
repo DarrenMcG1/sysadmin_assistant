@@ -80,6 +80,13 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 422 — the retention skip is declared to the guard gate (2026-10-24)
+
+- The scan-timer test's sum and assert carry `may-not-turn` and
+  `may-not-evaluate` declarations, so postflight's vacuous-guard gate
+  passes while the journal has rotated the timer's lines out
+  (`SNAG-TEST-021`).
+
 ### Session 419 — the push gate runs the non-box half blind (2026-10-24)
 
 - The pre-push gate runs `-m "not box"` in a network namespace with no

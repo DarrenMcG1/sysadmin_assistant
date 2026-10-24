@@ -153,6 +153,19 @@ Session 416's block, and check the newest GitHub run on `main`.
       owner's push runs. Discharged by Session 420: run `40100822374`
       passed.
 
+## Session 422: the retention skip is declared to the guard gate (2026-10-24)
+
+The published next action: declare the journal-retention skip at
+`tests/test_services_registry.py:1033` and `:1041`, per `SNAG-TEST-021`.
+Code in `f2ebbac`.
+
+- [x] **Declared both sites.** A `# may-not-turn:` on the sum and a
+      `# may-not-evaluate:` on the assert, each naming the rotated-out
+      timer lines and Session 413's forced-zero-horizon run.
+- [x] **Ran the gate.** `check-vacuous-guards.sh` over the full suite
+      exits 0: 8314 asserts, 10 declared may-not-evaluate, 20 declared
+      may-not-turn, both new sites among them.
+
 ## Session 419: the push gate runs the non-box half blind (2026-10-24)
 
 The published next action: make the pre-push gate catch a test that
@@ -184,11 +197,11 @@ the owner's push of `29d67fc` and `c278c85`. Docs only.
       passed. `origin/main` is `8ecb43c`, so it covers Session 419's
       gate split and its 3 `box` marks, and Session 420's
       `UV_OFFLINE=1` fix.
-- [ ] **Declare the retention skip to the vacuous-guard gate.** A
+- [x] **Declare the retention skip to the vacuous-guard gate.** A
       second concern, named and not worked: postflight flags
       `tests/test_services_registry.py:1033` and `:1041` because the
       journal no longer holds `estate-manager-scan.timer`'s records.
-      `SNAG-TEST-021`.
+      `SNAG-TEST-021`. Done by Session 422 in `f2ebbac`.
 
 ## Session 420: CI is green again (2026-10-24)
 
