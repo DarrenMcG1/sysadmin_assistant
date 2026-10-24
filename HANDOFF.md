@@ -1,6 +1,21 @@
-# Handoff — 2026-10-24 (Session 419)
+# Handoff — 2026-10-24 (Session 420)
 
 ## Next action
+
+After the owner's push of `29d67fc`, check the newest GitHub run on `main` is green with `gh run list --limit 1`, per tasks.md's Session 420 block. *(For: session)*
+
+## Session 420: CI is green again
+
+Opened on Session 419's Next action. Docs only.
+
+- **Seen:** GitHub run `40100822374` on `181523f` passed. `60872fe`
+  is an ancestor of `origin/main`, so `SNAG-TEST-019`'s fix is
+  confirmed on GitHub, not only on the box. The last red run was
+  `40072243834` at 06:57.
+- **Unseen:** `main` is 3 ahead of `origin/main` with Session 419's
+  work, so no run has yet covered `29d67fc`'s 3 new `box` marks.
+
+## What Session 419 handed on
 
 After the owner's push, check the newest GitHub run on `main` is green with `gh run list --limit 1`, per tasks.md's Session 418 block. *(For: session)*
 

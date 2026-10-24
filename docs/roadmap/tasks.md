@@ -126,9 +126,9 @@ The published next action: fix or retire the failing GitHub CI per
 - [x] **Marked `TestTheRealBlockDeclaresTheNudgeFamily` `box`**, in
       `60872fe`, as its sibling already was. Under `-m "not box"` the
       file deselects 4 tests, not 2; on the box the class passes.
-- [ ] **See the next GitHub run on `main` green** after the owner's
-      push (`gh run list --limit 1`). Unseen this session: pushing is
-      the owner's.
+- [x] **See the next GitHub run on `main` green** after the owner's
+      push (`gh run list --limit 1`). Seen by Session 420: run
+      `40100822374` at `181523f`, which contains `60872fe`, passed.
 - [x] **Catch a missing `box` mark before push.** A second concern,
       named and not worked: the pre-push gate runs against the live
       database, so a test that reads it without the mark passes there
@@ -147,10 +147,11 @@ Session 416's block, and check the newest GitHub run on `main`.
       minutes after the old row resolved, when the estate's 05:05 audit
       failed again. Disk refreshed to 88.0 %. `check-ops-claims.sh`
       reads every claim `ok`.
-- [ ] **The CI check is still owed.** `main` is 5 commits ahead of
+- [x] **The CI check is still owed.** `main` is 5 commits ahead of
       `origin/main`, so the newest run (`40072243834`, 06:57, red)
       predates `60872fe`. Session 417's item above stays open until the
-      owner's push runs.
+      owner's push runs. Discharged by Session 420: run `40100822374`
+      passed.
 
 ## Session 419: the push gate runs the non-box half blind (2026-10-24)
 
@@ -173,6 +174,19 @@ Code in `29d67fc`.
 - [ ] **Blind the rest of the box.** The namespace hides the network
       only: `~/.claude/settings.json`, the journal, `systemctl --user`
       and the unit files are still read. `SNAG-TEST-020`.
+
+## Session 420: CI is green again (2026-10-24)
+
+The published next action: check the newest GitHub run on `main` after
+the owner's push. Docs only.
+
+- [x] **Read the run.** `40100822374` on `181523f` (14:03, 2m53s)
+      passed its one job, `test`. `60872fe` is an ancestor of
+      `origin/main`, so the run covers `SNAG-TEST-019`'s fix; the last
+      red run was `40072243834` at 06:57.
+- [ ] **The run for `29d67fc` is unseen.** `main` is 3 ahead of
+      `origin/main` with Session 419's gate split and its 3 new `box`
+      marks; the first run after the owner's next push covers them.
 
 ## Session 415: the journal's window is watched (2026-10-23)
 
