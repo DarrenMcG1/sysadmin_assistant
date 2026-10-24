@@ -80,6 +80,12 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 419 — the push gate runs the non-box half blind (2026-10-24)
+
+- The pre-push gate runs `-m "not box"` in a network namespace with no
+  database, as GitHub does, so a missing `box` mark fails at push
+  (`SNAG-TEST-019`'s cause). Residue: `SNAG-TEST-020`.
+
 ### Session 417 — CI deselects the nudge family's live half (2026-10-24)
 
 - `TestTheRealBlockDeclaresTheNudgeFamily` carries the `box` mark, so

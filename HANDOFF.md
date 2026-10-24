@@ -1,6 +1,29 @@
-# Handoff — 2026-10-24 (Session 418)
+# Handoff — 2026-10-24 (Session 419)
 
 ## Next action
+
+After the owner's push, check the newest GitHub run on `main` is green with `gh run list --limit 1`, per tasks.md's Session 418 block. *(For: session)*
+
+## Session 419: the push gate runs the non-box half blind
+
+Opened on Session 418's Next action. Code in `29d67fc`, docs in the
+commit after it.
+
+- **Built:** the pre-push gate's pytest hook is two. `-m box` runs
+  live; `-m "not box"` runs through `scripts/pytest-without-the-box.sh`
+  in a network namespace, so the database refuses the connection, as
+  on GitHub. With `SNAG-TEST-019`'s mark stripped it fails the same 2
+  tests CI did.
+- **Found and fixed:** 3 more unmarked live readers, now `box`. They
+  skipped on GitHub only because a path is absent there.
+- **Cost:** a push's pytest is 14 s + 186 s, against 170 s in one run.
+- **Rejected:** blinding the database by patching the connection in
+  Python. It would guard the patch's list of routes (asyncpg, psycopg2,
+  `psql`, estate-manager's interpreter), not the absence itself.
+- **Rejected:** a mount namespace hiding the rest of the box. The venv
+  and estate-lib live under `/home/gaddi`. Left as `SNAG-TEST-020`.
+
+## What Session 418 handed on
 
 Make the pre-push gate catch a test that reads the live database without the `box` mark, per tasks.md's Session 417 block. *(For: session)*
 

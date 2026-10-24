@@ -10,6 +10,11 @@
 
 ## Open Issues
 
+- [P4] SNAG-TEST-020: **the pre-push gate's blinded half hides only the network, so a test that reads the rest of the box without the `box` mark still fails only on GitHub** (2026-10-24, opened by Session 419 as the stated limit of its fix for `SNAG-TEST-019`)
+  - **Symptom**: `scripts/pytest-without-the-box.sh` runs `-m "not box"` in a network namespace, so the database and every localhost service refuse the connection. The `box` mark also covers `~/.claude/settings.json`, the journal, `systemctl --user` and the installed unit files, and the namespace leaves all four readable.
+  - **Why it is left**: hiding them needs a mount namespace over `/home/gaddi`, `/run/user/1000` and the journal directories, and the venv and estate-lib live under `/home/gaddi`. The `rehearse-the-ci-runner-in-a-namespace` recipe does it with fresh clones, which is minutes per push. Both regressions so far were database reads.
+  - **Status:** Open, P4. Reopen the question if a third missing mark reaches GitHub through one of the four.
+
 - [P2] SNAG-TEST-019: **GitHub CI has failed on every push since 2026-10-23, because two live tests read the box's database and carry no `box` mark** (2026-10-24, opened by Session 416, found and not worked; the owner asked that the next session fix or retire CI; **CLOSED 2026-10-24 by Session 417**)
   - **Symptom**: runs 39990461228, 40022190632 and 40072243834 on `main` fail with `2 failed, 4508 passed`. Both failures are in `tests/test_ops_claims.py`'s `TestTheRealBlockDeclaresTheNudgeFamily`, with `the database did not answer (OperationalError)`. The last green run was 39670264294 on 2026-10-21.
   - **Cause**: `cfef2c8` (Session 412, `SNAG-DOCS-035`) added the class at `tests/test_ops_claims.py:3993` without `@pytest.mark.box`. CI runs `pytest -m "not box"` and has no `projects` database (`SNAG-TEST-015`). Its sibling, `TestTheRealBlockDeclaresWhatItSetsAside` at line 3634, carries the mark. The local pre-push gate runs the full suite against the live database, so it stayed green.

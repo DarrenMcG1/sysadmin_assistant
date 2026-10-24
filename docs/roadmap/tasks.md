@@ -129,11 +129,12 @@ The published next action: fix or retire the failing GitHub CI per
 - [ ] **See the next GitHub run on `main` green** after the owner's
       push (`gh run list --limit 1`). Unseen this session: pushing is
       the owner's.
-- [ ] **Catch a missing `box` mark before push.** A second concern,
+- [x] **Catch a missing `box` mark before push.** A second concern,
       named and not worked: the pre-push gate runs against the live
       database, so a test that reads it without the mark passes there
       and fails only on GitHub. This is the second time
-      (`SNAG-TEST-015` was the first).
+      (`SNAG-TEST-015` was the first). Done by Session 419 in
+      `29d67fc`.
 
 ## Session 418: the Alerts paragraph names 4 rows (2026-10-24)
 
@@ -150,6 +151,28 @@ Session 416's block, and check the newest GitHub run on `main`.
       `origin/main`, so the newest run (`40072243834`, 06:57, red)
       predates `60872fe`. Session 417's item above stays open until the
       owner's push runs.
+
+## Session 419: the push gate runs the non-box half blind (2026-10-24)
+
+The published next action: make the pre-push gate catch a test that
+reads the live database without the `box` mark, per Session 417's block.
+Code in `29d67fc`.
+
+- [x] **Split the gate's pytest hook in two.** `-m box` runs live;
+      `-m "not box"` runs through `scripts/pytest-without-the-box.sh`
+      in a network namespace of its own, where PostgreSQL and every
+      other localhost service refuse the connection.
+- [x] **Falsified at `SNAG-TEST-019`'s defect.** With the mark stripped
+      from `TestTheRealBlockDeclaresTheNudgeFamily`, the blinded run
+      fails the same 2 tests CI did; unblinded, the same selection
+      passes.
+- [x] **Marked 3 more live readers `box`**, found by the first blinded
+      run: `tests/test_estate_port_join_live.py` (reads `ss`) and the
+      snag-claims queue check against estate-manager's database. They
+      skip on GitHub only because a path is absent there.
+- [ ] **Blind the rest of the box.** The namespace hides the network
+      only: `~/.claude/settings.json`, the journal, `systemctl --user`
+      and the unit files are still read. `SNAG-TEST-020`.
 
 ## Session 415: the journal's window is watched (2026-10-23)
 
