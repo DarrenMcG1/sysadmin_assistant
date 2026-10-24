@@ -4378,6 +4378,7 @@ class TestTheQueueCheckAgainstTheRealProducer:
     it is not — which is CI.
     """
 
+    @pytest.mark.box
     def test_the_real_queue_surface_yields_one_of_the_three_verdicts(self):
         if not snag_claims.ESTATE_PYTHON.exists():
             pytest.skip("estate-manager's venv is not on this box")

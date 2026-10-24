@@ -7,8 +7,11 @@
 # `verbose: true` prints each gate's duration, so a push shows what it is
 # doing while it runs. The stage's measured time is stated in CLAUDE.md.
 #
-# The full suite runs, `box` tests included: CI deselects them because they
-# read this machine, and a push runs on this machine.
+# The full suite runs, in two halves. `box` tests read this machine, and a
+# push runs on this machine, so they run live. The rest run with no database
+# to reach (scripts/pytest-without-the-box.sh), as CI runs them, so a test
+# that reads the database without the mark fails here rather than on GitHub
+# (SNAG-TEST-019).
 #
 # .venv/bin directly rather than `uv run`, so a push never syncs the
 # environment. Installing the stage is the owner's step, for the reason the
@@ -19,9 +22,17 @@ default_install_hook_types: [pre-push]
 repos:
   - repo: local
     hooks:
-      - id: pytest
-        name: pytest
-        entry: .venv/bin/python -m pytest -q
+      - id: pytest-box
+        name: pytest -m box
+        entry: .venv/bin/python -m pytest -q -m box
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+        verbose: true
+      - id: pytest-without-the-box
+        name: pytest -m "not box", no database
+        entry: scripts/pytest-without-the-box.sh
         language: system
         pass_filenames: false
         always_run: true

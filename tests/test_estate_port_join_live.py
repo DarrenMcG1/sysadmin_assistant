@@ -106,10 +106,15 @@ ESTATE_PORTS_CHECK = (
     ESTATE_TREE / "service" / "estate_service" / "audit" / "checks" / "ports.py"
 )
 
-pytestmark = pytest.mark.skipif(
-    not ESTATE_PORTS_CHECK.is_file(),
-    reason=f"{ESTATE_PORTS_CHECK} is not on this box — nothing to pin against",
-)
+#: ``box`` as well as the skip: ``ss`` reads this box's listeners, and the
+#: tree is present inside the pre-push gate's blinded run, where they are not.
+pytestmark = [
+    pytest.mark.box,
+    pytest.mark.skipif(
+        not ESTATE_PORTS_CHECK.is_file(),
+        reason=f"{ESTATE_PORTS_CHECK} is not on this box — nothing to pin against",
+    ),
+]
 
 
 def _blind(_pid: int) -> str | None:
