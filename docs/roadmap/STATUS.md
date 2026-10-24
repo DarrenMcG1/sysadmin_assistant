@@ -81,6 +81,11 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 417 — CI deselects the nudge family's live half (2026-10-24)
+
+- `TestTheRealBlockDeclaresTheNudgeFamily` carries the `box` mark, so
+  GitHub CI, which has no database, no longer runs it (`SNAG-TEST-019`).
+
 ### Session 416 — journald's cap is 8G (2026-10-24)
 
 - On the owner's ruling, `/etc/systemd/journald.conf.d/size.conf` sets

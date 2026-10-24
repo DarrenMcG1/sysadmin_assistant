@@ -10,10 +10,12 @@
 
 ## Open Issues
 
-- [P2] SNAG-TEST-019: **GitHub CI has failed on every push since 2026-10-23, because two live tests read the box's database and carry no `box` mark** (2026-10-24, opened by Session 416, found and not worked; the owner asked that the next session fix or retire CI)
+- [P2] SNAG-TEST-019: **GitHub CI has failed on every push since 2026-10-23, because two live tests read the box's database and carry no `box` mark** (2026-10-24, opened by Session 416, found and not worked; the owner asked that the next session fix or retire CI; **CLOSED 2026-10-24 by Session 417**)
   - **Symptom**: runs 39990461228, 40022190632 and 40072243834 on `main` fail with `2 failed, 4508 passed`. Both failures are in `tests/test_ops_claims.py`'s `TestTheRealBlockDeclaresTheNudgeFamily`, with `the database did not answer (OperationalError)`. The last green run was 39670264294 on 2026-10-21.
   - **Cause**: `cfef2c8` (Session 412, `SNAG-DOCS-035`) added the class at `tests/test_ops_claims.py:3993` without `@pytest.mark.box`. CI runs `pytest -m "not box"` and has no `projects` database (`SNAG-TEST-015`). Its sibling, `TestTheRealBlockDeclaresWhatItSetsAside` at line 3634, carries the mark. The local pre-push gate runs the full suite against the live database, so it stayed green.
   - **Fix options**: mark the class `box` (recommended: one line, and the same treatment as its sibling); or retire `ci.yml`, accepting that the pre-push gate is the only suite run. Either way, check that the next run on GitHub is green.
+  - **Status:** **Closed 2026-10-24 by Session 417**, in `60872fe`: the class carries `@pytest.mark.box`. `pytest -m "not box" tests/test_ops_claims.py` now deselects 4 tests where it deselected 2, and the class still passes on the box (2 passed). The red runs failed these 2 tests and passed the other 4508, and nothing but docs has landed since, so the next run should be green; it follows the owner's push and is unseen here.
+  - **Rejected**: retiring `ci.yml`. CI is the only suite run without the box's database, so it is the one place a missing `box` mark shows.
 
 - [P4] SNAG-DOCS-035: **the idle-nudge alert rows turn over each morning, so STATUS.md's Alerts paragraph goes stale daily and three sittings running have spent themselves re-pinning it** (2026-10-23, opened by Session 411; **CLOSED 2026-10-23 by Session 412**)
   - **Symptom**: `check_alerts` and `check_open_titles` pin the count and the names of every stable open row. The `Project <name> next action idle` rows are a family that changes at about 05:09 most mornings: on 2026-10-23 one resolved and two opened at 05:09:24. Session 409 wrote the paragraph and it read `no` seven hours later; Sessions 408, 409 and 411 each spent their sitting on it.

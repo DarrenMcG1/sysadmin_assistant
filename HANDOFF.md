@@ -1,6 +1,25 @@
-# Handoff — 2026-10-24 (Session 416)
+# Handoff — 2026-10-24 (Session 417)
 
 ## Next action
+
+Re-pin STATUS.md's Alerts paragraph per tasks.md's Session 416 block, and check the newest GitHub run on `main` is green. *(For: session)*
+
+## Session 417: CI deselects the nudge family's live half
+
+Opened on Session 416's Next action. Code in `60872fe`, docs in the
+commit after it.
+
+- **Fixed:** `TestTheRealBlockDeclaresTheNudgeFamily` carries
+  `@pytest.mark.box`, as its sibling does. CI runs `-m "not box"` with
+  no database, and these were its only 2 failures.
+- **Rejected:** retiring `ci.yml`. It is the only run without the box's
+  database, so it is the one place a missing mark shows.
+- **Unseen:** the next GitHub run. It follows the owner's push; the
+  Next action checks it.
+- **Found, not worked:** nothing catches a missing `box` mark before
+  push. Recorded in tasks.md's Session 417 block.
+
+## What Session 416 handed on
 
 Fix or retire the failing GitHub CI per `SNAG-TEST-019`: recommended, mark `TestTheRealBlockDeclaresTheNudgeFamily` `box` and see the next run green. *(For: session)*
 

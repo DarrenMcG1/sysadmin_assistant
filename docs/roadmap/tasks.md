@@ -118,6 +118,23 @@ The owner ruled on Session 414's open item: raise the cap to 8G.
       resolved at 08:24 and `estate-manager-audit-timer critical` at
       05:04 today.
 
+## Session 417: CI deselects the nudge family's live half (2026-10-24)
+
+The published next action: fix or retire the failing GitHub CI per
+`SNAG-TEST-019`.
+
+- [x] **Marked `TestTheRealBlockDeclaresTheNudgeFamily` `box`**, in
+      `60872fe`, as its sibling already was. Under `-m "not box"` the
+      file deselects 4 tests, not 2; on the box the class passes.
+- [ ] **See the next GitHub run on `main` green** after the owner's
+      push (`gh run list --limit 1`). Unseen this session: pushing is
+      the owner's.
+- [ ] **Catch a missing `box` mark before push.** A second concern,
+      named and not worked: the pre-push gate runs against the live
+      database, so a test that reads it without the mark passes there
+      and fails only on GitHub. This is the second time
+      (`SNAG-TEST-015` was the first).
+
 ## Session 415: the journal's window is watched (2026-10-23)
 
 The published next action: build the journal-horizon watch in Session
