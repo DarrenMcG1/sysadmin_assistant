@@ -1,6 +1,26 @@
-# Handoff — 2026-10-24 (Session 420)
+# Handoff — 2026-10-24 (Session 421)
 
 ## Next action
+
+Declare the journal-retention skip at `tests/test_services_registry.py:1033` and `:1041` to the vacuous-guard gate, per `SNAG-TEST-021`. *(For: session)*
+
+## Session 421: CI is green with the blinded gate
+
+Opened on Session 420's Next action. Docs only.
+
+- **Seen:** GitHub run `40105529365` on `8ecb43c` passed in 4m17s. It
+  is the first run to cover `29d67fc` (the blinded non-box half) and
+  `c278c85` (uv offline inside it).
+- **Noted:** the owner's `git push` reported `cannot lock ref` after its
+  pre-push gate passed, because `origin/main` had already moved to
+  `8ecb43c`. The commits had landed; nothing was lost.
+- **Found, not worked:** postflight's vacuous-guard gate flags the
+  journal-retention skip Session 413 added, `SNAG-TEST-021`. It clears
+  by itself at the next boot.
+- **Rejected as Next action:** `SNAG-TEST-020`, which is parked until a
+  third missing `box` mark reaches GitHub.
+
+## What Session 420 handed on
 
 After the owner's push of `29d67fc` and `c278c85`, check the newest GitHub run on `main` is green with `gh run list --limit 1`, per tasks.md's Session 420 block. *(For: session)*
 

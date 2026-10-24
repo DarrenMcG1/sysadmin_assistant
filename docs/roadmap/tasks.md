@@ -175,6 +175,21 @@ Code in `29d67fc`.
       only: `~/.claude/settings.json`, the journal, `systemctl --user`
       and the unit files are still read. `SNAG-TEST-020`.
 
+## Session 421: CI is green with the blinded gate (2026-10-24)
+
+The published next action: check the newest GitHub run on `main` after
+the owner's push of `29d67fc` and `c278c85`. Docs only.
+
+- [x] **Read the run.** `40105529365` on `8ecb43c` (15:07, 4m17s)
+      passed. `origin/main` is `8ecb43c`, so it covers Session 419's
+      gate split and its 3 `box` marks, and Session 420's
+      `UV_OFFLINE=1` fix.
+- [ ] **Declare the retention skip to the vacuous-guard gate.** A
+      second concern, named and not worked: postflight flags
+      `tests/test_services_registry.py:1033` and `:1041` because the
+      journal no longer holds `estate-manager-scan.timer`'s records.
+      `SNAG-TEST-021`.
+
 ## Session 420: CI is green again (2026-10-24)
 
 The published next action: check the newest GitHub run on `main` after
@@ -193,10 +208,11 @@ the owner's push. Docs only.
       `scripts/pytest-without-the-box.sh` resolves from the cache; the
       half then passed, 4547 tests. Rejected: marking those tests `box`,
       which would drop them from CI, where the network is present.
-- [ ] **The run for `29d67fc` and `c278c85` is unseen.** `main` is
+- [x] **The run for `29d67fc` and `c278c85` is unseen.** `main` is
       ahead of `origin/main` with Session 419's gate split, its 3 new
       `box` marks and this fix; the first run after the owner's next
-      push covers them.
+      push covers them. Seen by Session 421: run `40105529365` on
+      `8ecb43c` (15:07, 4m17s) passed.
 
 ## Session 415: the journal's window is watched (2026-10-23)
 

@@ -10,6 +10,11 @@
 
 ## Open Issues
 
+- [P4] SNAG-TEST-021: **`test_it_excludes_systemd_and_would_otherwise_have_counted` skips when journal retention has emptied its premise, so the vacuous-guard gate flags its assert and comprehension at every close until the timer logs again** (2026-10-24, opened by Session 421, found by its postflight and not worked)
+  - **Symptom**: `check-vacuous-guards.sh`, run by `claude-postflight.sh`, reports `tests/test_services_registry.py:1041` (`assert unfiltered > 0`) as never evaluated and `:1033` (`unfiltered = sum(...)`) as turning zero times. `journalctl --user -u estate-manager-scan.timer` reads `-- No entries --`: the user journal's head is 2026-10-22 11:34:57, after the timer last logged at this boot's start, so Session 413's retention skip (`a3aeb4b`, `SNAG-LOG-022`) fires before the assert.
+  - **Why it is left**: a second concern for Session 421, whose concern was reading a CI run. Same shape as `SNAG-TEST-016`, `017` and `018`: the skip is the designed healthy state while retention is short, so the likely fix is a `# may-not-evaluate:` on the assert and a `# may-not-turn:` on the sum, each naming the retention horizon and the forced-zero-horizon run Session 413 recorded as the witness. It clears by itself at the next boot.
+  - **Status:** Open, P4.
+
 - [P4] SNAG-TEST-020: **the pre-push gate's blinded half hides only the network, so a test that reads the rest of the box without the `box` mark still fails only on GitHub** (2026-10-24, opened by Session 419 as the stated limit of its fix for `SNAG-TEST-019`)
   - **Symptom**: `scripts/pytest-without-the-box.sh` runs `-m "not box"` in a network namespace, so the database and every localhost service refuse the connection. The `box` mark also covers `~/.claude/settings.json`, the journal, `systemctl --user` and the installed unit files, and the namespace leaves all four readable.
   - **Why it is left**: hiding them needs a mount namespace over `/home/gaddi`, `/run/user/1000` and the journal directories, and the venv and estate-lib live under `/home/gaddi`. The `rehearse-the-ci-runner-in-a-namespace` recipe does it with fresh clones, which is minutes per push. Both regressions so far were database reads.
