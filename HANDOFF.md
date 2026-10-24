@@ -2,18 +2,25 @@
 
 ## Next action
 
-After the owner's push of `29d67fc`, check the newest GitHub run on `main` is green with `gh run list --limit 1`, per tasks.md's Session 420 block. *(For: session)*
+After the owner's push of `29d67fc` and `c278c85`, check the newest GitHub run on `main` is green with `gh run list --limit 1`, per tasks.md's Session 420 block. *(For: session)*
 
 ## Session 420: CI is green again
 
-Opened on Session 419's Next action. Docs only.
+Opened on Session 419's Next action. Code in `c278c85`.
 
 - **Seen:** GitHub run `40100822374` on `181523f` passed. `60872fe`
   is an ancestor of `origin/main`, so `SNAG-TEST-019`'s fix is
   confirmed on GitHub, not only on the box. The last red run was
   `40072243834` at 06:57.
-- **Unseen:** `main` is 3 ahead of `origin/main` with Session 419's
-  work, so no run has yet covered `29d67fc`'s 3 new `box` marks.
+- **Fixed:** the pre-push gate's blinded half failed 31 tests at this
+  session's close, on a DNS error. Two files fetch coverage through
+  `uv run --with`, which re-reads PyPI's index once uv's cached copy
+  is stale, and the namespace has no route out. Session 419's run had
+  fallen inside a fresh cache. `c278c85` sets `UV_OFFLINE=1` in the
+  wrapper; the half then passed, 4547 tests.
+- **Rejected:** marking those tests `box`. They need the network, not
+  the box, and CI has the network, so the mark would only lose them.
+- **Unseen:** no GitHub run has yet covered `29d67fc` or `c278c85`.
 
 ## What Session 419 handed on
 

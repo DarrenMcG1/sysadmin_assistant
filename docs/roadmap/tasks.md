@@ -184,9 +184,19 @@ the owner's push. Docs only.
       passed its one job, `test`. `60872fe` is an ancestor of
       `origin/main`, so the run covers `SNAG-TEST-019`'s fix; the last
       red run was `40072243834` at 06:57.
-- [ ] **The run for `29d67fc` is unseen.** `main` is 3 ahead of
-      `origin/main` with Session 419's gate split and its 3 new `box`
-      marks; the first run after the owner's next push covers them.
+- [x] **Fixed the blinded half's dependence on uv's cache**, in
+      `c278c85`. The closing pre-push run failed 10 tests and errored
+      21: `tests/test_vacuous_guards_live.py` and
+      `TestTheBlindElementCheck` call `uv run --with 'coverage[toml]'`,
+      which re-reads PyPI's index once its cached copy is stale, and the
+      namespace has no route out. `UV_OFFLINE=1` in
+      `scripts/pytest-without-the-box.sh` resolves from the cache; the
+      half then passed, 4547 tests. Rejected: marking those tests `box`,
+      which would drop them from CI, where the network is present.
+- [ ] **The run for `29d67fc` and `c278c85` is unseen.** `main` is
+      ahead of `origin/main` with Session 419's gate split, its 3 new
+      `box` marks and this fix; the first run after the owner's next
+      push covers them.
 
 ## Session 415: the journal's window is watched (2026-10-23)
 
