@@ -2,7 +2,7 @@
 
 ## Next action
 
-Run the preflight and work the highest-ranked open snag a session can start now, or record that none can, as Session 410 did. *(For: session)*
+Fix or retire the failing GitHub CI per `SNAG-TEST-019`: recommended, mark `TestTheRealBlockDeclaresTheNudgeFamily` `box` and see the next run green. *(For: session)*
 
 ## Session 416: journald's cap is 8G
 
@@ -17,6 +17,10 @@ this repository; the change is in `/etc`.
 - **Unchanged:** the `Short journal window` row (7-day floor) should
   resolve itself around 2026-10-27, as before; the cap does not move it
   sooner, because it only stops deleting.
+- **Found, not worked:** GitHub CI has been red since 2026-10-23,
+  because two live tests read the database CI lacks. Recorded as
+  `SNAG-TEST-019`; the owner asked that the next session fix or retire
+  CI, so that is the Next action.
 - **Rejected:** setting `SystemKeepFree=` as well. Its default keeps
   4G free (15 % of the disk, capped at 4G); with 189G free, the 8G cap
   binds first.
