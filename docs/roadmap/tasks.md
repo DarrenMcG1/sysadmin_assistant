@@ -4,11 +4,35 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-24
+> **Last Updated**: 2026-10-26
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
 ---
+
+## Session 423: a failed GPU recovery reaches the phone (2026-10-26)
+
+Opened on the owner's report that the screens never woke on
+2026-10-25. The cause was not the dGPU's runtime sleep, because the
+udev pin held and the card never suspended that boot. The card's
+power-management firmware (the SMU) stopped answering at 21:39, the
+full-card reset failed (`GPU Recovery Failed: -62`), and the displays
+stayed dead until the owner cut the power at 03:24. The box itself
+stayed up. Every alert raised was `warning`, so only the tray rendered
+them, on the dead screens. The owner asked for the phone to hear it.
+
+- [ ] **Raise a failed GPU recovery as `critical`.** Today the reset
+      family opens at `warning` through `CRITICAL_SIGNATURES`
+      (`sysadmin/monitor/log_aggregator.py:301`), and a recovery that
+      *failed* gets no row of its own. `critical` clears
+      `notifications.mqtt.min_severity`, so it is published on
+      `estate/alerts/raised`. Read `docs/design/logs.md` and ADR-0007
+      before choosing between a declared signature and a distinct alert.
+- [ ] **Glance renders `estate/alerts/raised`.** Filed at alfred-glance
+      as estate message `e8d68ae3-c0a3-426f-b6c0-c5ad7c9a2b5d`. Its
+      detail misnames the gate key as `alerting.mqtt.min_severity`;
+      the key is `notifications.mqtt.min_severity`. Tick this on their
+      close note.
 
 ## Session 405: SNAG-TEST-014's disposition is readable again (2026-10-21)
 

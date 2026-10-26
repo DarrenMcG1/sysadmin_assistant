@@ -1,13 +1,37 @@
-# Handoff — 2026-10-24 (Session 422)
+# Handoff — 2026-10-26 (Session 423)
 
 ## Next action
 
-Nothing is startable: every open task waits on the next boot, a third missing `box` mark, or an interpreter change. *(For: none)*
+Raise a failed GPU recovery (`GPU Recovery Failed`) as a `critical` alert so it is published to the phone, per tasks.md's Session 423 block. *(For: session)*
 
 ## Scheduled action
 
 - At the next boot, confirm the mosquitto gate's wait and close `SNAG-LOG-021`, per tasks.md's Session 404 block.
 - At the next boot, `test_it_excludes_systemd_and_would_otherwise_have_counted` passes rather than skips, and the gate lists its two declarations as evaluated anyway.
+
+## Session 423: the dark screens were a GPU hang, not the sleep
+
+Opened on the owner's report. Docs only.
+
+- **Found:** at 21:39 on 2026-10-25, kernel 7.2.11, the dGPU's SMU
+  stopped answering and the full-card reset failed
+  (`GPU Recovery Failed: -62`). Zero `PSP is resuming` that boot, so
+  the udev pin held and the runtime-sleep fault did not recur. The
+  box stayed up until the owner cut the power at 03:24.
+- **Found:** every alert raised was `warning`, so only the tray
+  rendered them, on the dead screens.
+- **Filed:** estate message `e8d68ae3-c0a3-426f-b6c0-c5ad7c9a2b5d` to
+  alfred-glance, asking it to render `estate/alerts/raised`. Its
+  detail names the gate key wrongly; tasks.md records the right one.
+- **Advised, not configured:** two KDE Connect run commands for the
+  phone, `kscreen-doctor --dpms on` and `systemctl reboot`. The second
+  is the only way to recover from this kind of hang.
+- **Noted:** the box booted at 2026-10-26 03:25, so both scheduled
+  actions are now due.
+
+## What Session 422 handed on
+
+Nothing is startable: every open task waits on the next boot, a third missing `box` mark, or an interpreter change. *(For: none)*
 
 ## Session 422: the retention skip is declared to the guard gate
 
