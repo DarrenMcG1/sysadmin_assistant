@@ -164,6 +164,18 @@ COVERED_SIGNATURES: dict[tuple[str, str], str] = {
 }
 
 
+#: The rung a declared signature opens at, before the ladder moves it.
+#:
+#: ``warning`` rather than ``info`` because the first sighting is still a
+#: fault that happened, and ``info`` is below ``tray.notify_min_severity``
+#: on this box — an opening rung nobody can hear makes the escalation the
+#: *only* audible rung, which is the "warning that fires once" defect
+#: read backwards.  It is not derived from :data:`SEVERITY_ORDER`: the
+#: floor of that mapping is ``debug``, and what this names is a policy
+#: choice about how loud a first sighting is, not the bottom of a scale.
+DECLARED_FLOOR_SEVERITY = "warning"
+
+
 @dataclass(frozen=True)
 class CriticalSignature:
     """A line this family speaks for, louder than its journal rung.
@@ -223,11 +235,18 @@ class CriticalSignature:
             is this entry's own defect rebuilt inside its own fix.
             ``tests/test_critical_signatures.py`` drives it against
             :func:`~sysadmin.monitor.journal.max_priority_for`.
+        opens_at: The rung the first sighting is raised at.  The floor
+            for every declaration whose first sighting is survivable,
+            which the ladder then moves on a repeat (rule 1 below).
+            ``critical`` only for a fault with no second chance: the
+            ladder runs from the floor alone, so a declaration opening
+            above it is never counted and never climbs.
     """
 
     title: str
     reason: str
     arrives_at: str
+    opens_at: str = DECLARED_FLOOR_SEVERITY
 
 
 #: Signatures this family raises above their journal rung, and the only
@@ -244,7 +263,13 @@ class CriticalSignature:
 #:    ``critical_repeat_hours`` and escalates on the next, which is
 #:    ``failures.py``'s "two consecutive failures" rule — *"the news is
 #:    reproducible rather than happened"* — applied to an event family
-#:    rather than a run table.
+#:    rather than a run table.  **The exception is a reset that did not
+#:    come back**: ``GPU Recovery Failed`` means the card stays dead until
+#:    a reboot, so there is no second sighting to wait for and it opens at
+#:    ``critical`` (``opens_at``).  On 2026-10-25 it was folded into the
+#:    reset's ``warning`` row and only the tray, on the dead screens, said
+#:    anything; ``critical`` is the rung the MQTT publisher sends to the
+#:    phone.
 #: 2. **It climbs the existing ladder rather than picking a rung.**
 #:    :func:`~sysadmin.core.escalation.step_for` resolves the quiet row
 #:    and raises a louder one, because the tray fingerprints on
@@ -298,24 +323,39 @@ _GPU_RESET = CriticalSignature(
     arrives_at="info",
 )
 
+#: The reset's other outcome, and an *event* by rule 5: amdgpu writes it
+#: once, after the full-card reset has been tried and has failed.  Every
+#: GPU client is gone and the displays stay dark until the box reboots.
+#: It arrives at ``err`` (``PRIORITY=3``), not ``info``, so the kernel
+#: source's read already admits it.  It is a reset instant for
+#: :mod:`~sysadmin.monitor.gpu_context` too, which reads every key here as
+#: one, and rightly: a context created before it is as dead as one
+#: created before ``VRAM is lost``.
+_GPU_RECOVERY_FAILED = CriticalSignature(
+    title="GPU recovery failed — the card is dead until a reboot",
+    reason=(
+        "amdgpu's full-card reset could not bring the card back. The "
+        "displays and every GPU client stay dead, and only a reboot "
+        "recovers it; the box itself is still up."
+    ),
+    arrives_at="error",
+    opens_at="critical",
+)
+
 CRITICAL_SIGNATURES: dict[tuple[str, str], CriticalSignature] = {
     # linux-lts (6.18.x): amdgpu repeats its own name after the BDF.
     ("kernel", "amdgpu N:N:N.N: amdgpu: VRAM is lost due to GPU reset!"): _GPU_RESET,
     # linux (>= 7.2): the redundant prefix is gone. This is the spelling
     # the box emitted on 2026-09-04 and matched nothing.
     ("kernel", "amdgpu N:N:N.N: VRAM is lost due to GPU reset!"): _GPU_RESET,
+    # linux (>= 7.2): emitted on 2026-10-25 at 21:40:58, on 7.2.11.
+    ("kernel", "amdgpu N:N:N.N: GPU Recovery Failed: -N"): _GPU_RECOVERY_FAILED,
+    # linux-lts (6.18.x): not yet emitted on this box, so rule 4 is met
+    # from the installed binary instead: 6.18.57's amdgpu.ko holds the
+    # format string ``amdgpu: GPU Recovery Failed: %d``, the same prefix
+    # its ``VRAM is lost`` string carries.
+    ("kernel", "amdgpu N:N:N.N: amdgpu: GPU Recovery Failed: -N"): _GPU_RECOVERY_FAILED,
 }
-
-#: The rung a declared signature opens at, before the ladder moves it.
-#:
-#: ``warning`` rather than ``info`` because the first sighting is still a
-#: fault that happened, and ``info`` is below ``tray.notify_min_severity``
-#: on this box — an opening rung nobody can hear makes the escalation the
-#: *only* audible rung, which is the "warning that fires once" defect
-#: read backwards.  It is not derived from :data:`SEVERITY_ORDER`: the
-#: floor of that mapping is ``debug``, and what this names is a policy
-#: choice about how loud a first sighting is, not the bottom of a scale.
-DECLARED_FLOOR_SEVERITY = "warning"
 
 
 def declared_rungs_for(source) -> dict[str, str]:
@@ -558,12 +598,18 @@ def fold_declared_incidents(
        :data:`CRITICAL_SIGNATURES` is the only place on this box where a
        line is given a stable name, so a group carrying no declaration
        is returned untouched and a group carrying **two distinct**
-       declarations is too — two names is no name, and picking one is
-       exactly the arbitrary choice the declaration exists to remove.
-       (Empty population both ways today: there is one declaration, and
-       both of its spellings share one
-       :class:`CriticalSignature` and therefore one title, so the two
-       kernel branches cannot produce two names for one reset.)
+       declarations **at its quietest declared rung** is too — two names
+       is no name, and picking one is exactly the arbitrary choice the
+       declaration exists to remove.  A declaration louder than that
+       rung is not competing for the name: rule 3 leaves it standing
+       anyway.  That is the 2026-10-25 hang, where ``GPU Recovery
+       Failed`` (opening ``critical``) landed 5 s after ``VRAM is lost``
+       (opening ``warning``): the reset row takes the fragments and the
+       failure keeps its own row.  Counting it as a second name would
+       have raised every fragment again.  (Empty population for two
+       names at one rung: each declaration's spellings share one
+       :class:`CriticalSignature` and therefore one title, and the two
+       declarations open at different rungs.)
 
     3. **The fold may never quieten anything, so a louder sibling is
        left standing rather than swallowed.**  ``judge_attention``'s
@@ -633,6 +679,14 @@ def fold_declared_incidents(
         if len(group) < 2:
             continue
         declared = [m for m in group if folded.get(m.title, {}).get("declared")]
+        # Rule 2: a louder declaration stands by rule 3, so only the
+        # quietest declared rung competes for the name.
+        rungs = [folded[m.title]["severity"] for m in declared]
+        declared = [
+            m
+            for m, rung in zip(declared, rungs, strict=True)
+            if not any(is_louder_than(rung, other) for other in rungs)
+        ]
         if len(declared) != 1:
             # Rule 2: no name, or two.  Either way the group is returned
             # exactly as it arrived.
@@ -890,8 +944,10 @@ class LogAggregatorAgent(BaseAgent):
                         # majority — the shape ``LogRecommendation.members``
                         # already uses one module over.
                         "members": [],
-                        # A declared signature opens at the floor and is
-                        # moved by the ladder in the raise phase, which is
+                        # A declared signature opens at its ``opens_at``,
+                        # the floor for all but a fault with no second
+                        # chance, and is moved by the ladder in the raise
+                        # phase, which is
                         # where the count of previous incidents can be
                         # read.  Deciding it here would need one query per
                         # ingested line.
@@ -911,7 +967,7 @@ class LogAggregatorAgent(BaseAgent):
                         "severity": (
                             NOISE_SEVERITY
                             if noise is not None or covered_by is not None
-                            else DECLARED_FLOOR_SEVERITY
+                            else declared.opens_at
                             if declared is not None
                             else "critical"
                             if entry["severity"] == "critical"

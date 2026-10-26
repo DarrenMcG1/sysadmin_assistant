@@ -120,7 +120,7 @@ def _fault(
         "severity": (
             NOISE_SEVERITY
             if noise_reason or covered_by
-            else DECLARED_FLOOR_SEVERITY
+            else declared.opens_at
             if declared is not None
             else severity
         ),
@@ -143,6 +143,18 @@ def _declaration() -> CriticalSignature:
     *provenance*, which is the shape two of Session 59's guards were.
     """
     return CRITICAL_SIGNATURES[("kernel", signature(VRAM_LOST))]
+
+
+#: The failed recovery of 2026-10-25, which amdgpu wrote 5 s after
+#: ``VRAM is lost`` on 7.2.11.  Its offset here is inside the shipped
+#: window of the chain's anchor, which is all the fold asks of it.
+RECOVERY_FAILED = "amdgpu 0000:03:00.0: GPU Recovery Failed: -62"
+RECOVERY_FAILED_OFFSET = 5.5
+
+
+def _recovery_failed() -> CriticalSignature:
+    """The shipped failed-recovery declaration, read for ``_declaration``'s reason."""
+    return CRITICAL_SIGNATURES[("kernel", signature(RECOVERY_FAILED))]
 
 
 def _reset_faults(*, declared: bool = True) -> dict[str, dict]:
@@ -266,6 +278,26 @@ def test_a_group_with_two_declarations_is_left_alone():
     folded = fold_declared_incidents(faults)
     assert len(folded) == len(faults)
     assert all(not row["members"] for row in folded.values())
+
+
+def test_a_louder_declaration_stands_and_the_reset_still_folds():
+    """Rule 2 at the 2026-10-25 hang: a louder declaration is no rival name.
+
+    ``GPU Recovery Failed`` opens at ``critical`` and the reset at
+    ``warning``.  Read as two names, the group would be left alone and
+    every fragment raised again, which is ``SNAG-LOG-015`` undone on the
+    one incident where the phone has to hear it.  So the reset keeps the
+    fragments and the failure keeps its own row, unswallowed by rule 3.
+    """
+    faults = _reset_faults()
+    failed = _fault(RECOVERY_FAILED, RECOVERY_FAILED_OFFSET, declared=_recovery_failed())
+    faults[failed["title"]] = failed
+
+    folded = fold_declared_incidents(faults)
+    assert set(folded) == {_declaration().title, failed["title"]}
+    assert folded[failed["title"]]["severity"] == "critical"
+    assert not folded[failed["title"]]["members"]
+    assert len(folded[_declaration().title]["members"]) == len(RESET_CHAIN)
 
 
 def test_a_louder_sibling_is_not_swallowed():
@@ -588,6 +620,34 @@ async def test_the_agent_raises_one_row_for_the_whole_chain():
     # a line, never whether ``log_entries`` holds it.
     assert result.findings_count == len(entries)
     assert len(session.alerts[0].details["members"]) == len(RESET_CHAIN)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_recovery_raises_critical_beside_the_reset():
+    """The wiring for the phone: the failure is its own ``critical`` row.
+
+    On 2026-10-25 this line was swallowed by the reset's ``warning`` row,
+    so nothing reached ``notifications.mqtt.min_severity``.  The reset's
+    row still takes the fragments, and only it is counted for the ladder:
+    a declaration opening above the floor never climbs.
+    """
+    from tests.test_critical_signatures import _CountingSession, _run
+
+    agent = LogAggregatorAgent()
+    session = _CountingSession()
+    entries = [
+        *_chain_entries(),
+        _journal_entry(RECOVERY_FAILED, RECOVERY_FAILED_OFFSET),
+    ]
+    await _run(agent, session, entries)
+
+    rows = {a.title: a for a in session.alerts}
+    assert set(rows) == {_declaration().title, _recovery_failed().title}
+    assert rows[_recovery_failed().title].severity == "critical"
+    assert rows[_recovery_failed().title].details["prior_incidents"] == 0
+    assert rows[_declaration().title].severity == DECLARED_FLOOR_SEVERITY
+    assert len(rows[_declaration().title].details["members"]) == len(RESET_CHAIN)
+    assert len(session.count_statements) == 1
 
 
 @pytest.mark.asyncio

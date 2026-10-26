@@ -43,6 +43,7 @@ import pytest
 from sqlalchemy.dialects import postgresql
 
 from sysadmin.core.config import LogSource, parse_config
+from sysadmin.core.escalation import is_louder_than
 from sysadmin.core.models.alert import Alert
 from sysadmin.monitor.journal import (
     JournalRead,
@@ -78,6 +79,14 @@ ILLEGAL_OPCODE = (
     "[drm:gfx_v11_0_bad_op_irq [amdgpu]] *ERROR* Illegal opcode in command stream "
 )
 RING_USES_VM = "amdgpu 0000:03:00.0: amdgpu: ring gfx_0.0.0 uses VM inv eng 0 on hub 0"
+
+#: The failed recovery, verbatim from ``journalctl -k -b -1`` on
+#: 2026-10-26, which logged it on 7.2.11 at 2026-10-25 21:40:58.
+#: The LTS spelling has not been emitted here; it is built from
+#: 6.18.57's ``amdgpu.ko``, whose format string is ``amdgpu: GPU Recovery
+#: Failed: %d``, the prefix its ``VRAM is lost`` string carries too.
+RECOVERY_FAILED_MAINLINE = "amdgpu 0000:03:00.0: GPU Recovery Failed: -62"
+RECOVERY_FAILED_LTS = "amdgpu 0000:03:00.0: amdgpu: GPU Recovery Failed: -62"
 
 DECLARED_KEY = ("kernel", signature(VRAM_LOST))
 SOURCE = LogSource(name="kernel", type="journalctl", unit="kernel",
@@ -251,9 +260,15 @@ def test_a_narrowed_source_still_reads_its_declaration():
         # Python gate stores it.  A line for which only the ceiling moved
         # is read and then discarded, measurably.
         assert admits(declaration.arrives_at, narrowed.severity_filter, sig, rungs)
-        assert not admits(
-            declaration.arrives_at, narrowed.severity_filter, sig, None
-        ), "widening the ceiling alone stores nothing new"
+        # Only for a line arriving below the narrowed filter.  ``GPU
+        # Recovery Failed`` arrives at ``err`` and is read with no
+        # widening at all, so there is nothing for this half to refute.
+        if max_priority_for(declaration.arrives_at) > max_priority_for(
+            narrowed.severity_filter
+        ):
+            assert not admits(
+                declaration.arrives_at, narrowed.severity_filter, sig, None
+            ), "widening the ceiling alone stores nothing new"
 
 
 def test_declared_rungs_are_keyed_the_way_the_runtime_keys_them():
@@ -335,6 +350,32 @@ def test_the_two_spellings_name_one_fault():
     assert declared[0] is declared[1]
 
 
+def test_both_kernel_spellings_of_a_failed_recovery_name_one_fault():
+    """The reset's two-spelling rule, for its other outcome."""
+    declared = [
+        CRITICAL_SIGNATURES.get(("kernel", signature(line)))
+        for line in (RECOVERY_FAILED_MAINLINE, RECOVERY_FAILED_LTS)
+    ]
+    assert declared[0] is not None
+    assert declared[0] is declared[1]
+    assert declared[0] is not CRITICAL_SIGNATURES[DECLARED_KEY]
+
+
+def test_a_failed_recovery_clears_the_phone_gate():
+    """The declaration's purpose, pinned against the shipped gate.
+
+    ``notifications.mqtt.min_severity`` decides what reaches
+    ``estate/alerts/raised``, which alfred-glance renders on the phone.
+    The screens are dark when this fires, so a rung under that gate is a
+    declaration only the dead screens can show.
+    """
+    from pathlib import Path
+
+    gate = parse_config(Path("config.yaml")).notifications.mqtt.min_severity
+    opens_at = CRITICAL_SIGNATURES[("kernel", signature(RECOVERY_FAILED_MAINLINE))].opens_at
+    assert not is_louder_than(gate, opens_at)
+
+
 def test_the_declared_title_carries_no_rung():
     """The title must survive the ladder, so it cannot name a severity.
 
@@ -375,6 +416,25 @@ async def test_the_first_incident_is_the_floor():
     row = session.alerts[0]
     assert row.severity == DECLARED_FLOOR_SEVERITY
     assert row.details["prior_incidents"] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_failed_recovery_is_critical_at_its_first_sighting():
+    """No second chance, so no second sighting to wait for.
+
+    The ladder runs from the floor alone, so the row is never counted:
+    a count query here would mean ``opens_at`` was read and then
+    overwritten by the ladder.
+    """
+    agent = LogAggregatorAgent()
+    session = _CountingSession(prior=0)
+    await _run(agent, session, [_entry(RECOVERY_FAILED_MAINLINE, severity="error")])
+
+    row = session.alerts[0]
+    assert row.severity == "critical"
+    assert row.details["prior_incidents"] == 0
+    assert row.details["escalated_reason"]
+    assert session.count_statements == []
 
 
 @pytest.mark.asyncio
