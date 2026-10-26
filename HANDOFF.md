@@ -1,13 +1,43 @@
-# Handoff — 2026-10-26 (Session 423)
+# Handoff — 2026-10-26 (Session 424)
 
 ## Next action
 
-Raise a failed GPU recovery (`GPU Recovery Failed`) as a `critical` alert so it is published to the phone, per tasks.md's Session 423 block. *(For: session)*
+Say go for a session to publish one test `critical` alert on `estate/alerts/raised`, then check glance shows it, per tasks.md's Session 424 block. *(For: owner, ~5 min)*
 
 ## Scheduled action
 
 - At the next boot, confirm the mosquitto gate's wait and close `SNAG-LOG-021`, per tasks.md's Session 404 block.
 - At the next boot, `test_it_excludes_systemd_and_would_otherwise_have_counted` passes rather than skips, and the gate lists its two declarations as evaluated anyway.
+
+## Session 424: a failed GPU recovery opens a critical row
+
+Opened on Session 423's Next action. Code in `3992b99`.
+
+- **Found:** the 2026-10-25 `GPU Recovery Failed: -62` line was stored
+  at `error` and raised nothing of its own. The incident fold put it
+  inside the reset's `warning` row, so the MQTT gate never saw it.
+- **Done:** it is a declared signature opening at `critical`, in both
+  kernels' spellings. The fold now treats a louder declaration as
+  standing rather than as a rival name, so the reset row still takes the
+  fragments.
+- **Measured, not seen:** the LTS spelling comes from 6.18.57's
+  `amdgpu.ko` format string, because no LTS boot has failed a recovery.
+- **Rejected:** escalating the reset row when its group holds a failure.
+  Its title would still say "reset", and a failure landing in a later
+  poll would form its own group and miss it.
+- **Tested:** 5 new tests; undoing either half of the fix turns them
+  red. Full suite 4,776 passed, 3 skipped.
+- **Deployed:** daemon restarted 04:28:17 on `3992b99`; `/api/health`
+  200 and two clean log-aggregator runs since.
+- **Close note:** alfred-glance closed `e8d68ae3-c0a3-426f-b6c0-c5ad7c9a2b5d`,
+  built as their `e6e7b1f` (their ADR-0036). Alerts show on a
+  high-importance channel at glance's next foreground, not in real
+  time. A real-time receiver waits on the watch's battery week,
+  ~2026-11-01. Ticked in tasks.md's Session 423 block.
+
+## What Session 423 handed on
+
+Raise a failed GPU recovery (`GPU Recovery Failed`) as a `critical` alert so it is published to the phone, per tasks.md's Session 423 block. *(For: session)*
 
 ## Session 423: the dark screens were a GPU hang, not the sleep
 

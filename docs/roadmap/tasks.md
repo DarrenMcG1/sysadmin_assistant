@@ -10,6 +10,20 @@
 
 ---
 
+## Session 424: a failed GPU recovery opens a critical row (2026-10-26)
+
+Opened on Session 423's Next action. Code in `3992b99`.
+
+- [x] **`GPU Recovery Failed` is declared at `critical`**, in both
+      kernels' spellings, and the incident fold leaves it standing beside
+      the reset's `warning` row. Live on the daemon since 04:28:17.
+- [ ] **Check the phone end to end.** No critical alert has been
+      published since glance began rendering the topic, so the phone
+      half is unseen. A session can publish one test message on
+      `estate/alerts/raised` with the `sysadmin-publisher` credential;
+      the owner then confirms glance shows it at its next foreground.
+      *(For: owner, ~5 min)*
+
 ## Session 423: a failed GPU recovery reaches the phone (2026-10-26)
 
 Opened on the owner's report that the screens never woke on
@@ -21,18 +35,19 @@ stayed dead until the owner cut the power at 03:24. The box itself
 stayed up. Every alert raised was `warning`, so only the tray rendered
 them, on the dead screens. The owner asked for the phone to hear it.
 
-- [ ] **Raise a failed GPU recovery as `critical`.** Today the reset
+- [x] **Raise a failed GPU recovery as `critical`.** Today the reset
       family opens at `warning` through `CRITICAL_SIGNATURES`
       (`sysadmin/monitor/log_aggregator.py:301`), and a recovery that
       *failed* gets no row of its own. `critical` clears
       `notifications.mqtt.min_severity`, so it is published on
       `estate/alerts/raised`. Read `docs/design/logs.md` and ADR-0007
       before choosing between a declared signature and a distinct alert.
-- [ ] **Glance renders `estate/alerts/raised`.** Filed at alfred-glance
+- [x] **Glance renders `estate/alerts/raised`.** Filed at alfred-glance
       as estate message `e8d68ae3-c0a3-426f-b6c0-c5ad7c9a2b5d`. Its
       detail misnames the gate key as `alerting.mqtt.min_severity`;
       the key is `notifications.mqtt.min_severity`. Tick this on their
-      close note.
+      close note. Closed 2026-10-26: built as alfred-glance `e6e7b1f`
+      (their ADR-0036), shown at glance's next foreground, not live.
 
 ## Session 405: SNAG-TEST-014's disposition is readable again (2026-10-21)
 
