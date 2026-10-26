@@ -263,22 +263,20 @@ def _journal_head_epoch(*, user: bool) -> int | None:
     import json as _json
     import subprocess
 
-    # The stream runs oldest first, so its first line is the head; it is
-    # read and the process closed, never the whole journal buffered.
-    command = ["journalctl", "-o", "json", "--output-fields=__REALTIME_TIMESTAMP",
-               "--no-pager", "-q"]
+    # ``-n +1`` is the oldest record, the read journal_horizon.read_head
+    # makes: about 2 ms in either scope, and the same record as the first
+    # line of the whole stream (systemd 262, 2026-10-26).
+    command = ["journalctl", "-n", "+1", "-o", "json",
+               "--output-fields=__REALTIME_TIMESTAMP", "--no-pager", "-q"]
     if user:
         command.insert(1, "--user")
     try:
-        with subprocess.Popen(command, stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL, text=True) as proc:
-            assert proc.stdout is not None
-            first = proc.stdout.readline()
-            proc.kill()
-    except OSError:
+        result = subprocess.run(command, capture_output=True, text=True,
+                                timeout=30)
+    except (OSError, subprocess.SubprocessError):
         return None
     try:
-        return int(_json.loads(first)["__REALTIME_TIMESTAMP"]) // 1_000_000
+        return int(_json.loads(result.stdout)["__REALTIME_TIMESTAMP"]) // 1_000_000
     except (ValueError, KeyError, TypeError):
         return None
 
