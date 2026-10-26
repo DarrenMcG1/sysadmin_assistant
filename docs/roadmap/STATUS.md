@@ -82,6 +82,12 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 429 — the journal-head helper loses its unrun assert (2026-10-26)
+
+- The registry tests read the journal's oldest record with
+  `journalctl -n +1`, so the guard gate no longer reports a type-check
+  assert that runs only after an empty journal read.
+
 ### Session 424 — a failed GPU recovery opens a critical row (2026-10-26)
 
 - `GPU Recovery Failed` is a declared signature opening at `critical`,

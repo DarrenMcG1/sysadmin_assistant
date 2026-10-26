@@ -10,6 +10,25 @@
 
 ---
 
+## Session 429: the journal-head helper loses its unrun assert (2026-10-26)
+
+Opened on Session 428's Next action, the third item of Session 426's
+block. Code in `99be72b`.
+
+- [x] **Found the cause.** Coverage over the file alone missed all of
+      `_journal_head_epoch`, `_skip_if_rotated_out`'s body and both its
+      call sites (755, 1043): no read came back empty, so nothing asked
+      for the retention horizon. The gate named only line 275 because it
+      is the helper's one `assert`.
+- [x] **Fixed, not declared.** The assert narrowed `Popen`'s optional
+      `stdout` for the type checker, which skips `tests/`; it claimed
+      nothing about the box. The helper now runs `journalctl -n +1`
+      under `subprocess.run`, the read `journal_horizon.read_head` makes.
+      Driven: it matches journalctl's own head in both scopes, and the
+      skip fires at `@0` and not at now.
+- [x] **Read the postflight's gate**: every evaluable assert ran
+      (8331), and it settled Session 426's last item, ticked there.
+
 ## Session 428: STATUS.md's alert paragraph names the audit's cause (2026-10-26)
 
 Opened on Session 427's Next action, the second item of Session 426's
@@ -51,14 +70,23 @@ found three things, recorded here and not worked:
       by Session 428: the paragraph names the `critical` row, drops the
       resolved `Unusual RAM usage`, and gives the cause and estate's fix;
       both claim checks read ok.)*
-- [ ] **`tests/test_services_registry.py:275` was never evaluated** by
+- [x] **`tests/test_services_registry.py:275` was never evaluated** by
       the postflight's guard gate: `assert proc.stdout is not None`,
       inside the journal-head helper. Find why no test reached it this
       run, then fix it or declare it with `# may-not-evaluate:`.
-- [ ] **Due since the 03:25 boot** (moved from the handoff's Scheduled
+      *(Done 2026-10-26 by Session 429, `99be72b`: the helper runs only
+      after an empty journal read, and since the 03:25 boot none was
+      empty. The assert was a type check, so it went: the head is read
+      with `journalctl -n +1` instead.)*
+- [x] **Due since the 03:25 boot** (moved from the handoff's Scheduled
       action): `test_it_excludes_systemd_and_would_otherwise_have_counted`
       passes rather than skips, and the gate lists its two declarations
       as evaluated anyway.
+      *(Seen 2026-10-26 by Session 429's postflight: the file ran 92
+      passed, none skipped; the gate listed `:1035` as declared
+      may-not-turn and turned anyway, and `:1046` as declared
+      may-not-evaluate and evaluated anyway. Both stay declared, since
+      the user journal will rotate the timer's lines out again.)*
 
 ## Session 424: a failed GPU recovery opens a critical row (2026-10-26)
 

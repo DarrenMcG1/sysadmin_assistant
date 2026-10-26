@@ -1,12 +1,43 @@
-# Handoff — 2026-10-26 (Session 428)
+# Handoff — 2026-10-26 (Session 429)
 
 ## Next action
 
-Find why the postflight never evaluated `tests/test_services_registry.py:275`, then fix it or declare it `# may-not-evaluate:`, per tasks.md's Session 426 block. *(For: session)*
+Nothing is startable: every open task waits on the scheduled audit run, a third missing `box` mark, or an interpreter change. *(For: none)*
 
 ## Scheduled action
 
 - After 05:00 on 2026-10-27, confirm `Estate audit checks errored` and `estate-manager-audit-timer critical` closed, per tasks.md's Session 428 block.
+
+## Session 429: the journal-head helper loses its unrun assert
+
+Opened on Session 428's Next action. Code in `99be72b`.
+
+- **Cause, measured:** coverage over `tests/test_services_registry.py`
+  alone missed `_journal_head_epoch` whole, `_skip_if_rotated_out`'s
+  body, and both call sites (755, 1043). The helper runs only after an
+  empty journal read, and since the 03:25 boot every read has found
+  records. The guard gate reports asserts only, so it named line 275.
+- **Fixed rather than declared:** the assert narrowed `Popen`'s optional
+  `stdout` for a type checker that excludes `tests/`, so it guarded
+  nothing. `journalctl -n +1` returns the oldest record directly (the
+  read `journal_horizon.read_head` already makes), the same record as
+  the stream's first line in both scopes, in about 2 ms; `subprocess.run`
+  replaces `Popen` and the assert goes. Rejected: a `# may-not-evaluate:`
+  declaration, which would list a non-guard on every run; calling
+  `read_head` itself, which is async and would tie a test premise to the
+  module another file tests.
+- **Driven:** the helper matches journalctl's head in both scopes;
+  `_skip_if_rotated_out` skips at `@0` and not at now.
+- **Postflight's gate:** every evaluable assert ran (8331). The same run
+  settled Session 426's last item: the scan-timer test passed, and the
+  gate listed its `:1035` and `:1046` declarations as turned and
+  evaluated anyway. Both stay, since the journal will rotate the timer's
+  lines out again. Nothing owner-facing is open in tasks.md, the snag
+  list or ideas.md, so the line is `none`.
+
+## What Session 428 handed on
+
+Find why the postflight never evaluated `tests/test_services_registry.py:275`, then fix it or declare it `# may-not-evaluate:`, per tasks.md's Session 426 block. *(For: session)*
 
 ## Session 428: STATUS.md's alert paragraph names the audit's cause
 
