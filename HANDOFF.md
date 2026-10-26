@@ -1,6 +1,33 @@
-# Handoff — 2026-10-26 (Session 426)
+# Handoff — 2026-10-26 (Session 427)
 
 ## Next action
+
+Rewrite STATUS.md's alert paragraph now the audit critical's cause is known (estate-manager's, filed `f4075b05`), per tasks.md's Session 426 block. *(For: session)*
+
+## Session 427: the audit's failure is estate-manager's, and filed
+
+Opened on Session 426's Next action. Docs only.
+
+- **Measured:** `estate-manager-audit.service` has exited 1 every
+  morning since 2026-10-22, each time for one reason: the `vram` check
+  logged `could not read the journal for: … journalctl exited 1: no
+  stderr`. Today only `venture-model-probe.service` was listed; on
+  2026-10-23 to 25 `alfred-inference` and `venture-embed` were too.
+- **Cause, reproduced:** `journalctl --grep` exits 1 when nothing
+  matches, with empty stderr. The probe unit with the check's grep gave
+  1; without `--grep` it gave 0; `venture-embed` with a grep that cannot
+  match gave 1. The user journal starts 2026-10-20 18:14, so a unit
+  that last started before then has nothing to match. The estate's
+  `read_startup_allocation` raises on any non-zero exit, so its own
+  documented "no start in the window" path is never reached.
+- **Filed** at estate-manager as
+  `f4075b05-62ac-4c08-9436-7d61988c5646`. Not worked around here: the
+  unit really did fail, so the `critical` row is this daemon doing its
+  job. It closes when a run succeeds. Rejected: excusing the unit in
+  `services.yaml`, which would hide a real failure to quieten one
+  caused elsewhere.
+
+## What Session 426 handed on
 
 Read why `estate-manager-audit.service` failed at 05:03 today and file at estate-manager if it is theirs, per tasks.md's Session 426 block. *(For: session)*
 

@@ -10,17 +10,28 @@
 
 ---
 
+## Session 427: the audit's failure is estate-manager's (2026-10-26)
+
+Opened on Session 426's Next action, the first item below. Docs only.
+
 ## Session 426: the mosquitto gate waited at the boot (2026-10-26)
 
 Opened on Session 425's Next action. Docs only: `SNAG-LOG-021` closed
 on the 03:25 boot, recorded under Session 404's item. Its postflight
 found three things, recorded here and not worked:
 
-- [ ] **`estate-manager-audit.service` failed at 05:03:15 today**
+- [x] **`estate-manager-audit.service` failed at 05:03:15 today**
       (exit 1 under `uv run estate-audit`), so this daemon holds an open
       `critical` row, `estate-manager-audit-timer critical`. The unit is
       estate-manager's: read its journal, then file at them if the
-      failure is theirs.
+      failure is theirs. *(Done 2026-10-26 by Session 427: theirs. It
+      has failed every morning since 2026-10-22, always the `vram`
+      check: `journalctl --grep` exits 1 when nothing matches, and
+      `vram.py`'s journal read takes that for an unreadable journal, so
+      a unit whose starts have aged out of the journal errors the check.
+      Reproduced on `venture-model-probe.service`. Filed as
+      `f4075b05-62ac-4c08-9436-7d61988c5646`; nothing changes here, and
+      the row closes when a run succeeds.)*
 - [ ] **STATUS.md's alert claims read wrong at postflight**: unresolved
       measured 6 against the block's 4, and 10 open against 3 named and
       4 set aside. The new rows are the audit `critical` above and two
