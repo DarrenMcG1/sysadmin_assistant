@@ -10,6 +10,17 @@
 
 ---
 
+## Session 428: STATUS.md's alert paragraph names the audit's cause (2026-10-26)
+
+Opened on Session 427's Next action, the second item of Session 426's
+block. Docs only.
+
+- [ ] **After 05:00 on 2026-10-27, confirm both audit rows closed**:
+      `Estate audit checks errored` and `estate-manager-audit-timer
+      critical`. Estate-manager's fix (`83bceb7`, their Session 445,
+      close note on `f4075b05`) first runs then; on success, drop both
+      from STATUS.md's Alerts paragraph and lower its count.
+
 ## Session 427: the audit's failure is estate-manager's (2026-10-26)
 
 Opened on Session 426's Next action, the first item below. Docs only.
@@ -32,11 +43,14 @@ found three things, recorded here and not worked:
       Reproduced on `venture-model-probe.service`. Filed as
       `f4075b05-62ac-4c08-9436-7d61988c5646`; nothing changes here, and
       the row closes when a run succeeds.)*
-- [ ] **STATUS.md's alert claims read wrong at postflight**: unresolved
+- [x] **STATUS.md's alert claims read wrong at postflight**: unresolved
       measured 6 against the block's 4, and 10 open against 3 named and
       4 set aside. The new rows are the audit `critical` above and two
       idle nudges (kaggle, imbabots-concepts) at 05:29. Rewrite the
-      paragraph once the critical row's cause is known.
+      paragraph once the critical row's cause is known. *(Done 2026-10-26
+      by Session 428: the paragraph names the `critical` row, drops the
+      resolved `Unusual RAM usage`, and gives the cause and estate's fix;
+      both claim checks read ok.)*
 - [ ] **`tests/test_services_registry.py:275` was never evaluated** by
       the postflight's guard gate: `assert proc.stdout is not None`,
       inside the journal-head helper. Find why no test reached it this

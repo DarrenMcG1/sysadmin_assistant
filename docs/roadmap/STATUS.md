@@ -18,16 +18,18 @@
 > **Alerts.** `alerts` holds **4** unresolved rows <!--check:alerts-->,
 > not counting the two flapping titles or the idle-nudge family below.
 > The open rows are `High disk usage on /` (87 % against 80 %),
-> `Estate audit checks errored` (05:41 on 2026-10-22: the estate's
-> `vram` check could not read the journals of `alfred-inference.service`,
-> `venture-embed.service` and `venture-model-probe.service`),
 > `Short journal window` (22:04 on 2026-10-23: the journal reaches back
 > 3.4 days against a 7-day floor, and lengthens by a full day a day
-> under the 8G cap set on 2026-10-24) and `Unusual RAM usage` (03:30 on
-> 2026-10-26, five minutes after the boot that ended the GPU hang: RAM
-> at 3.9 % against a 7-day mean of 25.6 %) <!--check:open_titles-->.
-> The first is the owner's to act on, the second estate-manager's; the
-> last two resolve themselves.
+> under the 8G cap set on 2026-10-24), and two with one cause:
+> `Estate audit checks errored` (05:41 on 2026-10-22) and
+> `estate-manager-audit-timer critical` (05:03 on 2026-10-26)
+> <!--check:open_titles-->. Both come from the estate's `vram` check,
+> which took `journalctl --grep`'s exit 1 for "no match" as an
+> unreadable journal, so the audit unit has failed every morning since
+> 2026-10-22. Estate-manager fixed it in their `83bceb7` (message
+> `f4075b05`), and both rows should close at the audit's 05:00 run on
+> 2026-10-27. The disk row is the owner's to act on; the journal row
+> resolves itself.
 >
 > **The idle-nudge rows are set aside as a family.** Rows titled
 > `Project % next action idle` turn over most mornings, so the block

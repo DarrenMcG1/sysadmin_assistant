@@ -1,6 +1,34 @@
-# Handoff — 2026-10-26 (Session 427)
+# Handoff — 2026-10-26 (Session 428)
 
 ## Next action
+
+Find why the postflight never evaluated `tests/test_services_registry.py:275`, then fix it or declare it `# may-not-evaluate:`, per tasks.md's Session 426 block. *(For: session)*
+
+## Scheduled action
+
+- After 05:00 on 2026-10-27, confirm `Estate audit checks errored` and `estate-manager-audit-timer critical` closed, per tasks.md's Session 428 block.
+
+## Session 428: STATUS.md's alert paragraph names the audit's cause
+
+Opened on Session 427's Next action. Docs only.
+
+- **Close note on `f4075b05`** (estate-manager, 18:32 today): fixed in
+  their `83bceb7`, logged as their Session 445. `read_startup_allocation`
+  now reads exit 1 with stdout exactly `-- No entries --` and empty
+  stderr as no start, which is a `residency_unreadable` warn; a bad
+  pattern still exits 1 with stderr and stays an error. They ran it by
+  hand: the check completes. The first unit run is 05:00 on 2026-10-27.
+- **Rewrote** STATUS.md's Alerts paragraph. Measured open now: disk,
+  short journal, and the two audit rows. `Unusual RAM usage` has
+  resolved and is gone from the paragraph; the `critical` row is named.
+  `check-ops-claims.sh` reads ok on both the count (4) and the named
+  titles.
+- **Added** the 2026-10-27 check that both audit rows close, as tasks.md's
+  Session 428 item and the Scheduled action above. Rejected: removing the
+  rows from the paragraph now on the strength of the fix, since the
+  claim check would read wrong until 05:00.
+
+## What Session 427 handed on
 
 Rewrite STATUS.md's alert paragraph now the audit critical's cause is known (estate-manager's, filed `f4075b05`), per tasks.md's Session 426 block. *(For: session)*
 
