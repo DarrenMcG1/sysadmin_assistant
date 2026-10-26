@@ -1,13 +1,32 @@
-# Handoff — 2026-10-26 (Session 424)
+# Handoff — 2026-10-26 (Session 425)
 
 ## Next action
 
-Say go for a session to publish one test `critical` alert on `estate/alerts/raised`, then check glance shows it, per tasks.md's Session 424 block. *(For: owner, ~5 min)*
+Confirm the mosquitto gate's wait at the 2026-10-26 03:25 boot and close `SNAG-LOG-021`, per tasks.md's Session 404 block. *(For: session)*
 
 ## Scheduled action
 
-- At the next boot, confirm the mosquitto gate's wait and close `SNAG-LOG-021`, per tasks.md's Session 404 block.
-- At the next boot, `test_it_excludes_systemd_and_would_otherwise_have_counted` passes rather than skips, and the gate lists its two declarations as evaluated anyway.
+- Due since the 2026-10-26 03:25 boot: `test_it_excludes_systemd_and_would_otherwise_have_counted` passes rather than skips, and the gate lists its two declarations as evaluated anyway.
+
+## Session 425: a critical alert reaches the phone
+
+Opened on Session 424's Next action, on the owner's go. Docs only.
+
+- **Done:** one test `critical` alert published on
+  `estate/alerts/raised` at 14:36:01 UTC, built by the daemon's own
+  `build_payload` and sent with its `sysadmin-publisher` credential.
+  Its id is `test-session-425`, so no alert row stands behind it.
+- **Witnessed:** the broker logged the `sysadmin-publisher` login, and
+  the owner received the alert in alfred-glance. The broker-to-phone
+  path is now seen end to end. The channel it arrived on was not
+  reported.
+- **Not done:** the two boot checks became due at this morning's
+  03:25 boot. They are a separate concern, so the first is the Next
+  action and the second stays scheduled.
+
+## What Session 424 handed on
+
+Say go for a session to publish one test `critical` alert on `estate/alerts/raised`, then check glance shows it, per tasks.md's Session 424 block. *(For: owner, ~5 min)*
 
 ## Session 424: a failed GPU recovery opens a critical row
 

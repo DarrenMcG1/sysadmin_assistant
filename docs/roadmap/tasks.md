@@ -17,12 +17,16 @@ Opened on Session 423's Next action. Code in `3992b99`.
 - [x] **`GPU Recovery Failed` is declared at `critical`**, in both
       kernels' spellings, and the incident fold leaves it standing beside
       the reset's `warning` row. Live on the daemon since 04:28:17.
-- [ ] **Check the phone end to end.** No critical alert has been
+- [x] **Check the phone end to end.** No critical alert has been
       published since glance began rendering the topic, so the phone
       half is unseen. A session can publish one test message on
       `estate/alerts/raised` with the `sysadmin-publisher` credential;
       the owner then confirms glance shows it at its next foreground.
-      *(For: owner, ~5 min)*
+      Done by Session 425: published 2026-10-26 14:36:01 UTC through
+      `build_payload` with the daemon's credential, title *"TEST:
+      end-to-end check of the phone alert path (ignore)"*; the broker
+      logged `u'sysadmin-publisher'`, and the owner received it on the
+      phone. Which channel it arrived on was not reported.
 
 ## Session 423: a failed GPU recovery reaches the phone (2026-10-26)
 
