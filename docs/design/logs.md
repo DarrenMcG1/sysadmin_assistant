@@ -258,6 +258,13 @@ do so on every boot, because the first attempt failed to bind on all 10
 readable boots before the gate. `SNAG-LOG-021` records that, and why
 `known_noise` cannot take the line alone.
 
+*Measured 2026-10-26 (Session 426): the first boot under the waiting
+gate.* Estate-manager's ADR-0259 made the gate re-check once a second
+for up to 15 s before refusing. The 03:25 boot logged `listener address
+assigned after 4 s; starting mosquitto`, with no restart and no line at
+warning or above, so the `Failed to start` warning above no longer
+appears on a boot, and `SNAG-LOG-021` is closed.
+
 **What the dump does not signal is the loss**, and it must not be read
 as a proxy for it. The loss followed a completed save, and on
 2026-08-22 and 08-23 that happened with no dump at all. Watching the

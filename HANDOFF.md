@@ -1,12 +1,38 @@
-# Handoff — 2026-10-26 (Session 425)
+# Handoff — 2026-10-26 (Session 426)
 
 ## Next action
 
+Read why `estate-manager-audit.service` failed at 05:03 today and file at estate-manager if it is theirs, per tasks.md's Session 426 block. *(For: session)*
+
+## Session 426: the mosquitto gate waited, and `SNAG-LOG-021` is closed
+
+Opened on Session 425's Next action. Docs only.
+
+- **Measured:** the 03:25:33 boot is the first since estate-manager's
+  waiting gate (their ADR-0259, installed 2026-10-21). mosquitto logged
+  `listener address assigned after 4 s; starting mosquitto` at
+  03:25:51, `NRestarts=0`, and no line at warning or above.
+- **Absence checked at the reader:** `sysadmin.alerts` holds no
+  mosquitto row since 2026-10-18's, and `log_entries` holds none this
+  boot. The aggregator was reading from 03:25:36, and it stores
+  mosquitto only at warning and above, which the journal agrees is
+  none.
+- **Closed** `SNAG-LOG-021`, ticked Session 404's boot check, and added
+  a dated note to `docs/design/logs.md`, whose "on every boot" sentence
+  was no longer true.
+- **Found, not worked:** the postflight named three things, now
+  tasks in tasks.md's Session 426 block. The estate audit oneshot
+  failed at 05:03:15 (exit 1), which holds an open `critical` row
+  here; STATUS.md's alert claims are stale because of it and two new
+  idle nudges; and `tests/test_services_registry.py:275` went
+  unevaluated. The critical row is the Next action.
+- **Not done:** the second boot check, formerly under Scheduled action.
+  It is due now, so it moved to the same tasks block and the section
+  is gone.
+
+## What Session 425 handed on
+
 Confirm the mosquitto gate's wait at the 2026-10-26 03:25 boot and close `SNAG-LOG-021`, per tasks.md's Session 404 block. *(For: session)*
-
-## Scheduled action
-
-- Due since the 2026-10-26 03:25 boot: `test_it_excludes_systemd_and_would_otherwise_have_counted` passes rather than skips, and the gate lists its two declarations as evaluated anyway.
 
 ## Session 425: a critical alert reaches the phone
 

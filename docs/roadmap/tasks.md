@@ -10,6 +10,31 @@
 
 ---
 
+## Session 426: the mosquitto gate waited at the boot (2026-10-26)
+
+Opened on Session 425's Next action. Docs only: `SNAG-LOG-021` closed
+on the 03:25 boot, recorded under Session 404's item. Its postflight
+found three things, recorded here and not worked:
+
+- [ ] **`estate-manager-audit.service` failed at 05:03:15 today**
+      (exit 1 under `uv run estate-audit`), so this daemon holds an open
+      `critical` row, `estate-manager-audit-timer critical`. The unit is
+      estate-manager's: read its journal, then file at them if the
+      failure is theirs.
+- [ ] **STATUS.md's alert claims read wrong at postflight**: unresolved
+      measured 6 against the block's 4, and 10 open against 3 named and
+      4 set aside. The new rows are the audit `critical` above and two
+      idle nudges (kaggle, imbabots-concepts) at 05:29. Rewrite the
+      paragraph once the critical row's cause is known.
+- [ ] **`tests/test_services_registry.py:275` was never evaluated** by
+      the postflight's guard gate: `assert proc.stdout is not None`,
+      inside the journal-head helper. Find why no test reached it this
+      run, then fix it or declare it with `# may-not-evaluate:`.
+- [ ] **Due since the 03:25 boot** (moved from the handoff's Scheduled
+      action): `test_it_excludes_systemd_and_would_otherwise_have_counted`
+      passes rather than skips, and the gate lists its two declarations
+      as evaluated anyway.
+
 ## Session 424: a failed GPU recovery opens a critical row (2026-10-26)
 
 Opened on Session 423's Next action. Code in `3992b99`.
@@ -392,11 +417,13 @@ start now. Every open entry is decided, blocked or delegated except
 - [x] **Estate message `571f2f12` logged**: closed by estate-manager,
       taken as asked (their `69b11db`, ADR-0259). Recorded on
       `SNAG-LOG-021`, which is now blocked on the next boot.
-- [ ] **At the next boot, confirm the mosquitto gate's wait**: the boot's
+- [x] **At the next boot, confirm the mosquitto gate's wait**: the boot's
       journal shows `listener address assigned after N s; starting
       mosquitto` and `sysadmin.alerts` holds no `Log error:
       mosquitto.service — Failed to start` row for it; then close
-      `SNAG-LOG-021`.
+      `SNAG-LOG-021`. *(Done 2026-10-26 by Session 426: the 03:25 boot
+      logged `assigned after 4 s`, `NRestarts=0`, no warning-level line
+      and no alert row. `SNAG-LOG-021` closed.)*
 - [x] **The preflight's scheduled-section match is too wide** (found
       this session, not worked): the awk in
       `scripts/claude-preflight.sh` takes the first `## ` heading whose
