@@ -10,6 +10,26 @@
 
 ---
 
+## Session 432: STATUS.md's Alerts paragraph names the open rows (2026-10-30)
+
+Opened on Session 431's Next action, 1.0 item 2. Docs only.
+
+- [x] **Rewrote the Alerts paragraph** from the live table: 2 open,
+      `High disk usage on /` and `Estate project next actions idle`, the
+      idle-nudge roll-up the estate judge raises above five idle
+      repositories (`attention_max_rows`). Both `alerts` and
+      `open_titles` pass.
+- [x] **Moved `SNAG-TEST-014`'s Status from decided to owed**, per the
+      owner's 1.0 ruling, which the Next action guard needed.
+- [ ] **Two other claims in the same block fail, found by this
+      session's check run and not worked.** `daemon_start`: the daemon
+      restarted at 2026-10-28 07:02:10 with the boot at 07:01:55, still
+      on `3992b99`, and the Deploy paragraph names Session 424's
+      restart. `expires`: the 53 shared log instants were due to clear
+      at 03:00 on 2026-10-27; measure it, then retire the sentence.
+
+---
+
 ## Session 431: the arc tests drive the suite's own interpreter (2026-10-30)
 
 Opened on Session 430's Next action. Code in `34e918c`.
@@ -39,11 +59,12 @@ day; recorded in `CLAUDE.md`, "1.0, then a feature freeze until
       and 2027-02-01.
 - [ ] **1.0, item 1: fix `SNAG-TEST-014`**, the live notification
       witness that leaves its probe on the owner's screen.
-- [ ] **1.0, item 2: rewrite STATUS.md's Alerts paragraph.** Measured
+- [x] **1.0, item 2: rewrite STATUS.md's Alerts paragraph.** Measured
       2026-10-30: both audit rows have closed (Session 428's item below),
       and the open non-family rows are `High disk usage on /` and
       `Estate project next actions idle`, a title outside the
       `Project % next action idle` family the paragraph sets aside.
+      *(Done by Session 432, 2026-10-30.)*
 - [ ] **On 2027-02-01, the owner reads the v2 list** in `ideas.md` and
       opens v2 or extends the freeze.
 - [ ] **When the estate announces where a version and freeze date

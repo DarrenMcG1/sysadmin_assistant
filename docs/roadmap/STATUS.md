@@ -1,5 +1,5 @@
 # Project Status Dashboard
-**Last Updated**: 2026-10-26
+**Last Updated**: 2026-10-30
 
 > **The box as it stands.** This block holds only the claims
 > `scripts/check-ops-claims.sh` re-measures at every preflight, one
@@ -15,21 +15,16 @@
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **4** unresolved rows <!--check:alerts-->,
+> **Alerts.** `alerts` holds **2** unresolved rows <!--check:alerts-->,
 > not counting the two flapping titles or the idle-nudge family below.
-> The open rows are `High disk usage on /` (87 % against 80 %),
-> `Short journal window` (22:04 on 2026-10-23: the journal reaches back
-> 3.4 days against a 7-day floor, and lengthens by a full day a day
-> under the 8G cap set on 2026-10-24), and two with one cause:
-> `Estate audit checks errored` (05:41 on 2026-10-22) and
-> `estate-manager-audit-timer critical` (05:03 on 2026-10-26)
-> <!--check:open_titles-->. Both come from the estate's `vram` check,
-> which took `journalctl --grep`'s exit 1 for "no match" as an
-> unreadable journal, so the audit unit has failed every morning since
-> 2026-10-22. Estate-manager fixed it in their `83bceb7` (message
-> `f4075b05`), and both rows should close at the audit's 05:00 run on
-> 2026-10-27. The disk row is the owner's to act on; the journal row
-> resolves itself.
+> The open rows are `High disk usage on /` (88 % against 80 %, open
+> since 2026-10-19) and `Estate project next actions idle` (07:03 on
+> 2026-10-28) <!--check:open_titles-->. The second is the idle-nudge
+> family's roll-up: when more than five repositories are idle at once,
+> the estate judge raises this one row instead of a row each, and its
+> title falls outside the family's pattern, so it counts here. Six were
+> idle when it opened. It closes by itself once five or fewer are idle,
+> and they then get a row each. The disk row is the owner's to act on.
 >
 > **The idle-nudge rows are set aside as a family.** Rows titled
 > `Project % next action idle` turn over most mornings, so the block

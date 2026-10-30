@@ -1,6 +1,30 @@
-# Handoff — 2026-10-30 (Session 431)
+# Handoff — 2026-10-30 (Session 432)
 
 ## Next action
+
+1.0, item 1: fix SNAG-TEST-014, the live notification test that leaves its probe on the owner's screen, per tasks.md's Session 430 block. *(For: session)*
+
+## Session 432: STATUS.md's Alerts paragraph names the open rows
+
+Opened on Session 431's Next action, 1.0 item 2. Docs only.
+
+- **Measured live:** 2 rows open. `High disk usage on /` (88 %, since
+  2026-10-19) and `Estate project next actions idle`, the roll-up the
+  estate judge raises in place of a row each once more than five
+  repositories are idle (six were). The audit rows and `Short journal
+  window` closed on 2026-10-27.
+- **Chosen:** name the roll-up in the paragraph. Rejected: widening the
+  `rotating` check's family to cover it, which is code the freeze does
+  not admit, and would hide a row that does count.
+- **`SNAG-TEST-014` is now owed in the register.** The push-stage
+  suite refused the new Next action because the entry still read
+  "decided, no session owes work", which the owner's 1.0 ruling
+  overturned and Session 430 had not carried into the register.
+- **Left, as a task in Session 432's block:** the same check run fails
+  the Deploy paragraph's restart time (the 2026-10-28 boot) and a
+  prediction that fell due on 2026-10-27.
+
+## What Session 431 handed on
 
 1.0, item 2: rewrite STATUS.md's Alerts paragraph from the open rows, per the first unticked item in tasks.md's Session 430 block. *(For: session)*
 
