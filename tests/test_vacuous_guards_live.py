@@ -33,6 +33,7 @@ from __future__ import annotations
 import ast
 import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -177,9 +178,14 @@ def driven(tmp_path_factory) -> tuple[dict[str, ast.expr], set[tuple[int, int]],
     source.write_text(FIXTURE.lstrip("\n"))
     data = work / ".coverage"
 
+    # ``--python``: the arcs are the interpreter's bytecode, and ``work``
+    # is in no project, so without it uv picks its own default Python —
+    # 3.14 on this box since 2026-10-28, whenever pytest was started with
+    # no ``VIRTUAL_ENV`` to inherit (SNAG-TEST-022).
     run = subprocess.run(
         [
-            "uv", "run", "--with", "coverage[toml]",
+            "uv", "run", "--python", sys.executable,
+            "--with", "coverage[toml]",
             "coverage", "run", "--branch",
             f"--data-file={data}", f"--source={work}",
             str(source),
