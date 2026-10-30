@@ -7,6 +7,31 @@ UK English throughout (colour, analyse, initialise).
 
 ---
 
+## 1.0, then a feature freeze until 2027-02-01
+
+The owner's ruling, 2026-10-30, on estate message
+`256c64ad-041d-4a78-b136-b33e462bd62f` (the estate audit of 2026-10-29
+found process growing faster than product, and no stop condition
+written anywhere).
+
+1. **1.0 is two items**, nothing new: `SNAG-TEST-014` fixed (the live
+   notification test leaves its probe on the owner's screen), and
+   STATUS.md's Alerts paragraph rewritten now the two audit rows have
+   closed. Every other open snag and task ships as a known issue.
+2. **After 1.0, only a bug fix or what an incident in daily use forces
+   is built.** A known issue is fixed only when it bites.
+3. **A new idea is one line under *v2* in `docs/roadmap/ideas.md`**,
+   never code.
+4. **On 2027-02-01 the owner reads that list** and opens v2 or extends
+   the freeze.
+
+Rejected by the owner: 1.0 as main stood on 2026-10-30 (the session's
+recommendation), and 1.0 after all eleven own P3 snags. Where the
+version and date live in machine-readable form is the estate's to
+decide on 2026-11-04; none is invented here.
+
+---
+
 ## Before ANY Task
 
 ```bash

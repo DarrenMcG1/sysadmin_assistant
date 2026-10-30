@@ -4,7 +4,15 @@
 >
 > **Related**: [tasks.md](tasks.md) | [snag_list.md](snag_list.md)
 >
-> **Last Updated**: 2026-10-01
+> **Last Updated**: 2026-10-30
+
+---
+
+## v2 — read on 2027-02-01, not built before
+
+The feature freeze after 1.0 (`CLAUDE.md`, "1.0, then a feature
+freeze"): a new idea is one line here. The inbox below predates the
+freeze and is read at the same sitting.
 
 ---
 

@@ -4,9 +4,33 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-26
+> **Last Updated**: 2026-10-30
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
+
+---
+
+## Session 430: the owner rules on 1.0 and the feature freeze (2026-10-30)
+
+On estate message `256c64ad-041d-4a78-b136-b33e462bd62f` (estate-manager,
+2026-10-30): put a 1.0 scope and a v2 date to the owner. Ruled the same
+day; recorded in `CLAUDE.md`, "1.0, then a feature freeze until
+2027-02-01". Docs only.
+
+- [x] **Put the review to the owner.** Recommended 1.0 as main stood
+      and a v2 date of 2027-01-04; the owner chose 1.0 after two fixes
+      and 2027-02-01.
+- [ ] **1.0, item 1: fix `SNAG-TEST-014`**, the live notification
+      witness that leaves its probe on the owner's screen.
+- [ ] **1.0, item 2: rewrite STATUS.md's Alerts paragraph.** Measured
+      2026-10-30: both audit rows have closed (Session 428's item below),
+      and the open non-family rows are `High disk usage on /` and
+      `Estate project next actions idle`, a title outside the
+      `Project % next action idle` family the paragraph sets aside.
+- [ ] **On 2027-02-01, the owner reads the v2 list** in `ideas.md` and
+      opens v2 or extends the freeze.
+- [ ] **When the estate announces where a version and freeze date
+      live** (its 2026-11-04 sitting), write this repository's there.
 
 ---
 
@@ -34,11 +58,13 @@ block. Code in `99be72b`.
 Opened on Session 427's Next action, the second item of Session 426's
 block. Docs only.
 
-- [ ] **After 05:00 on 2026-10-27, confirm both audit rows closed**:
+- [x] **After 05:00 on 2026-10-27, confirm both audit rows closed**:
       `Estate audit checks errored` and `estate-manager-audit-timer
       critical`. Estate-manager's fix (`83bceb7`, their Session 445,
       close note on `f4075b05`) first runs then; on success, drop both
       from STATUS.md's Alerts paragraph and lower its count.
+      *(Confirmed closed by Session 430, 2026-10-30; the STATUS.md
+      rewrite is carried as 1.0 item 2 in Session 430's block.)*
 
 ## Session 427: the audit's failure is estate-manager's (2026-10-26)
 
