@@ -10,6 +10,23 @@
 
 ---
 
+## Session 431: the arc tests drive the suite's own interpreter (2026-10-30)
+
+Opened on Session 430's Next action. Code in `34e918c`.
+
+- [x] **Found the cause, and it was not coverage.** The blind half runs
+      `.venv/bin/python -m pytest`, so no `VIRTUAL_ENV` reaches the
+      fixture's `uv run --with`, and from a directory in no project uv
+      picks its own default Python: 3.14.7 since uv installed it on
+      2026-10-28. `uv run pytest` inherits the project's 3.12.12 and
+      passed on coverage 7.17.0 throughout.
+- [x] **Fixed:** the fixture passes `--python sys.executable`. 21 passed
+      under the blind wrapper, bare `.venv/bin/python` and `uv run`,
+      where the first two failed 7 before.
+- [x] **Ran the push-stage checks** over the unpushed range.
+
+---
+
 ## Session 430: the owner rules on 1.0 and the feature freeze (2026-10-30)
 
 On estate message `256c64ad-041d-4a78-b136-b33e462bd62f` (estate-manager,
@@ -31,11 +48,12 @@ day; recorded in `CLAUDE.md`, "1.0, then a feature freeze until
       opens v2 or extends the freeze.
 - [ ] **When the estate announces where a version and freeze date
       live** (its 2026-11-04 sitting), write this repository's there.
-- [ ] **Make the pre-push gate green again: `SNAG-TEST-022`.** Found by
+- [x] **Make the pre-push gate green again: `SNAG-TEST-022`.** Found by
       this session's push-stage run: 7 arc tests in
       `tests/test_vacuous_guards_live.py` fail on coverage.py 7.17.0,
       which the drive fetches unpinned. A bug fix, so the freeze admits
-      it; the owner's push waits on it.
+      it; the owner's push waits on it. Done by Session 431 in
+      `34e918c`; the cause was the interpreter, not coverage.
 
 ---
 

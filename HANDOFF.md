@@ -1,6 +1,33 @@
-# Handoff — 2026-10-30 (Session 430)
+# Handoff — 2026-10-30 (Session 431)
 
 ## Next action
+
+1.0, item 2: rewrite STATUS.md's Alerts paragraph from the open rows, per the first unticked item in tasks.md's Session 430 block. *(For: session)*
+
+## Session 431: the arc tests drive the suite's own interpreter
+
+Opened on Session 430's Next action. Code in `34e918c`.
+
+- **Cause, measured, and not the one recorded:** coverage 7.17.0 is
+  innocent. The gate's blind half launches `.venv/bin/python -m pytest`,
+  so no `VIRTUAL_ENV` reaches the fixture's `uv run --with
+  coverage[toml]`. It runs in a temporary directory outside any project,
+  so uv used its own default Python: 3.14.7 since 2026-10-28 17:34, when
+  uv installed it. `uv run pytest` passes the variable on, gets 3.12.12,
+  and was green on 7.17.0 throughout. Session 430 read 3.12.12 from the
+  repository, where the project picks the interpreter.
+- **Fixed:** the fixture passes `--python sys.executable`, so the drive
+  runs on whatever interpreter runs the suite. Rejected: pinning
+  coverage, which is not the cause; `UV_PYTHON` in the blind wrapper,
+  which fixes one launcher and is a second version number to keep in
+  step with `ci.yml`'s.
+- **The recorded reach was wrong too:** `check-vacuous-guards.sh` runs
+  from the repository root, where `.venv` decides, so it never saw 3.14.
+- `ci.yml`'s `UV_PYTHON` comment says the variable reaches the ephemeral
+  run; it still does, and is now redundant there but harmless. Left as
+  is: config, and not this concern.
+
+## What Session 430 handed on
 
 Make the pre-push gate green: 7 arc tests fail on coverage.py 7.17.0, fetched unpinned, per SNAG-TEST-022 in tasks.md's Session 430 block. *(For: session)*
 
