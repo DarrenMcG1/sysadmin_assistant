@@ -10,6 +10,29 @@
 
 ---
 
+## Session 434: STATUS.md's Deploy and prediction claims re-measured (2026-10-30)
+
+Opened on Session 433's Next action. Docs only.
+
+- [x] **Deploy paragraph:** the restart is 2026-10-28 07:02:10, the
+      box's boot after an overnight shutdown (the previous boot's
+      journal ends 2026-10-27 22:26:33). No code under `sysadmin/` has
+      changed since `3992b99`, so the daemon still runs it.
+- [x] **The timed prediction came true and was replaced.** The 53
+      instants are gone: today's oldest `log_entries` row is
+      2026-09-30 04:05 BST, which is today's 03:00 cutoff, so
+      retention ran on time. The test still passes rather than
+      skipping because 3 new shared instants were ingested between
+      2026-10-18 and 2026-10-22, each two records with different raw
+      lines. The new prediction: the last pair clears at the 03:00
+      run on 2026-11-22, from `purge_statement`'s `ingested_at <
+      now − 30 days`.
+- [x] **Driven:** `check-ops-claims.sh` reads every claim `ok`, and
+      `test_ops_claims.py`, `test_readme_claims.py` and
+      `test_snag_claims.py` pass, 686 tests.
+
+---
+
 ## Session 433: the notification probe stops reaching the screen (2026-10-30)
 
 Opened on Session 432's Next action, 1.0 item 1. Code in `901e12f`.
@@ -42,12 +65,14 @@ Opened on Session 431's Next action, 1.0 item 2. Docs only.
       `open_titles` pass.
 - [x] **Moved `SNAG-TEST-014`'s Status from decided to owed**, per the
       owner's 1.0 ruling, which the Next action guard needed.
-- [ ] **Two other claims in the same block fail, found by this
+- [x] **Two other claims in the same block fail, found by this
       session's check run and not worked.** `daemon_start`: the daemon
       restarted at 2026-10-28 07:02:10 with the boot at 07:01:55, still
       on `3992b99`, and the Deploy paragraph names Session 424's
       restart. `expires`: the 53 shared log instants were due to clear
       at 03:00 on 2026-10-27; measure it, then retire the sentence.
+      *(Done by Session 434, 2026-10-30; the prediction was replaced
+      rather than retired, see its block.)*
 
 ---
 

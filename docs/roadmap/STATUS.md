@@ -8,10 +8,11 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-10-26 04:28:17**
-> <!--check:deploy--> <!--check:daemon_start-->, when Session 424 moved
-> it onto `3992b99`, where a failed GPU recovery opens a `critical`
-> row. `/health` answers
+> **Deploy.** The daemon restarted at **2026-10-28 07:02:10**
+> <!--check:deploy--> <!--check:daemon_start-->, when the box booted
+> that morning after being shut down overnight. It still runs
+> `3992b99`, Session 424's change, where a failed GPU recovery opens a
+> `critical` row. `/health` answers
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
@@ -40,13 +41,13 @@
 > `flapping` check withdraws the exemption if a declared title stays
 > open for half its 7-day window.
 >
-> **One prediction is timed.** On 2026-10-08, 53 log instants were each
-> shared by two records with different raw lines, the newest ingested on
-> 2026-09-26. Retention removes the last of them at 03:00 on 2026-10-27,
-> GMT by then, after which
+> **One prediction is timed.** On 2026-10-30, 3 log instants were each
+> shared by two records with different raw lines, the newest pair
+> ingested on 2026-10-22. Retention removes it at 03:00 on 2026-11-22,
+> after which
 > `test_a_shared_instant_is_two_records_and_not_one_stored_twice` skips
 > unless a new shared instant has been ingested.
-> <!--check:expires 2026-10-27T03:00+00:00 the 53 shared instants measured on 2026-10-08 clear at retention-->
+> <!--check:expires 2026-11-22T03:00+00:00 the 3 shared instants measured on 2026-10-30 clear at retention-->
 >
 > The Alembic head, the route, table and test counts are claimed in the
 > Quick Status table below, each beside its own marker.

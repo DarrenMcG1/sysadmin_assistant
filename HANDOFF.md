@@ -1,6 +1,35 @@
-# Handoff — 2026-10-30 (Session 433)
+# Handoff — 2026-10-30 (Session 434)
 
 ## Next action
+
+Free space on / by uninstalling a Steam game you no longer play, so the 88 % disk alert falls under its 80 % threshold and closes. *(For: owner, ~10 min)*
+
+The feature freeze leaves no session work startable; the open disk row
+is the one item waiting on the owner (STATUS.md, Alerts). Steam's
+library was 891 GB of the 1.4 TB used when Session 362 measured it.
+
+## Scheduled action
+
+- 2026-11-04: the estate decides where a version and freeze date live;
+  write this repository's there (tasks.md, Session 430 block).
+- 2026-11-22, after 03:00: STATUS.md's timed prediction falls due.
+  Measure the shared instants again, then rewrite or replace it.
+- 2027-02-01: the owner reads the v2 list in `ideas.md`.
+
+## Session 434: STATUS.md's Deploy and prediction claims re-measured
+
+Opened on Session 433's Next action. Docs only.
+
+- **Deploy:** the 2026-10-28 07:02:10 restart was the box booting after
+  an overnight shutdown; the daemon still runs `3992b99`.
+- **Chosen:** replace the spent prediction with the one the same test
+  now depends on (3 shared instants, clearing 2026-11-22). Rejected:
+  retiring it outright as the task said, because
+  `test_the_block_states_at_least_one_prediction` then goes red; and
+  relaxing that test, which is code the freeze does not admit and a
+  guard deleted beside its last finding.
+
+## What Session 433 handed on
 
 Fix the two STATUS.md claims Session 432 found failing, the Deploy paragraph's restart and the 2026-10-27 expiry, per tasks.md's Session 432 block. *(For: session)*
 
