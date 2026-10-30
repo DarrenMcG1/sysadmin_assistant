@@ -16,16 +16,16 @@
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **2** unresolved rows <!--check:alerts-->,
+> **Alerts.** `alerts` holds **1** unresolved row <!--check:alerts-->,
 > not counting the two flapping titles or the idle-nudge family below.
-> The open rows are `High disk usage on /` (88 % against 80 %, open
-> since 2026-10-19) and `Estate project next actions idle` (07:03 on
-> 2026-10-28) <!--check:open_titles-->. The second is the idle-nudge
+> The open row is `Estate project next actions idle` (07:03 on
+> 2026-10-28) <!--check:open_titles-->. It is the idle-nudge
 > family's roll-up: when more than five repositories are idle at once,
 > the estate judge raises this one row instead of a row each, and its
 > title falls outside the family's pattern, so it counts here. Six were
 > idle when it opened. It closes by itself once five or fewer are idle,
-> and they then get a row each. The disk row is the owner's to act on.
+> and they then get a row each. The disk row on `/` closed at 15:27 on
+> 2026-10-30, at 76.5 %, after the owner uninstalled three Steam games.
 >
 > **The idle-nudge rows are set aside as a family.** Rows titled
 > `Project % next action idle` turn over most mornings, so the block

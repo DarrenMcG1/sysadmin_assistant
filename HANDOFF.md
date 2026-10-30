@@ -1,12 +1,8 @@
-# Handoff — 2026-10-30 (Session 434)
+# Handoff — 2026-10-30 (Session 435)
 
 ## Next action
 
-Free space on / by uninstalling a Steam game you no longer play, so the 88 % disk alert falls under its 80 % threshold and closes. *(For: owner, ~10 min)*
-
-The feature freeze leaves no session work startable; the open disk row
-is the one item waiting on the owner (STATUS.md, Alerts). Steam's
-library was 891 GB of the 1.4 TB used when Session 362 measured it.
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
 
 ## Scheduled action
 
@@ -15,6 +11,30 @@ library was 891 GB of the 1.4 TB used when Session 362 measured it.
 - 2026-11-22, after 03:00: STATUS.md's timed prediction falls due.
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`.
+
+## Session 435: the disk alert on / closes
+
+Opened on Session 434's Next action, the owner's. No code.
+
+- **The target was 139 GB, not one game.** The monitor reads psutil's
+  percent, used ÷ (used + free), which leaves out root's reserved
+  blocks: 88.3 % where `df` size gives 84 %. Under 80 % needed
+  `/` at 1,328 GB used or less.
+- **The owner uninstalled** War Thunder (91 GB), ELDEN RING (55 GB) and
+  Pillars of Eternity (47 GB) through Steam; the `steam://uninstall`
+  links errored. 260 KB of leftover files stay in two `common/`
+  folders.
+- **Measured:** the 15:27:10 snapshot read 76.5 %, and
+  `High disk usage on /` resolved at 15:27:14, its first cycle.
+  STATUS.md's Alerts paragraph now names one open row; the claim check
+  reads 14 of 14 `ok`.
+- **Left alone:** Baldur's Gate 3 and Oblivion Remastered have
+  manifests but no game folder, so Steam lists them as installed;
+  their shader caches hold about 6 GB.
+
+## What Session 434 handed on
+
+Free space on / by uninstalling a Steam game you no longer play, so the 88 % disk alert falls under its 80 % threshold and closes. *(For: owner, ~10 min)*
 
 ## Session 434: STATUS.md's Deploy and prediction claims re-measured
 

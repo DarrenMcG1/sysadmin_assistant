@@ -10,6 +10,18 @@
 
 ---
 
+## Session 435: the disk alert on / closes (2026-10-30)
+
+Opened on Session 434's Next action, the owner's. No code.
+
+- [x] **Free space on `/`**: the owner uninstalled War Thunder,
+      ELDEN RING and Pillars of Eternity (193 GB). The 15:27:10
+      snapshot read 76.5 % and `High disk usage on /` resolved at
+      15:27:14.
+- [x] **STATUS.md's Alerts paragraph** names the one open row left,
+      `Estate project next actions idle`; the claim check reads 14 of 14
+      `ok`.
+
 ## Session 434: STATUS.md's Deploy and prediction claims re-measured (2026-10-30)
 
 Opened on Session 433's Next action. Docs only.
