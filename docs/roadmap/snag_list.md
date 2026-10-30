@@ -10,6 +10,14 @@
 
 ## Open Issues
 
+- [P2] SNAG-TEST-022: **the pre-push gate's blind half fails 7 arc tests, because coverage.py 7.17.0 reports arcs the rules do not expect and the drive fetches coverage unpinned** (2026-10-30, opened by Session 430 while running the push-stage checks)
+  - **Symptom**: `pre-commit run --hook-stage pre-push` on 2026-10-30, over the docs-only `73bd82d`: `7 failed, 4545 passed`, all in `tests/test_vacuous_guards_live.py`, e.g. `assert (-3, 3) in {…}` and `assert (20, 18) in {(18, 18), (20, 20)}`.
+  - **Cause, measured**: the file drives `uv run --with coverage[toml]` with no version, which resolves 7.17.0 today. The interpreter is unchanged (3.12.12, matching `ci.yml`'s `UV_PYTHON`), so the open `UV_PYTHON` task is not it. Arch's `python-coverage` went 7.16.2 → 7.17.0 on 2026-10-27, which dates the release; the last green gate was Session 429's, 2026-10-26.
+  - **Reach**: `scripts/check-vacuous-guards.sh`, which the postflight runs, fetches coverage the same unpinned way, so its vacuity verdicts now rest on 7.17's arcs as well.
+  - **Fix options**: pin `coverage[toml]` below 7.17 in the test and the gate script (one line each, restores green, leaves the 7.17 change unread); or read what 7.17 changed in its arcs and update the rules (the right end state, a sitting of its own).
+  - **Why it is left**: a second concern for Session 430, whose concern was the owner's 1.0 ruling. Under that ruling it is a bug fix, so the freeze admits it.
+  - **Status:** Open, P2: the owner's push is refused until it is fixed.
+
 - [P4] SNAG-TEST-021: **`test_it_excludes_systemd_and_would_otherwise_have_counted` skips when journal retention has emptied its premise, so the vacuous-guard gate flags its assert and comprehension at every close until the timer logs again** (2026-10-24, opened by Session 421, found by its postflight and not worked; **CLOSED 2026-10-24 by Session 422**)
   - **Symptom**: `check-vacuous-guards.sh`, run by `claude-postflight.sh`, reports `tests/test_services_registry.py:1041` (`assert unfiltered > 0`) as never evaluated and `:1033` (`unfiltered = sum(...)`) as turning zero times. `journalctl --user -u estate-manager-scan.timer` reads `-- No entries --`: the user journal's head is 2026-10-22 11:34:57, after the timer last logged at this boot's start, so Session 413's retention skip (`a3aeb4b`, `SNAG-LOG-022`) fires before the assert.
   - **Why it is left**: a second concern for Session 421, whose concern was reading a CI run. Same shape as `SNAG-TEST-016`, `017` and `018`: the skip is the designed healthy state while retention is short, so the likely fix is a `# may-not-evaluate:` on the assert and a `# may-not-turn:` on the sum, each naming the retention horizon and the forced-zero-horizon run Session 413 recorded as the witness. It clears by itself at the next boot.

@@ -2,7 +2,7 @@
 
 ## Next action
 
-Rewrite STATUS.md's Alerts paragraph now both audit rows have closed, 1.0 item 2 in tasks.md's Session 430 block. *(For: session)*
+Make the pre-push gate green: 7 arc tests fail on coverage.py 7.17.0, fetched unpinned, per SNAG-TEST-022 in tasks.md's Session 430 block. *(For: session)*
 
 ## Session 430: the owner rules on 1.0 and the feature freeze
 
@@ -25,6 +25,13 @@ a 1.0 scope and a v2 date to the owner. Docs only.
 - **Not invented:** a machine-readable version or freeze date. The
   estate decides where they live on 2026-11-04; tasks.md carries the
   write.
+- **The push-stage run is red, and not from this commit:** the
+  `not box` half fails 7 tests in `tests/test_vacuous_guards_live.py`.
+  They drive `uv run --with coverage[toml]` unpinned, which now
+  resolves 7.17.0; the interpreter is unchanged at 3.12.12. Recorded as
+  `SNAG-TEST-022` (P2) and the Next action, ahead of the STATUS.md
+  rewrite, because the owner's push is refused until it is fixed. Not
+  fixed here: a second concern.
 - **HANDOFF.md was 505 lines**, over estate rule 2's 500-line bound:
   Sessions 419 back to 411 moved to the top of `HANDOFF-archive.md`,
   unedited.

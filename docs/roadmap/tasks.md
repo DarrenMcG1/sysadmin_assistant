@@ -31,6 +31,11 @@ day; recorded in `CLAUDE.md`, "1.0, then a feature freeze until
       opens v2 or extends the freeze.
 - [ ] **When the estate announces where a version and freeze date
       live** (its 2026-11-04 sitting), write this repository's there.
+- [ ] **Make the pre-push gate green again: `SNAG-TEST-022`.** Found by
+      this session's push-stage run: 7 arc tests in
+      `tests/test_vacuous_guards_live.py` fail on coverage.py 7.17.0,
+      which the drive fetches unpinned. A bug fix, so the freeze admits
+      it; the owner's push waits on it.
 
 ---
 
