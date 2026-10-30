@@ -10,6 +10,27 @@
 
 ---
 
+## Session 433: the notification probe stops reaching the screen (2026-10-30)
+
+Opened on Session 432's Next action, 1.0 item 1. Code in `901e12f`.
+With item 2 done by Session 432, both 1.0 items are done and the
+feature freeze holds from today.
+
+- [x] **Moved the served half of the hazard off the live bus.** It
+      now runs on the blocking half's private bus with
+      `test_failure_replay_live.py`'s stand-in owning the name, and
+      asserts ownership, the stand-in's id and the announcer's flags.
+      Rejected: an opt-in mark on the live call, which the suite would
+      then never run; a second close, which cannot reach a cause
+      nobody found.
+- [x] **Removed the close machinery** and its nine unit tests: 4779
+      collected became 4770, and STATUS.md's Testing row says so.
+- [x] **Driven:** 8 of 8 green, 0 `Notify` calls on the live bus
+      during the run, and two mutations each red on the intended
+      assertion.
+
+---
+
 ## Session 432: STATUS.md's Alerts paragraph names the open rows (2026-10-30)
 
 Opened on Session 431's Next action, 1.0 item 2. Docs only.
@@ -57,8 +78,9 @@ day; recorded in `CLAUDE.md`, "1.0, then a feature freeze until
 - [x] **Put the review to the owner.** Recommended 1.0 as main stood
       and a v2 date of 2027-01-04; the owner chose 1.0 after two fixes
       and 2027-02-01.
-- [ ] **1.0, item 1: fix `SNAG-TEST-014`**, the live notification
+- [x] **1.0, item 1: fix `SNAG-TEST-014`**, the live notification
       witness that leaves its probe on the owner's screen.
+      *(Done by Session 433, 2026-10-30, in `901e12f`.)*
 - [x] **1.0, item 2: rewrite STATUS.md's Alerts paragraph.** Measured
       2026-10-30: both audit rows have closed (Session 428's item below),
       and the open non-family rows are `High disk usage on /` and

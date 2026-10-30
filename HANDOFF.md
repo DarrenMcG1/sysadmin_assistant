@@ -1,6 +1,30 @@
-# Handoff — 2026-10-30 (Session 432)
+# Handoff — 2026-10-30 (Session 433)
 
 ## Next action
+
+Fix the two STATUS.md claims Session 432 found failing, the Deploy paragraph's restart and the 2026-10-27 expiry, per tasks.md's Session 432 block. *(For: session)*
+
+## Session 433: the notification probe stops reaching the screen
+
+Opened on Session 432's Next action, 1.0 item 1. Code in `901e12f`.
+
+- **1.0 is done**: both items of the owner's ruling. The freeze holds
+  from today. No version string or freeze date is written anywhere
+  machine-readable; the estate decides where on 2026-11-04.
+- **Chosen:** the served half of the hazard runs on a private bus with
+  `test_failure_replay_live.py`'s stand-in owning the name, so the
+  probe never reaches Plasma. Rejected: an opt-in mark on the live
+  call, because the suite would then never run it; and a second close,
+  because it cannot reach a cause nobody found.
+- **Given up, knowingly:** the suite no longer shows that *Plasma*
+  answers the announcer's call quickly. The hazard is about whether a
+  server owns the name, not about which server it is.
+  `test_it_admits_the_live_bus` still asks the live bus, by
+  `NameHasOwner`.
+- **Left on disk:** `~/.local/state/sysadmin_assistant/notify-probe.jsonl`,
+  492 lines, all `closed`. Nothing writes to it any more.
+
+## What Session 432 handed on
 
 1.0, item 1: fix SNAG-TEST-014, the live notification test that leaves its probe on the owner's screen, per tasks.md's Session 430 block. *(For: session)*
 
