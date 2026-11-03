@@ -4,11 +4,40 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-10-30
+> **Last Updated**: 2026-11-03
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
 ---
+
+## Session 436: the blinded push half hides the rest of the box (2026-11-03)
+
+Opened on the owner's request: fix `SNAG-TEST-020`. Code in `35c26f0`.
+
+- [x] **Confirmed it still happened.** A probe reading
+      `~/.claude/settings.json`, the user unit files, `journalctl`
+      (system and `--user`) and `systemctl --user` passed 5 of 5 inside
+      `scripts/pytest-without-the-box.sh`.
+- [x] **Mount namespace over six directories**, each laid over with an
+      empty tmpfs: `~/.claude`, `~/.config/systemd/user`,
+      `/etc/systemd/system`, `/run/user/<uid>`, `/var/log/journal` and
+      `/run/log/journal`. The venv, estate-lib and uv's cache stay, so
+      no clone is needed. The non-box half ran in 118 s.
+- [x] **Marked the one reader it caught `box`**:
+      `test_an_absent_unit_is_indistinguishable_from_an_untriggered_one`
+      in `tests/test_services_yaml_live.py`, the premise of two `box`
+      classes. It passes on GitHub, whose runner has a user manager.
+- [x] **Tested**: `tests/test_blinded_half_live.py` checks each resource
+      is present outside, then drives the script at seven absences.
+      Against the pre-fix script 6 of 7 fail, all but the database.
+- [x] **STATUS.md's test count** reads 4779, the 9 added here.
+- [ ] **Re-measure STATUS.md's opening block**, found by postflight and
+      not worked (a second concern): the daemon has been active since
+      the 2026-10-31 14:42 boot, not 10-28; `Project InvestingAssistant
+      next action idle` is `warning`, so the rotating set-aside reads
+      `mismatch`; and `go-to-market-draft-check-copy-timer critical`,
+      open since 2026-11-02 10:03, is unnamed. That unit is
+      go-to-market's.
 
 ## Session 435: the disk alert on / closes (2026-10-30)
 
@@ -434,9 +463,10 @@ Code in `29d67fc`.
       run: `tests/test_estate_port_join_live.py` (reads `ss`) and the
       snag-claims queue check against estate-manager's database. They
       skip on GitHub only because a path is absent there.
-- [ ] **Blind the rest of the box.** The namespace hides the network
+- [x] **Blind the rest of the box.** The namespace hides the network
       only: `~/.claude/settings.json`, the journal, `systemctl --user`
-      and the unit files are still read. `SNAG-TEST-020`.
+      and the unit files are still read. `SNAG-TEST-020`. Done by
+      Session 436 in `35c26f0`.
 
 ## Session 421: CI is green with the blinded gate (2026-10-24)
 

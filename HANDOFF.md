@@ -1,4 +1,4 @@
-# Handoff — 2026-10-30 (Session 435)
+# Handoff — 2026-11-03 (Session 436)
 
 ## Next action
 
@@ -11,6 +11,30 @@ No work is startable: the feature freeze admits only a bug fix or what an incide
 - 2026-11-22, after 03:00: STATUS.md's timed prediction falls due.
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`.
+
+## Session 436: the blinded push half hides the rest of the box
+
+Opened on the owner's request: fix `SNAG-TEST-020`, a known issue under
+the freeze. Code in `35c26f0`.
+
+- **Confirmed first:** a probe of the four `box` resources passed 5 of
+  5 inside `scripts/pytest-without-the-box.sh`.
+- **Fix:** `unshare -rnm` and an empty tmpfs over six directories (the
+  script's header lists them). The entry's reason for leaving it, that
+  all of `/home/gaddi` had to go and so needed fresh clones, was wrong:
+  only those six do.
+- **Caught one:** `test_an_absent_unit_is_indistinguishable_from_an_untriggered_one`
+  reads `systemctl --user`; marked `box`, like its sibling premise.
+- **Rejected:** leaving `/run/user/<uid>` visible, because the box's
+  running user manager would still answer; and starting a fresh
+  `systemd --user` inside the namespace, too heavy for one test.
+- **Stated limit:** the rest of `~/projects` stays visible; the `box`
+  mark does not cover it. The blind is stricter than the runner, which
+  has a journal and a user manager of its own.
+
+## What Session 435 handed on
+
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
 
 ## Session 435: the disk alert on / closes
 
