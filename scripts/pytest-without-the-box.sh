@@ -21,10 +21,25 @@
 # runner passes. The inner one maps back to our own uid, so file
 # permissions read as they do outside.
 #
-# **What it does not blind:** `~/.claude/settings.json`, the journal,
-# `systemctl --user` and the installed unit files are still the box's.
-# A test reading those without the mark still passes here and fails in
-# CI. Recorded as SNAG-TEST-020.
+# **The rest of the box is blinded by a mount namespace** (SNAG-TEST-020).
+# The `box` mark covers four things besides the database: the Claude
+# settings, the journal, `systemctl --user` and the installed unit files.
+# An empty tmpfs is laid over each directory that holds them, so a test
+# reading one without the mark meets an absence, as on the runner:
+#
+#   ~/.claude                  settings.json and the hook scripts
+#   ~/.config/systemd/user     the user unit files
+#   /etc/systemd/system        the system unit files
+#   /run/user/<uid>            the user bus and systemd's private socket,
+#                              which is all `systemctl --user` connects by
+#   /var/log/journal,          the persistent and volatile journal, system
+#   /run/log/journal           and user alike
+#
+# Only those six go, so the venv, estate-lib and uv's cache stay where
+# they are and the half costs no clone. The rest of `~/projects` is not
+# hidden: the `box` mark does not cover it. `unshare -m` makes the mounts
+# private, so nothing outside the run sees them, and they go when it
+# exits. A directory that does not exist is skipped.
 #
 # **uv runs offline.** The namespace has no route to PyPI either, and two
 # files bring coverage in through `uv run --with 'coverage[toml]'`, which
@@ -40,9 +55,15 @@ cd "$(dirname "$0")/.."
 
 export UV_OFFLINE=1
 
-exec unshare -rn sh -c '
-    uid=$1 gid=$2
-    shift 2
-    ip link set lo up &&
+exec unshare -rnm sh -c '
+    uid=$1 gid=$2 home=$3
+    shift 3
+    ip link set lo up || exit
+    for dir in "$home/.claude" "$home/.config/systemd/user" \
+               /etc/systemd/system "/run/user/$uid" \
+               /var/log/journal /run/log/journal; do
+        [ -d "$dir" ] || continue
+        mount -t tmpfs -o mode=0700 none "$dir" || exit
+    done
     exec unshare -U --map-user="$uid" --map-group="$gid" "$@"
-' sh "$(id -u)" "$(id -g)" .venv/bin/python -m pytest -q -m "not box" "$@"
+' sh "$(id -u)" "$(id -g)" "$HOME" .venv/bin/python -m pytest -q -m "not box" "$@"

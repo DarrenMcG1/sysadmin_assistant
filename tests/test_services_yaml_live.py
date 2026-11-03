@@ -379,6 +379,10 @@ class TestThePremises:
             "pair missing for a reason that has nothing to do with the box"
         )
 
+    # `box` since SNAG-TEST-020: it asks `systemctl --user`, which the
+    # blinded pre-push half now hides, and it is the premise of the two
+    # `box` classes below, so it runs where they run.
+    @pytest.mark.box
     def test_an_absent_unit_is_indistinguishable_from_an_untriggered_one(self):
         """The negative control, and it measures the trap rather than asserting it.
 
