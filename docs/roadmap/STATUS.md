@@ -78,6 +78,11 @@ modelling an omission rather than a phantom. None retired. Previously 3892 + 8 o
 
 ## Recently Completed
 
+### Session 437 — the freeze is declared in the manifest (2026-11-04)
+
+- `.project.yaml` carries `freeze:` (1.0, since 2026-10-30, until
+  2027-02-01), which estate-manager's board publishes per project.
+
 ### Session 436 — the blinded push half hides the rest of the box (2026-11-03)
 
 - The pre-push gate's non-box half now also hides the Claude settings,

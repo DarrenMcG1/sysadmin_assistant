@@ -4,9 +4,26 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-03
+> **Last Updated**: 2026-11-04
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
+
+---
+
+## Session 437: the freeze is declared in the manifest (2026-11-04)
+
+On estate messages `64a3782e-61f3-4f0b-86af-ae9cdf49125b` (the key's
+shape) and `94a1713e-4c05-4a14-8f29-1ba5b599ee70` (safe to write).
+Manifest in `d59ffe8`.
+
+- [x] **Checked both conditions.** `sysadmin.service` started at
+      2026-11-04 09:34:18 GMT, after 09:30; estate-manager's board row
+      carries a `freeze`.
+- [x] **Wrote `freeze:`** with `version: '1.0'`, `since: 2026-10-30`
+      and `until: 2027-02-01`. These are the owner's dates, not the
+      2026-11-04 and 2027-01-04 in the estate's template.
+- [x] **Verified.** `load_registry` parses it; `/api/projects/managed`
+      still serves 42 projects; 140 registry and contract tests pass.
 
 ---
 
@@ -155,8 +172,10 @@ day; recorded in `CLAUDE.md`, "1.0, then a feature freeze until
       *(Done by Session 432, 2026-10-30.)*
 - [ ] **On 2027-02-01, the owner reads the v2 list** in `ideas.md` and
       opens v2 or extends the freeze.
-- [ ] **When the estate announces where a version and freeze date
+- [x] **When the estate announces where a version and freeze date
       live** (its 2026-11-04 sitting), write this repository's there.
+      *(Done by Session 437, 2026-11-04, in `d59ffe8`: a `freeze:` key
+      in `.project.yaml`.)*
 - [x] **Make the pre-push gate green again: `SNAG-TEST-022`.** Found by
       this session's push-stage run: 7 arc tests in
       `tests/test_vacuous_guards_live.py` fail on coverage.py 7.17.0,

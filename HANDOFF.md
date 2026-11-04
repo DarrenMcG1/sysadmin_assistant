@@ -1,16 +1,38 @@
-# Handoff — 2026-11-03 (Session 436)
+# Handoff — 2026-11-04 (Session 437)
 
 ## Next action
 
-No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
+Re-measure STATUS.md's opening block (tasks.md, Session 436's last item); the daemon has since restarted again, at 2026-11-04 09:34. *(For: session)*
 
 ## Scheduled action
 
-- 2026-11-04: the estate decides where a version and freeze date live;
-  write this repository's there (tasks.md, Session 430 block).
 - 2026-11-22, after 03:00: STATUS.md's timed prediction falls due.
   Measure the shared instants again, then rewrite or replace it.
-- 2027-02-01: the owner reads the v2 list in `ideas.md`.
+- 2027-02-01: the owner reads the v2 list in `ideas.md`; the
+  manifest's `freeze.until` carries the same date.
+
+## Session 437: the freeze is declared in the manifest
+
+Opened on estate message `94a1713e-4c05-4a14-8f29-1ba5b599ee70`
+(estate-manager): the `freeze:` key was safe to write. Manifest in
+`d59ffe8`. Both estate messages, it and `64a3782e`, are closed.
+
+- **Checked both conditions first:** `sysadmin.service` started at
+  09:34:18 GMT, and estate-manager's board row carries a `freeze`.
+- **Dates chosen:** `since: 2026-10-30`, when 1.0's second item closed
+  (`e983696`), and `until: 2027-02-01`, from the owner's ruling. I did
+  not use the estate template's 2026-11-04 and 2027-01-04, which are
+  its own dates.
+- **Verified:** `load_registry` parses the key; `/api/projects/managed`
+  still serves 42 projects. The board shows `null` for this row until
+  its next scan (04:30, or when the registry changes).
+- **Corrected:** Session 436 wrote *For: none* while its own
+  STATUS.md re-measure task stood open and startable; it is now the
+  Next action.
+
+## What Session 436 handed on
+
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
 
 ## Session 436: the blinded push half hides the rest of the box
 
