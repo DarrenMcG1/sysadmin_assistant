@@ -1,5 +1,5 @@
 # Project Status Dashboard
-**Last Updated**: 2026-10-30
+**Last Updated**: 2026-11-04
 
 > **The box as it stands.** This block holds only the claims
 > `scripts/check-ops-claims.sh` re-measures at every preflight, one
@@ -8,30 +8,34 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-10-28 07:02:10**
-> <!--check:deploy--> <!--check:daemon_start-->, when the box booted
-> that morning after being shut down overnight. It still runs
-> `3992b99`, Session 424's change, where a failed GPU recovery opens a
-> `critical` row. `/health` answers
+> **Deploy.** The daemon restarted at **2026-11-04 09:34:18**
+> <!--check:deploy--> <!--check:daemon_start-->, when an estate-manager
+> session ran `sudo systemctl restart` so it would load the estate
+> library that parses the manifest's `freeze:` key (their commit
+> `dca9775`). It still runs `3992b99`, Session 424's change, where a
+> failed GPU recovery opens a `critical` row. `/health` answers
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **1** unresolved row <!--check:alerts-->,
-> not counting the two flapping titles or the idle-nudge family below.
-> The open row is `Estate project next actions idle` (07:03 on
-> 2026-10-28) <!--check:open_titles-->. It is the idle-nudge
-> family's roll-up: when more than five repositories are idle at once,
-> the estate judge raises this one row instead of a row each, and its
-> title falls outside the family's pattern, so it counts here. Six were
-> idle when it opened. It closes by itself once five or fewer are idle,
-> and they then get a row each. The disk row on `/` closed at 15:27 on
-> 2026-10-30, at 76.5 %, after the owner uninstalled three Steam games.
+> **Alerts.** `alerts` holds **0** unresolved rows <!--check:alerts-->,
+> not counting the two flapping titles or the idle-nudge family below,
+> whose one member above `info` is `Project InvestingAssistant next
+> action idle` <!--check:open_titles-->. The last other row,
+> `go-to-market-draft-check-copy-timer critical`, closed at 10:24 on
+> 2026-11-04. It had been open since 2026-11-02 because go-to-market's
+> hourly copy job exited 1, and go-to-market fixed the job (their
+> `1a465b2`) after estate message
+> `f9784d62-cbdd-4b93-ac23-d6c7fb4ec478` was filed there.
 >
 > **The idle-nudge rows are set aside as a family.** Rows titled
 > `Project % next action idle` turn over most mornings, so the block
-> does not name them <!--check:rotating-->. The estate's board shows
-> which repositories are idle. The `rotating` check withdraws the
-> exemption if any member is raised above `info`.
+> does not count them <!--check:rotating-->. The estate's board shows
+> which repositories are idle. The `rotating` check reads a member above
+> `info` as asking for action, and InvestingAssistant's row is at
+> `warning`, so that check reads `mismatch` until InvestingAssistant's
+> next action moves.
+> That move is InvestingAssistant's, not this repository's, and the row
+> is named above so that no one misses it.
 >
 > **Two titles flap and are set aside from that count.** `High VRAM
 > usage on AMD Radeon RX 7900 XTX` is declared flapping

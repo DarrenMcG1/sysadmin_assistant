@@ -1,8 +1,8 @@
-# Handoff — 2026-11-04 (Session 437)
+# Handoff — 2026-11-04 (Session 438)
 
 ## Next action
 
-Re-measure STATUS.md's opening block (tasks.md, Session 436's last item); the daemon has since restarted again, at 2026-11-04 09:34. *(For: session)*
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
 
 ## Scheduled action
 
@@ -10,6 +10,39 @@ Re-measure STATUS.md's opening block (tasks.md, Session 436's last item); the da
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 438: STATUS.md's opening block re-measured
+
+Opened on the handoff's Next action. Docs only.
+
+- **Measured first:** 4 of 13 claims read `no`: the daemon's start
+  time, the alert count, the unnamed rows, and the rotating family.
+- **The restart:** at 09:34:16 an estate-manager session ran
+  `sudo systemctl restart sysadmin.service`, so the daemon would load
+  the library that parses `freeze:`. Read from the journal's `sudo`
+  line.
+- **Waited for four `usb 7-1` kernel rows to close.** They opened when
+  the headset receiver re-enumerated at 10:01, and closed at 10:17 as
+  their kind always has. The block was written after that, so it does
+  not name rows that were already closing.
+- **Filed** go-to-market's failing copy job at go-to-market, estate
+  message `f9784d62-cbdd-4b93-ac23-d6c7fb4ec478`; their handoff did not
+  mention it. **Closed by the receiver:** go-to-market fixed the job in
+  their `1a465b2` at 10:20, and the critical row closed at 10:24, so the
+  block now counts 0 unresolved rows.
+- **Fork:** I kept the `rotating` declaration and named
+  InvestingAssistant's `warning` row. I rejected withdrawing the
+  declaration, as the check advises: that reds two premise tests, and
+  relaxing them would be code under the freeze. Cost: `rotating` reads
+  `mismatch` at every preflight until InvestingAssistant's next action
+  moves. The other 12 claims read `ok`.
+- **Found, not worked:** a nudge row never rises to the estate's
+  `warning` rung (kaggle's), because a held row is never escalated in
+  place. Recorded in tasks.md as a known issue.
+
+## What Session 437 handed on
+
+Re-measure STATUS.md's opening block (tasks.md, Session 436's last item); the daemon has since restarted again, at 2026-11-04 09:34. *(For: session)*
 
 ## Session 437: the freeze is declared in the manifest
 

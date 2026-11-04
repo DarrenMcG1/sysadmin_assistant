@@ -10,6 +10,42 @@
 
 ---
 
+## Session 438: STATUS.md's opening block re-measured (2026-11-04)
+
+Opened on the handoff's Next action, Session 436's last open item.
+
+- [x] **Deploy.** The daemon restarted at 2026-11-04 09:34:18. An
+      estate-manager session ran `sudo systemctl restart` on pts/54, so
+      that the daemon would load the estate library that parses
+      `freeze:` (estate message `94a1713e`). The code is still `3992b99`.
+- [x] **Alerts.** The roll-up `Estate project next actions idle` closed
+      at 21:03 on 2026-10-30. Four `usb 7-1` kernel rows opened at
+      10:02 when the Corsair headset receiver re-enumerated. They
+      closed by themselves at 10:17, as on 2026-10-03 and 2026-10-18,
+      and the block was written after that. It names InvestingAssistant's
+      `warning` nudge.
+- [x] **Filed the timer at go-to-market**, estate message
+      `f9784d62-cbdd-4b93-ac23-d6c7fb4ec478`. Its copy job has exited 1
+      hourly since 2026-11-02 10:00 (`batch 2 names ec.txt, which is
+      gone`), and its handoff did not mention it. go-to-market fixed the
+      job in their `1a465b2` at 10:20 and closed the message, and the
+      row closed at 10:24, so the block counts 0.
+- [x] **Kept the rotating declaration**, though the check says to
+      withdraw it. Withdrawing it reds
+      `TestTheRealBlockDeclaresTheNudgeFamily`, the family's premise
+      guard. Relaxing a guard to fit the document would leave it
+      measuring itself, and it would be code under the freeze. So `rotating`
+      reads `mismatch` until InvestingAssistant's next action moves; the
+      other 12 claims read `ok`.
+- [ ] **A nudge row never rises to the estate's rung** (found, not
+      worked; a known issue under the freeze). `Project kaggle next
+      action idle` is `info` while `:8400/api/projects/attention` rates
+      it `warning` at 16 days, because `refresh_alert` refuses a rise
+      in place (`may_quieten_in_place`; `docs/design/alerts.md`). So
+      the louder rung is never stored. Fix only if it bites.
+
+---
+
 ## Session 437: the freeze is declared in the manifest (2026-11-04)
 
 On estate messages `64a3782e-61f3-4f0b-86af-ae9cdf49125b` (the key's
@@ -48,13 +84,13 @@ Opened on the owner's request: fix `SNAG-TEST-020`. Code in `35c26f0`.
       is present outside, then drives the script at seven absences.
       Against the pre-fix script 6 of 7 fail, all but the database.
 - [x] **STATUS.md's test count** reads 4779, the 9 added here.
-- [ ] **Re-measure STATUS.md's opening block**, found by postflight and
+- [x] **Re-measure STATUS.md's opening block**, found by postflight and
       not worked (a second concern): the daemon has been active since
       the 2026-10-31 14:42 boot, not 10-28; `Project InvestingAssistant
       next action idle` is `warning`, so the rotating set-aside reads
       `mismatch`; and `go-to-market-draft-check-copy-timer critical`,
       open since 2026-11-02 10:03, is unnamed. That unit is
-      go-to-market's.
+      go-to-market's. Done by Session 438.
 
 ## Session 435: the disk alert on / closes (2026-10-30)
 
