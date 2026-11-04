@@ -3,6 +3,14 @@ id: sysadmin-assistant
 name: sysadmin_assistant
 category: null
 status: active
+# The owner's ruling of 2026-10-30 (CLAUDE.md, "1.0, then a feature
+# freeze until 2027-02-01"). 1.0 closed that day in e983696, so the
+# freeze began then; on `until` the owner reads the v2 list in
+# docs/roadmap/ideas.md. Shape: estate-manager's message 64a3782e.
+freeze:
+  version: '1.0'
+  since: 2026-10-30
+  until: 2027-02-01
 # Everything the repository runs on, for web/cv's check (their message
 # 17758da4, 2026-09-28). GitHub Actions was declared on 2026-09-29, once a
 # run was green (36564524086; SNAG-TEST-015). The CV's "Oracle
