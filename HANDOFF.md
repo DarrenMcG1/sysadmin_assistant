@@ -1,4 +1,4 @@
-# Handoff — 2026-11-04 (Session 438)
+# Handoff — 2026-11-05 (Session 439)
 
 ## Next action
 
@@ -10,6 +10,41 @@ No work is startable: the feature freeze admits only a bug fix or what an incide
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 439: World of Warcraft joins the game detector's list
+
+Opened on estate message `3e91e0d7-52cd-4368-8f28-5fd19ddc0d1e`
+(Alfred): add `Wow.exe: WoW` to `agents.game_detector.games` so
+Alfred's Downtime lane gets WoW's sessions. Config only.
+
+- **Under the freeze:** a configuration entry the owner asked for,
+  read by the detector that already exists (ADR-0016). No code.
+- **Name:** I used "WoW", Alfred's default, not "World of Warcraft".
+  Alfred's hold (their ADR-0164 §4) matches the game name as a whole
+  word in the owner's `Gaming|WoW` label, so the long name would count
+  each session twice. It is not an owner ruling. If the owner names it
+  otherwise, change the value.
+- **Corrected the message:** it said a restart was needed. The agent
+  reads `get_config()` on every poll (`sysadmin/games/agent.py:163`),
+  and `game_detector` is in neither `RESTART_ONLY` nor any other
+  restart-only list, so a reload delivers it. I sent SIGHUP to the
+  daemon (pid 3283250) at 09:40:18. The reload logged
+  `requires_restart: []`, and the next `game_detector` poll ran on it.
+  `POST /api/sysadmin/reload` answered 401, because the daemon holds
+  a token from systemd.
+- **Verified live:** the owner started WoW during the session. The
+  09:43:18 poll opened a `WoW` span (`matched_by: executable`) with
+  `focus_known: true` and a `focused` stretch, so KWin's probe ties
+  the Wine window to `Wow.exe`'s pid, the one thing Alfred's message
+  had left unchecked.
+- **Closed** the message, the note naming this entry.
+- **go-to-market's close note** (message `f9784d62-cbdd-4b93-ac23-d6c7fb4ec478`,
+  sent by Session 438): already recorded above in Session 438's entry
+  and its tasks.md item; nothing new to tick.
+
+## What Session 438 handed on
+
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
 
 ## Session 438: STATUS.md's opening block re-measured
 

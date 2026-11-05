@@ -4,9 +4,26 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-04
+> **Last Updated**: 2026-11-05
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
+
+---
+
+## Session 439: World of Warcraft joins the game detector's list (2026-11-05)
+
+Opened on estate message `3e91e0d7-52cd-4368-8f28-5fd19ddc0d1e`
+(Alfred).
+
+- [x] **`Wow.exe: WoW` added** to `agents.game_detector.games` in
+      `config.yaml`, and delivered by SIGHUP at 09:40:18 with no
+      restart (`requires_restart: []`).
+- [x] **Read WoW's first span's focus stretches.** The owner started
+      WoW during the session (pid 1792797). `GET /api/games/spans`
+      served a `WoW` span from 09:43:18, `matched_by: executable`,
+      `focus_known: true`, one `focused` stretch. So KWin's probe does
+      attribute the Wine window to `Wow.exe`'s pid, and Alfred has
+      what its ADR-0164 §2 needs.
 
 ---
 
