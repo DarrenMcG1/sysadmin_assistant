@@ -10,6 +10,21 @@
 
 ---
 
+## Session 440: the session-end hooks go, and a docs-only push skips the box (2026-11-05)
+
+Opened on estate message `efcd2dab-f2f3-4682-80f1-27f00a70e91e`
+(estate-manager): the owner's 2026-11-04 rulings on the estate audit.
+
+- [x] **Deleted `session-end-insights.sh` and `session-end-cleanup.sh`**
+      from `.claude/hooks/`, with the README and their wiring in
+      `.claude/settings.local.json`. Gitignored, so in no commit.
+- [x] **A docs-only push skips the box half of pytest** (`30c7230`):
+      `always_run: false` and `exclude: '\.md$'` on `pytest-box`.
+      Driven at a Markdown-only commit (skipped) and at a config and a
+      mixed range (135 passed).
+
+---
+
 ## Session 439: World of Warcraft joins the game detector's list (2026-11-05)
 
 Opened on estate message `3e91e0d7-52cd-4368-8f28-5fd19ddc0d1e`

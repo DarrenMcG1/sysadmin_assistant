@@ -142,7 +142,10 @@ each `verbose`. **pytest runs in two halves since 2026-10-24**
 `scripts/pytest-without-the-box.sh`, which gives it a network namespace
 of its own so the database refuses the connection, as on GitHub's
 runner. A test that reads the database without the `box` mark then
-fails at push rather than in CI. Measured 2026-10-24 by direct pytest
+fails at push rather than in CI. **The box half is skipped when every
+file the push changes is Markdown** (owner's ruling 2026-11-04, estate
+message `efcd2dab`), so a docs-only push no longer waits on the
+journal's state. Measured 2026-10-24 by direct pytest
 runs, the halves took 14 s and 186 s, against 170 s for the full suite
 in one run; ruff and mypy take under 0.3 s together. Installed
 2026-10-14; on a fresh clone installing it is the owner's step, because the agent's hooks refuse the line:
