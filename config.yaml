@@ -510,7 +510,10 @@ agents:
     steam_root: ~/.local/share/Steam
     # Games Steam does not launch: executable name -> game name. A Steam
     # launch needs no entry; its AppId is named from the app's manifest.
-    games: {}
+    # "WoW", not "World of Warcraft": Alfred's hold (its ADR-0164 §4)
+    # matches the name as a whole word in the owner's `Gaming|WoW` label.
+    games:
+      Wow.exe: WoW   # Lutris -> Battle.net; Wine argv[0] ends \Wow.exe
 
   log_aggregator:
     enabled: true
