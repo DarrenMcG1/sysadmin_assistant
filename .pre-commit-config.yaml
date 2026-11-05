@@ -13,6 +13,15 @@
 # that reads the database without the mark fails here rather than on GitHub
 # (SNAG-TEST-019).
 #
+# The box half is skipped when every file the push changes is Markdown: a
+# docs-only push no longer waits on the state of this machine's journal or
+# tables (the owner's ruling of 2026-11-04 on the estate audit, estate
+# message efcd2dab-f2f3-4682-80f1-27f00a70e91e). `exclude` drops the .md
+# files and `always_run: false` lets pre-commit skip a hook left with none.
+# The cost: a docs-only push that rewords STATUS.md's declarations is no
+# longer checked against the alerts table at push;
+# scripts/check-ops-claims.sh still reads it at each end of a sitting.
+#
 # .venv/bin directly rather than `uv run`, so a push never syncs the
 # environment. Installing the stage is the owner's step, for the reason the
 # rule gives.
@@ -27,7 +36,8 @@ repos:
         entry: .venv/bin/python -m pytest -q -m box
         language: system
         pass_filenames: false
-        always_run: true
+        always_run: false
+        exclude: '\.md$'
         stages: [pre-push]
         verbose: true
       - id: pytest-without-the-box
