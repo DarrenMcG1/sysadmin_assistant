@@ -1,5 +1,5 @@
 # Project Status Dashboard
-**Last Updated**: 2026-11-04
+**Last Updated**: 2026-11-09
 
 > **The box as it stands.** This block holds only the claims
 > `scripts/check-ops-claims.sh` re-measures at every preflight, one
@@ -17,15 +17,18 @@
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **0** unresolved rows <!--check:alerts-->,
-> not counting the two flapping titles or the idle-nudge family below,
-> whose one member above `info` is `Project InvestingAssistant next
-> action idle` <!--check:open_titles-->. The last other row,
-> `go-to-market-draft-check-copy-timer critical`, closed at 10:24 on
-> 2026-11-04. It had been open since 2026-11-02 because go-to-market's
-> hourly copy job exited 1, and go-to-market fixed the job (their
-> `1a465b2`) after estate message
-> `f9784d62-cbdd-4b93-ac23-d6c7fb4ec478` was filed there.
+> **Alerts.** `alerts` holds **1** unresolved row <!--check:alerts-->,
+> not counting the two flapping titles or the idle-nudge family below:
+> it is `High disk usage on /`, and the family's one member above `info`
+> is `Project InvestingAssistant next action idle` <!--check:open_titles-->.
+> The disk row opened at 12:34 UTC on 2026-11-09 with `/` at 80.1 %,
+> against a warning line of 80 %. A World of Warcraft install under
+> `~/Games/battlenet` wrote about 75 GB between 16:24 on 2026-11-04 and
+> 02:54 the next morning, taking `/` from 76 % to 81 %. Since then it has
+> sat between 79.8 % and 82 %, so the row has opened three times since
+> 2026-11-05 and closed twice. Each close will turn this count into a
+> mismatch until the disk is cleared, and clearing it is the owner's
+> choice, not this repository's.
 >
 > **The idle-nudge rows are set aside as a family.** Rows titled
 > `Project % next action idle` turn over most mornings, so the block

@@ -19,12 +19,15 @@ Opened on estate message `0c5ffb81-fbb1-4dd8-9643-b0567e7ada82`
       someone else set requires, named with its date and setter, no more
       than the date needs, pointing at estate-manager's
       `monitorable-project.md` §2.4. Prose only; `freeze:` is unchanged.
-- [ ] **Re-measure STATUS.md's opening block**, found by
+- [x] **Re-measure STATUS.md's opening block**, found by
       `scripts/check-ops-claims.sh` and not worked (a second concern):
       3 `no` lines on 2026-11-09, the same before this session's edits.
       One unresolved alert is unnamed, and `Project InvestingAssistant
       next action idle` is `warning` inside the family the block sets
       aside as all info. Session 438 fixed the same shape.
+      **Done by Session 442**: the Alerts paragraph names `High disk
+      usage on /` and counts 1; 2 of the 3 `no` lines read `ok`. The
+      `rotating` one stands, as the block already says it will.
 
 ---
 

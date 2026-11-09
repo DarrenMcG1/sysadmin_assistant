@@ -1,8 +1,8 @@
-# Handoff — 2026-11-09 (Session 441)
+# Handoff — 2026-11-09 (Session 442)
 
 ## Next action
 
-Re-measure STATUS.md's opening block: `scripts/check-ops-claims.sh` reads 3 mismatches, an unnamed alert and InvestingAssistant's idle warning. *(For: session)*
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
 
 ## Scheduled action
 
@@ -10,6 +10,36 @@ Re-measure STATUS.md's opening block: `scripts/check-ops-claims.sh` reads 3 mism
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 442: STATUS.md's opening block names the disk alert
+
+Opened on Session 441's Next action.
+
+- **Rewrote** the Alerts paragraph: 1 unresolved row,
+  `High disk usage on /`, named in the `open_titles` sentence beside
+  InvestingAssistant's idle warning. `check-ops-claims.sh` went from 3
+  `no` lines to 1.
+- **Measured the cause** from `resource_snapshots`: `/` stepped about
+  75 GB between 16:24 on 2026-11-04 and 02:54 on 2026-11-05, 76 % to
+  81 %. Files born at the first step are a World of Warcraft install
+  under `~/Games/battlenet` (35 GB in its `Data/data` alone; the
+  directory is 104 GB). `/` has sat at 79.8 to 82 % since, against an
+  80 % warning line, so the row has opened three times since
+  2026-11-05.
+- **Fork:** I named the disk row rather than declaring it flapping.
+  Declaring it would set aside a real disk-space warning; the cost is
+  that each close turns the alert count into a mismatch again.
+- **Fork:** I kept the idle-nudge family set aside, so the `rotating`
+  check still reads `no` while InvestingAssistant's row is `warning`.
+  Withdrawing the declaration, as the check suggests, would put five
+  rows that turn over most mornings back into the count, the problem
+  the declaration was made to solve.
+- **Left for the owner:** whether to free space on `/`. Meanwhile the
+  row stays open and the block names it.
+
+## What Session 441 handed on
+
+Re-measure STATUS.md's opening block: `scripts/check-ops-claims.sh` reads 3 mismatches, an unnamed alert and InvestingAssistant's idle warning. *(For: session)*
 
 ## Session 441: the freeze admits what an outside date requires
 
