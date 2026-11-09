@@ -1,8 +1,8 @@
-# Handoff — 2026-11-05 (Session 440)
+# Handoff — 2026-11-09 (Session 441)
 
 ## Next action
 
-No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
+Re-measure STATUS.md's opening block: `scripts/check-ops-claims.sh` reads 3 mismatches, an unnamed alert and InvestingAssistant's idle warning. *(For: session)*
 
 ## Scheduled action
 
@@ -10,6 +10,34 @@ No work is startable: the feature freeze admits only a bug fix or what an incide
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 441: the freeze admits what an outside date requires
+
+Opened on estate message `0c5ffb81-fbb1-4dd8-9643-b0567e7ada82`
+(estate-manager), carrying the owner's 2026-11-08 ruling.
+
+- **Added** to `CLAUDE.md`'s freeze rule 2: beside a bug fix and an
+  incident's fix, work a date someone else set requires (an interview,
+  an application deadline, an assessment), when the task or commit
+  names the date and who set it and the work does no more than that
+  date needs. A date the owner or an agent set does not count, and
+  *moves an aim* alone exempts nothing.
+- **Fork:** I wrote the clause in brief with a pointer to
+  estate-manager's `monitorable-project.md` §2.4, not a pointer alone,
+  so rule 2 still reads whole where a session meets it. The cost is a
+  second wording that can drift; §2.4 is named as canonical.
+- **Not touched:** `.project.yaml`'s `freeze:` key, which the ruling
+  leaves as it is. No outside date bears on this repository today, so
+  nothing is startable under the new clause.
+- **Second concern, recorded not worked:** `check-ops-claims.sh` reads
+  STATUS.md's opening block stale (3 `no` lines, the same before this
+  session's edits). A task in `tasks.md` under Session 441, and the
+  Next action.
+- **Closed** the message, its note naming this entry.
+
+## What Session 440 handed on
+
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
 
 ## Session 440: the session-end hooks go, and a docs-only push skips the box
 

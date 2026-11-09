@@ -4,9 +4,27 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-05
+> **Last Updated**: 2026-11-09
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
+
+---
+
+## Session 441: the freeze admits what an outside date requires (2026-11-09)
+
+Opened on estate message `0c5ffb81-fbb1-4dd8-9643-b0567e7ada82`
+(estate-manager): the owner's 2026-11-08 ruling widening the freeze.
+
+- [x] **`CLAUDE.md`'s freeze rule 2 carries the clause**: work a date
+      someone else set requires, named with its date and setter, no more
+      than the date needs, pointing at estate-manager's
+      `monitorable-project.md` §2.4. Prose only; `freeze:` is unchanged.
+- [ ] **Re-measure STATUS.md's opening block**, found by
+      `scripts/check-ops-claims.sh` and not worked (a second concern):
+      3 `no` lines on 2026-11-09, the same before this session's edits.
+      One unresolved alert is unnamed, and `Project InvestingAssistant
+      next action idle` is `warning` inside the family the block sets
+      aside as all info. Session 438 fixed the same shape.
 
 ---
 

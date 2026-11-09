@@ -20,6 +20,14 @@ written anywhere).
    closed. Every other open snag and task ships as a known issue.
 2. **After 1.0, only a bug fix or what an incident in daily use forces
    is built.** A known issue is fixed only when it bites.
+   **Or what a date someone else set requires** (the owner's ruling,
+   2026-11-08, estate message `0c5ffb81`): an interview, an application
+   deadline or an assessment, when the task or commit names the date and
+   who set it, the work is what that date needs and no more, within one
+   concern, and anything beyond it is a v2 line. A date the owner or an
+   agent set is not an outside date, and *moves an aim* alone exempts
+   nothing. Canonical wording: estate-manager's
+   `docs/guides/monitorable-project.md` §2.4, beside the `freeze:` key.
 3. **A new idea is one line under *v2* in `docs/roadmap/ideas.md`**,
    never code.
 4. **On 2027-02-01 the owner reads that list** and opens v2 or extends
