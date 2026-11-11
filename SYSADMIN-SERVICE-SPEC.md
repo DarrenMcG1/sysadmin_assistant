@@ -333,7 +333,7 @@ GET  /api/files/large                  → Large files list
 GET  /api/files/misplaced              → Misplaced files by category
 GET  /api/files/trends                 → Historical finding counts
 POST /api/files/scan                   → Trigger immediate scan
-POST /api/files/clean/stale-caches     → Auto-remove __pycache__ etc (requires confirm param)
+POST /api/files/clean/stale-caches     → removed 2026-11-11 (docs/review/bug-review.md, finding H1)
 ```
 
 ---

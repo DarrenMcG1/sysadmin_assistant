@@ -1,8 +1,8 @@
-# Handoff — 2026-11-11 (Session 443)
+# Handoff — 2026-11-12 (Session 444)
 
 ## Next action
 
-Remove `POST /api/files/clean/stale-caches`, its tray button and its recommendation: finding H1 in `docs/review/bug-review.md`. *(For: session)*
+Confirm a duplicate group with a full hash before `/clean/duplicates` plans it: finding H2 in `docs/review/bug-review.md`. *(For: session)*
 
 ## Scheduled action
 
@@ -10,6 +10,35 @@ Remove `POST /api/files/clean/stale-caches`, its tray button and its recommendat
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 444: the stale-cache clean is removed (finding H1)
+
+Opened on Session 443's Next action.
+
+- **Removed** (`b371eb4`) `POST /api/files/clean/stale-caches`, its
+  contract model `CleanResultResponse`, the tray's "Clean stale caches"
+  button with its dialog and client path, and the "Remove N empty
+  directories" recommendation. The quick-wins card is display-only.
+- **Live:** the daemon restarted at 21:34:56 and the route answers 404;
+  the tray restarted at 21:35:01. Suite: 4,756 passed, 2 skipped.
+- **Fork:** I kept the stale-caches recommendation and changed its
+  action to "delete by hand". Deleting it too is the fix for finding
+  M10 (the scan can never find a cache), which the task did not ask for.
+- **Fork:** one code commit of 14 code files, carrying a three-line
+  note in `tasks.md`, because the pre-commit hook refuses five or more
+  code files without a tracking document. Splitting at four files each
+  would have taken four commits, past the two a push allows.
+- **Fork:** no announcement was filed. A sweep of `~/projects` outside
+  this checkout found no reader of the route, the client method or the
+  model.
+- **Not done:** the directories the route could have removed were
+  never removed by this session or the last; nothing needed restoring.
+- **Stacked, recorded in `tasks.md`:** STATUS.md's Alerts paragraph
+  names 1 of 2 open rows, and a stale comment in `config.yaml`.
+
+## What Session 443 handed on
+
+Remove `POST /api/files/clean/stale-caches`, its tray button and its recommendation: finding H1 in `docs/review/bug-review.md`. *(For: session)*
 
 ## Session 443: a bug review and v2 proposals
 
