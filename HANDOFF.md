@@ -1,8 +1,8 @@
-# Handoff — 2026-11-09 (Session 442)
+# Handoff — 2026-11-11 (Session 443)
 
 ## Next action
 
-No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
+Remove `POST /api/files/clean/stale-caches`, its tray button and its recommendation: finding H1 in `docs/review/bug-review.md`. *(For: session)*
 
 ## Scheduled action
 
@@ -10,6 +10,36 @@ No work is startable: the feature freeze admits only a bug fix or what an incide
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 443: a bug review and v2 proposals
+
+Opened on the owner's request for a two-phase review. No code, config
+or existing document was changed by the review itself; the owner then
+asked for this entry and the task below.
+
+- **Wrote** `docs/review/bug-review.md` (`d1785f2`): 43 findings, 0
+  critical, 4 high, 19 medium, 20 low, each with how it was verified.
+  The suite was green beforehand (4,777 passed, 2 skipped).
+- **Wrote** `docs/review/v2-proposals.md`: six proposals and an order.
+  They are not yet lines under *v2* in `ideas.md`; the owner reads the
+  file and decides which become lines.
+- **Most serious (H1):** `POST /api/files/clean/stale-caches` removes
+  the first 50 stored empty directories with no confinement, and 14 of
+  them are inside the running PostgreSQL data directory under
+  `~/projects/web/cv/private/funnel/pgdata`. The tray's "Clean stale
+  caches" button calls it. Not executed. Avoid the button until fixed.
+- **Fork:** rated H1 high and not critical, because the directories are
+  empty and recreating them recovers the cluster.
+- **Fork:** the four high findings are bug fixes, which the freeze
+  admits, so they are one task in `tasks.md` and not v2 lines. Mediums
+  and lows stay in the report as known issues until one bites.
+- **Not done:** no finding was fixed. I re-ran the evidence for H1 and
+  H3 only; the rest stand as the six slice reviewers verified them, and
+  the report marks what is latent or unconfirmed.
+
+## What Session 442 handed on
+
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
 
 ## Session 442: STATUS.md's opening block names the disk alert
 

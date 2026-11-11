@@ -4,9 +4,27 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-09
+> **Last Updated**: 2026-11-11
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
+
+---
+
+## Session 443: a bug review and v2 proposals (2026-11-11)
+
+Opened on the owner's request for a two-phase review.
+
+- [x] **`docs/review/bug-review.md` and `v2-proposals.md` written**
+      (`d1785f2`): 43 findings, 0 critical, 4 high, 19 medium, 20 low.
+- [ ] **Fix the four high findings**, a second concern found by the
+      review and not worked. Each is a bug fix under the freeze, and
+      each is its own small change, H1 first:
+      H1 remove `POST /api/files/clean/stale-caches` with its tray
+      button and recommendation; H2 confirm a duplicate group with a
+      full hash before `/clean/duplicates` plans it; H3 read the kernel
+      journal with `_TRANSPORT=kernel` so a reboot loses no lines; H4
+      declare the tray's two D-Bus slots with `"uint"`.
+      Evidence and line numbers are in `docs/review/bug-review.md`.
 
 ---
 
