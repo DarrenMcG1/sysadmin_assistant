@@ -33,7 +33,6 @@ PROTECTED_ROUTES = [
     "/api/sysadmin/scan-all",
     "/api/sysadmin/reload",
     "/api/files/scan",
-    "/api/files/clean/stale-caches",
     "/api/files/organise",
     "/api/files/clean/duplicates",
     "/api/files/clean/downloads",
@@ -152,6 +151,14 @@ class TestRouteCensus:
             if require_auth not in [d.call for d in r.dependant.dependencies]
         ]
         assert unguarded == []
+
+    def test_the_stale_cache_clean_is_not_served(self, test_app):
+        """``docs/review/bug-review.md`` H1: it removed directories off the
+        stored audit with no root confinement.  No route under
+        ``/api/files`` may delete outside ``sysadmin.files.actions``.
+        """
+        paths = {r.path for r in test_app.routes if isinstance(r, APIRoute)}
+        assert "/api/files/clean/stale-caches" not in paths
 
     def test_the_list_is_every_guarded_route(self, test_app):
         guarded = [

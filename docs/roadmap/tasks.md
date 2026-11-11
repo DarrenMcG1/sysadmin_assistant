@@ -25,6 +25,16 @@ Opened on the owner's request for a two-phase review.
       journal with `_TRANSPORT=kernel` so a reboot loses no lines; H4
       declare the tray's two D-Bus slots with `"uint"`.
       Evidence and line numbers are in `docs/review/bug-review.md`.
+      **H1 done 2026-11-11, Session 444**: the route, the tray button
+      and the empty-directories recommendation are removed. H2, H3 and
+      H4 remain, so the box stays open.
+- [ ] **STATUS.md's Alerts paragraph names 1 of 2 open rows**, a
+      second concern Session 444 met and did not work.
+      `check-ops-claims.sh` reads 2 unresolved rows against the block's
+      1: `Estate project next actions idle` opened 2026-11-10 04:35 and
+      the paragraph names only `High disk usage on /`. Also stale:
+      `config.yaml`'s comment on `api.auth_token` still lists the
+      stale-cache clean among what the token guards.
 
 ---
 

@@ -74,7 +74,7 @@ class TestSpaceCurrency:
         assert str(agent_config.downloads_stale_days) in rec.detail
 
     def test_stale_caches_and_rebuildable_dirs_are_separate_items(self, agent_config):
-        """Only caches have an executor; node_modules must not claim one."""
+        """Neither has an executor since finding H1 removed the cache clean."""
         findings = {
             "stale_project_dirs": [
                 {"path": "/p/a/__pycache__", "size_mb": 20.0, "type": "__pycache__"},
@@ -85,7 +85,7 @@ class TestSpaceCurrency:
         recs = _by_kind(recommendations_for_audit(findings, agent_config))
 
         assert recs["stale_caches"].reclaimable_mb == pytest.approx(20.0)
-        assert recs["stale_caches"].action == "POST /api/files/clean/stale-caches"
+        assert "/api/files/" not in recs["stale_caches"].action
 
         assert recs["rebuildable_dirs"].reclaimable_mb == pytest.approx(700.0)
         assert recs["rebuildable_dirs"].item_count == 2
@@ -140,17 +140,17 @@ class TestTidinessItemsFreeNothing:
         assert "audio" not in rec.detail  # empty categories are dropped
         assert "organise" in rec.action
 
-    def test_empty_dirs_and_similar_folders_are_counted_not_priced(
-        self, agent_config
-    ):
+    def test_empty_dirs_get_no_recommendation(self, agent_config):
+        """Finding H1: the advice named a route that removed directories
+        off the stored audit, inside a running PostgreSQL data directory.
+        """
         findings = {
             "empty_dirs": ["/home/u/x", "/home/u/y", "/home/u/z"],
             "similar_folders": [["/home/u/Docs", "/home/u/docs"]],
         }
         recs = _by_kind(recommendations_for_audit(findings, agent_config))
 
-        assert recs["empty_dirs"].reclaimable_mb == 0.0
-        assert recs["empty_dirs"].item_count == 3
+        assert "empty_dirs" not in recs
         assert recs["similar_folders"].reclaimable_mb == 0.0
         assert recs["similar_folders"].item_count == 1
 
@@ -231,11 +231,11 @@ class TestDiskRiskRanking:
         findings = {
             "duplicates": _duplicates((100.0, 2)),
             "old_downloads": [{"path": "/d/a", "days_old": 60, "size_mb": 900.0}],
-            "empty_dirs": ["/home/u/x"],
+            "similar_folders": [["/home/u/Docs", "/home/u/docs"]],
         }
         recs = recommendations_for_audit(findings, agent_config, None)
 
-        assert [r.kind for r in recs] == ["downloads", "duplicates", "empty_dirs"]
+        assert [r.kind for r in recs] == ["downloads", "duplicates", "similar_folders"]
 
 
 class TestTruncatedFindings:
@@ -333,12 +333,12 @@ class TestTruncatedFindings:
 
     def test_a_stored_count_below_the_listed_length_is_ignored(self, agent_config):
         """The list is visible; a smaller column must not shrink it."""
-        findings = {"empty_dirs": ["/a", "/b", "/c"]}
+        findings = {"similar_folders": [["/a", "/b"]] * 3}
         rec = _by_kind(
             recommendations_for_audit(
-                findings, agent_config, None, {"empty_dirs": 1}
+                findings, agent_config, None, {"similar_folders": 1}
             )
-        )["empty_dirs"]
+        )["similar_folders"]
 
         assert rec.item_count == 3
 
@@ -366,23 +366,25 @@ class TestTruncatedFindings:
         self, agent_config
     ):
         findings = {
-            "empty_dirs": ["/a"] * 100,
+            "large_files": [{"path": "/a", "size_mb": 600.0}] * 100,
             "similar_folders": [["/x", "/y"]] * 50,
         }
         recs = recommendations_for_audit(
             findings,
             agent_config,
             None,
-            {"empty_dirs": 200, "similar_folders": 9000},
+            {"large_files": 200, "similar_folders": 9000},
         )
 
-        # 9000 similar folder groups outranks 200 empty dirs, even
+        # 9000 similar folder groups outranks 200 large files, even
         # though the stored lists say 50 vs 100
-        assert [r.kind for r in recs] == ["similar_folders", "empty_dirs"]
+        assert [r.kind for r in recs] == ["similar_folders", "large_files"]
 
     def test_missing_true_counts_fall_back_to_the_list(self, agent_config):
-        findings = {"empty_dirs": ["/a", "/b"]}
-        rec = _by_kind(recommendations_for_audit(findings, agent_config))["empty_dirs"]
+        findings = {"similar_folders": [["/a", "/b"], ["/c", "/d"]]}
+        rec = _by_kind(
+            recommendations_for_audit(findings, agent_config)
+        )["similar_folders"]
 
         assert rec.item_count == 2
         assert "truncated" not in rec.detail

@@ -261,7 +261,6 @@ Round-trip guarded by `tests/test_contracts.py`.
 | `GET /api/files/actions` | `FileActionsResponse` (+`FileRecommendationInfo`, `DiskThresholdInfo`) | response_model (404 = "no scan yet") |
 | `GET /api/files/review` | `DiskReviewResponse` | response_model (404 = "no review yet") |
 | `POST /api/files/review/generate` | `DiskReviewResponse` | response_model (auth; LLM optional — digest fallback) |
-| `POST /api/files/clean/stale-caches` | `CleanResultResponse` | parse-side only |
 | `POST /api/files/organise` | `FileActionResponse` (+`FileOperation`, `FileFlag`) | response_model |
 | `POST /api/files/clean/duplicates` | `FileActionResponse` (+`FileOperation`) | response_model |
 | `POST /api/files/clean/downloads` | `FileActionResponse` (+`FileOperation`) | response_model |

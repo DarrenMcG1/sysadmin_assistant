@@ -200,51 +200,6 @@ class TestFileActions:
         assert success is False
         assert "refused" in message
 
-    def test_clean_sends_confirm_true(self, worker):
-        worker.stale_caches_cleaned = MagicMock()
-        with patch.object(worker, "_client") as client:
-            client.post.return_value = _mock_response(
-                {
-                    "status": "cleaned",
-                    "removed_caches": 12,
-                    "removed_empty_dirs": 5,
-                    "details": {"caches": [], "empty_dirs": []},
-                }
-            )
-            worker.clean_stale_caches()
-
-        url = client.post.call_args[0][0]
-        assert url.endswith("/api/files/clean/stale-caches")
-        assert client.post.call_args[1]["params"] == {"confirm": "true"}
-
-        success, message = worker.stale_caches_cleaned.emit.call_args[0]
-        assert success is True
-        assert "12 caches" in message
-        assert "5 empty dirs" in message
-
-    def test_clean_without_confirmation_response_is_a_failure(self, worker):
-        """A ``confirmation_required`` answer must not read as success."""
-        worker.stale_caches_cleaned = MagicMock()
-        with patch.object(worker, "_client") as client:
-            client.post.return_value = _mock_response(
-                {"status": "confirmation_required", "message": "Set confirm=true"}
-            )
-            worker.clean_stale_caches()
-
-        success, message = worker.stale_caches_cleaned.emit.call_args[0]
-        assert success is False
-        assert message == "Set confirm=true"
-
-    def test_clean_transport_error_is_reported(self, worker):
-        worker.stale_caches_cleaned = MagicMock()
-        with patch.object(worker, "_client") as client:
-            client.post.side_effect = httpx.ConnectError("refused")
-            worker.clean_stale_caches()
-
-        success, message = worker.stale_caches_cleaned.emit.call_args[0]
-        assert success is False
-        assert "refused" in message
-
 
 class TestFetchProjectDetail:
     def test_emits_history_with_project_name(self, worker):

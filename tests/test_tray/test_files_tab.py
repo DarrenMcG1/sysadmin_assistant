@@ -99,12 +99,12 @@ class TestConstruction:
         ]
         assert views == [VIEW_DUPLICATES, VIEW_MISPLACED, VIEW_LARGE]
 
-    def test_has_no_destructive_buttons_beyond_the_cache_clean(self, tab):
-        """Session 19 is read-only apart from the pre-existing clean."""
+    def test_has_no_destructive_buttons(self, tab):
+        """The cache clean went with finding H1; Rescan is all that is left."""
         from PyQt6.QtWidgets import QPushButton
 
         labels = {b.text() for b in tab.findChildren(QPushButton)}
-        assert labels == {"Rescan", "Clean stale caches…"}
+        assert labels == {"Rescan"}
 
     def test_renders_headless(self, tab):
         assert not render_offscreen(tab, width=900, height=700).isNull()
@@ -276,66 +276,6 @@ class TestScanAction:
         assert "refused" in tab._status_label.text()
 
 
-class TestCleanAction:
-    def _load_quick_wins(self, fake_client):
-        fake_client.file_status_updated.emit(
-            FileStatusResponse.from_dict(STATUS_PAYLOAD)
-        )
-
-    def test_confirmation_is_required_before_cleaning(
-        self, tab, fake_client, monkeypatch
-    ):
-        self._load_quick_wins(fake_client)
-        monkeypatch.setattr(tab, "_confirm_clean", lambda detail: False)
-        tab._quick_wins._clean_btn.click()
-        assert fake_client.called("clean_stale_caches") == 0
-
-    def test_confirming_triggers_the_clean(self, tab, fake_client, monkeypatch):
-        self._load_quick_wins(fake_client)
-        monkeypatch.setattr(tab, "_confirm_clean", lambda detail: True)
-        tab._quick_wins._clean_btn.click()
-        assert fake_client.called("clean_stale_caches") == 1
-
-    def test_confirmation_spells_out_what_is_deleted(
-        self, tab, fake_client, monkeypatch
-    ):
-        self._load_quick_wins(fake_client)
-        shown: list[str] = []
-
-        def _capture(detail: str) -> bool:
-            shown.append(detail)
-            return False
-
-        monkeypatch.setattr(tab, "_confirm_clean", _capture)
-        tab._quick_wins._clean_btn.click()
-
-        assert len(shown) == 1
-        assert "18 cache directories" in shown[0]
-        assert "21 empty directories" in shown[0]
-        assert "812 MB" in shown[0]
-
-    def test_successful_clean_refreshes_and_reports(
-        self, tab, fake_client, monkeypatch
-    ):
-        self._load_quick_wins(fake_client)
-        monkeypatch.setattr(tab, "_confirm_clean", lambda detail: True)
-        tab._quick_wins._clean_btn.click()
-
-        fake_client.stale_caches_cleaned.emit(True, "Removed 18 caches, 21 empty dirs")
-        assert "Removed 18 caches" in tab._quick_wins._result_label.text()
-        assert fake_client.called("request_file_status") >= 1
-
-    def test_failed_clean_does_not_refresh(self, tab, fake_client, monkeypatch):
-        self._load_quick_wins(fake_client)
-        monkeypatch.setattr(tab, "_confirm_clean", lambda detail: True)
-        tab._quick_wins._clean_btn.click()
-        before = fake_client.called("request_file_status")
-
-        fake_client.stale_caches_cleaned.emit(False, "connection refused")
-        assert fake_client.called("request_file_status") == before
-        assert "refused" in tab._quick_wins._result_label.text()
-
-
 class TestErrorHandling:
     def test_fetch_failure_is_reported_in_the_status_bar(self, tab, fake_client):
         fake_client.file_fetch_failed.emit("duplicates", "connection refused")
@@ -354,7 +294,6 @@ class TestErrorHandling:
 
         assert "unreachable" in tab._status_label.text()
         assert tab._scan_btn.isEnabled() is False
-        assert tab._quick_wins._clean_btn.isEnabled() is False
         # Last known findings stay on screen rather than vanishing.
         assert tab._table.rowCount() == 2
 
@@ -376,7 +315,6 @@ class TestErrorHandling:
         fake_client.connection_restored.emit()
 
         assert tab._scan_btn.isEnabled() is True
-        assert tab._quick_wins._clean_btn.isEnabled() is True
         assert fake_client.called("request_file_status") >= 1
 
     def test_renders_headless_after_a_connection_loss(self, tab, fake_client):

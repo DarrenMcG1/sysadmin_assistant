@@ -28,7 +28,6 @@ from sysadmin_tray.models import (
     CLIENT_HEADER,
     TRAY_CLIENT,
     AlertsResponse,
-    CleanResultResponse,
     DuplicatesResponse,
     FileStatusResponse,
     FileTrendsResponse,
@@ -118,7 +117,6 @@ class ApiWorker(QObject):
     file_trends_ready = pyqtSignal(object)           # FileTrendsResponse
     file_fetch_failed = pyqtSignal(str, str)         # what, message
     file_scan_triggered = pyqtSignal(bool, str)      # success, message
-    stale_caches_cleaned = pyqtSignal(bool, str)     # success, message
 
     def __init__(
         self,
@@ -415,33 +413,6 @@ class ApiWorker(QObject):
         except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
             self.file_scan_triggered.emit(False, str(exc))
 
-    @pyqtSlot()
-    def clean_stale_caches(self) -> None:
-        """POST /api/files/clean/stale-caches?confirm=true.
-
-        Only ever called after the UI has shown the user exactly what
-        will be removed and they have confirmed.
-        """
-        try:
-            resp = self._client.post(
-                f"{self._api_url}/api/files/clean/stale-caches",
-                params={"confirm": "true"},
-            )
-            resp.raise_for_status()
-            result = CleanResultResponse.from_dict(resp.json())
-            if result.status == "cleaned":
-                self.stale_caches_cleaned.emit(
-                    True,
-                    f"Removed {result.removed_caches} caches, "
-                    f"{result.removed_empty_dirs} empty dirs",
-                )
-            else:
-                self.stale_caches_cleaned.emit(
-                    False, result.message or result.status or "Nothing was cleaned"
-                )
-        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError, TypeError) as exc:
-            self.stale_caches_cleaned.emit(False, str(exc))
-
     @pyqtSlot(str)
     def fetch_service_details(self, service_name: str) -> None:
         """GET /api/sysadmin/services/{service_name}/details."""
@@ -561,7 +532,6 @@ class ApiClient(QObject):
     file_trends_updated = pyqtSignal(object)          # FileTrendsResponse
     file_fetch_failed = pyqtSignal(str, str)          # what, message
     file_scan_triggered = pyqtSignal(bool, str)       # success, message
-    stale_caches_cleaned = pyqtSignal(bool, str)      # success, message
 
     # Trigger signals (main→worker, queued connection)
     _request_status = pyqtSignal()
@@ -585,7 +555,6 @@ class ApiClient(QObject):
     _request_file_misplaced = pyqtSignal()
     _request_file_trends = pyqtSignal()
     _request_file_scan = pyqtSignal()
-    _request_stale_cache_clean = pyqtSignal()
 
     def __init__(
         self,
@@ -624,7 +593,6 @@ class ApiClient(QObject):
         self._request_file_misplaced.connect(self._worker.fetch_file_misplaced)
         self._request_file_trends.connect(self._worker.fetch_file_trends)
         self._request_file_scan.connect(self._worker.trigger_file_scan)
-        self._request_stale_cache_clean.connect(self._worker.clean_stale_caches)
 
         # Forward worker results → our public signals
         self._worker.status_ready.connect(self.status_updated)
@@ -651,7 +619,6 @@ class ApiClient(QObject):
         self._worker.file_trends_ready.connect(self.file_trends_updated)
         self._worker.file_fetch_failed.connect(self.file_fetch_failed)
         self._worker.file_scan_triggered.connect(self.file_scan_triggered)
-        self._worker.stale_caches_cleaned.connect(self.stale_caches_cleaned)
 
         self._thread.start()
 
@@ -740,14 +707,6 @@ class ApiClient(QObject):
     def trigger_file_scan(self) -> None:
         """Ask the worker to POST a filesystem re-scan (non-blocking)."""
         self._request_file_scan.emit()
-
-    def clean_stale_caches(self) -> None:
-        """Ask the worker to POST the stale-cache clean (non-blocking).
-
-        Callers MUST have confirmed with the user first — this deletes
-        ``__pycache__``/``.pytest_cache`` directories and empty dirs.
-        """
-        self._request_stale_cache_clean.emit()
 
     def shutdown(self) -> None:
         """Stop the worker thread cleanly."""

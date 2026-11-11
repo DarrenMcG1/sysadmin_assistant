@@ -66,7 +66,6 @@ class FakeClient(QObject):
     file_trends_updated = pyqtSignal(object)
     file_fetch_failed = pyqtSignal(str, str)
     file_scan_triggered = pyqtSignal(bool, str)
-    stale_caches_cleaned = pyqtSignal(bool, str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -101,9 +100,6 @@ class FakeClient(QObject):
 
     def trigger_file_scan(self) -> None:
         self._record("trigger_file_scan")
-
-    def clean_stale_caches(self) -> None:
-        self._record("clean_stale_caches")
 
     def request_managed_projects(self) -> None:
         self._record("request_managed_projects")

@@ -8,10 +8,11 @@ applies to the findings that actually free space.
 
 Three finding types free space when acted on: duplicate groups, old
 downloads and stale caches.  The rest are *tidiness*: moving a misplaced
-file, removing an empty directory or merging similar folders reclaims
-nothing.  Those carry ``reclaimable_mb = 0.0`` and are ranked by
-``item_count`` beneath anything with real megabytes behind it, rather
-than being given an invented currency to compete on.
+file or merging similar folders reclaims nothing (an empty directory
+is counted by the audit and given no recommendation).  Those carry
+``reclaimable_mb = 0.0`` and are ranked by ``item_count`` beneath
+anything with real megabytes behind it, rather than being given an
+invented currency to compete on.
 
 Large files are a fourth case — measurable but not reclaimable, because
 whether a 4 GB video is junk is a judgement only the user can make.
@@ -41,9 +42,10 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # A crossing further out than this is a trend, not a risk.
 RISK_HORIZON_DAYS = 30.0
 
-# Stale project directories the stale-cache cleaner will actually remove.
-# Defined here rather than in the agent so the advice and the executor
-# cannot drift apart; ``FileOrganiserAgent`` imports this constant.
+# Stale project directories that are caches.  Defined here rather than
+# in the agent so the advice and the quick-wins count cannot drift
+# apart; ``FileOrganiserAgent`` imports this constant.  No endpoint
+# removes them since 2026-11-11.
 CACHE_DIR_TYPES = ("__pycache__", ".pytest_cache", ".tox")
 
 # Stale project directories that are *not* caches.  Big, safely
@@ -244,12 +246,13 @@ def _space_recommendations(
             title=f"Delete {len(caches)} stale cache directories",
             detail=(
                 f"{', '.join(sorted({str(d.get('type')) for d in caches}))} — "
-                f"{format_mb(reclaim)}, regenerated automatically on next run."
+                f"{format_mb(reclaim)}, regenerated automatically on next run. "
+                "No endpoint removes these."
                 + stale_note
             ),
             reclaimable_mb=round(reclaim, 1),
             item_count=len(caches),
-            action="POST /api/files/clean/stale-caches",
+            action="Delete by hand; each is regenerated on the next run",
         ))
 
     rebuildable = [d for d in stale_dirs if d.get("type") in REBUILDABLE_DIR_TYPES]
@@ -337,24 +340,12 @@ def _tidiness_recommendations(
                 ),
             ))
 
-    empty_dirs = _as_list(findings.get("empty_dirs"), allow_scalars=True)
-    if empty_dirs:
-        empty_count = _true_count(counts, "empty_dirs", len(empty_dirs))
-        recs.append(FileRecommendationInfo(
-            kind="empty_dirs",
-            title=f"Remove {empty_count} empty directories",
-            detail=(
-                "Cleared by the stale-cache endpoint, which removes empty "
-                "directories in the same pass."
-                + _truncation_note(
-                    empty_count, len(empty_dirs), "directories",
-                    sorted_by_size=False,
-                )
-            ),
-            reclaimable_mb=0.0,
-            item_count=empty_count,
-            action="POST /api/files/clean/stale-caches",
-        ))
+    # Empty directories get no recommendation.  The one that stood here
+    # named ``POST /api/files/clean/stale-caches``, which removed the
+    # first 50 stored paths with no root confinement — fourteen of them
+    # inside a running PostgreSQL data directory.  The route went on
+    # 2026-11-11 (``docs/review/bug-review.md``, finding H1), and an
+    # empty directory is not safe to remove on its emptiness alone.
 
     similar = _as_list(findings.get("similar_folders"), allow_scalars=True)
     if similar:

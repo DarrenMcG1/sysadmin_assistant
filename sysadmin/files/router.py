@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -442,66 +441,6 @@ async def trigger_scan(request: Request):
     # :func:`sysadmin.core.agent.spawn_manual_run`.
     spawn_manual_run(agent)
     return {"status": "scan_triggered"}
-
-
-@router.post("/clean/stale-caches", dependencies=[Depends(require_auth)])
-async def clean_stale_caches(
-    confirm: bool = Query(default=False),
-    session: AsyncSession = Depends(get_db_session),
-):
-    """Auto-remove __pycache__, .pytest_cache, empty dirs. Requires confirm=true."""
-    if not confirm:
-        return {
-            "status": "confirmation_required",
-            "message": (
-                "Set confirm=true to proceed. This will remove __pycache__, "
-                ".pytest_cache, and empty directories."
-            ),
-        }
-
-    # Get latest audit for targets
-    query = (
-        select(FilesystemAudit)
-        .order_by(desc(FilesystemAudit.scanned_at))
-        .limit(1)
-    )
-    result = await session.execute(query)
-    audit = result.scalar_one_or_none()
-
-    if not audit:
-        raise HTTPException(status_code=404, detail="No audit data. Run a scan first.")
-
-    removed: dict[str, list[str]] = {"caches": [], "empty_dirs": []}
-
-    # Remove stale caches
-    for d in audit.findings.get("stale_project_dirs", []):
-        if d.get("type") in ("__pycache__", ".pytest_cache"):
-            path = Path(d["path"])
-            if path.exists():
-                try:
-                    await asyncio.to_thread(shutil.rmtree, path)
-                    removed["caches"].append(str(path))
-                except (PermissionError, OSError) as e:
-                    logger.warning(
-                        "clean_failed", extra={"path": str(path), "error": str(e)}
-                    )
-
-    # Remove empty dirs
-    for d_str in audit.findings.get("empty_dirs", [])[:50]:
-        path = Path(d_str)
-        if path.exists():
-            try:
-                path.rmdir()
-                removed["empty_dirs"].append(str(path))
-            except (PermissionError, OSError):
-                pass
-
-    return {
-        "status": "cleaned",
-        "removed_caches": len(removed["caches"]),
-        "removed_empty_dirs": len(removed["empty_dirs"]),
-        "details": removed,
-    }
 
 
 # ---------------------------------------------------------------------------

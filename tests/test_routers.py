@@ -546,7 +546,7 @@ class TestFileActions:
             "old_downloads": [
                 {"path": "/d/big.iso", "days_old": 90, "size_mb": 900.0},
             ],
-            "empty_dirs": ["/home/gaddi/x"],
+            "similar_folders": [["/home/gaddi/Docs", "/home/gaddi/docs"]],
         }
         _mock_actions_session(mock_session, _make_filesystem_audit(findings), [])
 
@@ -555,7 +555,7 @@ class TestFileActions:
         data = resp.json()
 
         assert [a["kind"] for a in data["actions"]] == [
-            "downloads", "duplicates", "empty_dirs"
+            "downloads", "duplicates", "similar_folders"
         ]
         assert data["total_reclaimable_mb"] == pytest.approx(1000.0)
         assert data["count"] == data["total_available"] == 3
@@ -586,7 +586,7 @@ class TestFileActions:
 
     @pytest.mark.asyncio
     async def test_flat_disk_raises_no_risk(self, test_client, mock_session):
-        findings = {"empty_dirs": ["/home/gaddi/x"]}
+        findings = {"similar_folders": [["/home/gaddi/Docs", "/home/gaddi/docs"]]}
         _mock_actions_session(
             mock_session,
             _make_filesystem_audit(findings),
@@ -610,7 +610,7 @@ class TestFileActions:
                  "size_mb": 100.0, "reclaimable_mb": 100.0},
             ],
             "old_downloads": [{"path": "/d/a", "days_old": 90, "size_mb": 900.0}],
-            "empty_dirs": ["/home/gaddi/x"],
+            "similar_folders": [["/home/gaddi/Docs", "/home/gaddi/docs"]],
         }
         _mock_actions_session(mock_session, _make_filesystem_audit(findings), [])
 

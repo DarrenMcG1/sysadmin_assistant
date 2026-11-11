@@ -3,13 +3,14 @@
 Read-only by design for this session: the tab surfaces what the existing
 ``GET /api/files/*`` endpoints already return (audit summary, quick
 wins, duplicates, misplaced files, large files, growth forecast) and
-offers exactly two actions, neither of which touches user data
-destructively beyond an explicit confirmation:
+offers exactly one action, which touches no user data:
 
 * **Rescan** — ``POST /api/files/scan``, a read-only re-audit.
-* **Clean stale caches** — ``POST /api/files/clean/stale-caches``, which
-  predates this session, is gated behind a confirmation dialog spelling
-  out precisely what will be deleted.
+
+The tab deletes nothing.  Its "Clean stale caches" button went on
+2026-11-11 with the route behind it, which removed directories off the
+stored audit with no root confinement (``docs/review/bug-review.md``,
+finding H1).
 
 Duplicate/misplaced/old-download *cleanup* is deliberately absent: those
 endpoints are being written separately and are not merged yet.
@@ -27,7 +28,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -54,7 +54,7 @@ from sysadmin_tray.styles import (
     TEXT_SECONDARY,
 )
 from sysadmin_tray.widgets.disk_forecast import DiskForecastWidget
-from sysadmin_tray.widgets.quick_wins import QuickWinsWidget, clean_confirmation_text
+from sysadmin_tray.widgets.quick_wins import QuickWinsWidget
 
 if TYPE_CHECKING:
     from sysadmin_tray.client import ApiClient
@@ -182,11 +182,8 @@ class FilesTab(QWidget):
         self._client.resource_history_updated.connect(self._on_history)
         self._client.file_fetch_failed.connect(self._on_fetch_failed)
         self._client.file_scan_triggered.connect(self._on_scan_triggered)
-        self._client.stale_caches_cleaned.connect(self._on_cleaned)
         self._client.connection_lost.connect(self._on_connection_lost)
         self._client.connection_restored.connect(self._on_connection_restored)
-
-        self._quick_wins.clean_requested.connect(self._on_clean_requested)
 
     # ── Data handlers ────────────────────────────────────────────────
 
@@ -330,47 +327,16 @@ class FilesTab(QWidget):
         self._scan_btn.setText("Rescan")
         self._status_label.setText(message)
 
-    def _on_clean_requested(self) -> None:
-        """Confirm, in full, before deleting anything."""
-        confirmed = self._confirm_clean(
-            clean_confirmation_text(self._quick_wins.quick_wins)
-        )
-        if not confirmed:
-            return
-        self._quick_wins.set_cleaning(True)
-        self._client.clean_stale_caches()
-
-    def _confirm_clean(self, detail: str) -> bool:
-        """Show the confirmation dialog — split out so tests can stub it."""
-        box = QMessageBox(self)
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle("Clean stale caches")
-        box.setText("Delete stale caches and empty directories?")
-        box.setInformativeText(detail)
-        box.setStandardButtons(
-            QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Yes
-        )
-        box.setDefaultButton(QMessageBox.StandardButton.Cancel)
-        return box.exec() == QMessageBox.StandardButton.Yes
-
-    def _on_cleaned(self, success: bool, message: str) -> None:
-        self._quick_wins.set_cleaning(False)
-        self._quick_wins.show_result(success, message)
-        if success:
-            self.refresh()
-
     # ── Connection state ─────────────────────────────────────────────
 
     def _on_connection_lost(self) -> None:
         self._status_label.setText("Backend unreachable — showing last known data")
         self._scan_btn.setEnabled(False)
-        self._quick_wins.set_available(False)
         self._forecast.show_unavailable()
 
     def _on_connection_restored(self) -> None:
         self._status_label.setText("")
         self._scan_btn.setEnabled(True)
-        self._quick_wins.set_available(True)
         self.refresh()
 
     # ── Refresh ──────────────────────────────────────────────────────

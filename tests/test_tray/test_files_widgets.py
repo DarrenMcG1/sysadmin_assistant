@@ -8,7 +8,6 @@ import pytest
 
 from sysadmin.files.forecast import ThresholdProjection
 from sysadmin_tray.models import (
-    FileQuickWins,
     FileStatusResponse,
     FileTrendsResponse,
     ResourceHistoryResponse,
@@ -19,11 +18,7 @@ from sysadmin_tray.widgets.disk_forecast import (
     projection_colour,
     projection_text,
 )
-from sysadmin_tray.widgets.quick_wins import (
-    EMPTY_DIR_CLEAN_LIMIT,
-    QuickWinsWidget,
-    clean_confirmation_text,
-)
+from sysadmin_tray.widgets.quick_wins import QuickWinsWidget
 
 from .conftest import render_offscreen
 
@@ -56,38 +51,6 @@ def _grid_rows(grid) -> list[tuple[str, str]]:
     return rows
 
 
-# ── Confirmation copy ────────────────────────────────────────────────
-
-
-class TestCleanConfirmationText:
-    def test_states_both_counts_and_the_size(self):
-        text = clean_confirmation_text(
-            FileQuickWins(empty_dirs=12, stale_caches=40, stale_cache_mb=812.4)
-        )
-        assert "40 cache directories" in text
-        assert "812 MB" in text
-        assert "12 empty directories" in text
-        assert "permanently delete" in text
-        assert "cannot be undone" in text
-
-    def test_names_the_directories_it_deletes(self):
-        text = clean_confirmation_text(FileQuickWins(stale_caches=1))
-        assert "__pycache__" in text
-        assert ".pytest_cache" in text
-
-    def test_caps_the_promised_empty_dir_count(self):
-        text = clean_confirmation_text(FileQuickWins(empty_dirs=200))
-        assert f"{EMPTY_DIR_CLEAN_LIMIT} empty directories" in text
-        assert "200 were found" in text
-
-    def test_no_cap_note_when_under_the_limit(self):
-        text = clean_confirmation_text(FileQuickWins(empty_dirs=5))
-        assert "were found" not in text
-
-    def test_zero_findings_still_produces_text(self):
-        assert "permanently delete" in clean_confirmation_text(FileQuickWins())
-
-
 # ── Quick wins widget ────────────────────────────────────────────────
 
 
@@ -96,8 +59,11 @@ class TestQuickWinsWidget:
     def widget(self, qapp):
         return QuickWinsWidget()
 
-    def test_button_disabled_before_any_data(self, widget):
-        assert widget._clean_btn.isEnabled() is False
+    def test_the_card_offers_no_action(self, widget):
+        """Finding H1: the clean button deleted off the stored audit."""
+        from PyQt6.QtWidgets import QPushButton
+
+        assert widget.findChildren(QPushButton) == []
 
     def test_populates_counts(self, widget):
         widget.update_from_status(
@@ -128,79 +94,12 @@ class TestQuickWinsWidget:
             )
         )
         assert widget._value_labels["stale_cache_mb"].text() == "2.8 GB"
-        assert widget._clean_btn.isEnabled() is True
 
-    def test_no_scan_data_disables_the_button(self, widget):
+    def test_no_scan_data_says_so(self, widget):
         widget.update_from_status(
             FileStatusResponse.from_dict({"message": "No audit data yet"})
         )
-        assert widget._clean_btn.isEnabled() is False
         assert "No scan data" in widget._result_label.text()
-
-    def test_nothing_to_clean_disables_the_button(self, widget):
-        widget.update_from_status(
-            FileStatusResponse.from_dict(
-                {
-                    "scan_root": "/home/gaddi",
-                    "scanned_at": "2026-07-24T02:00:00+00:00",
-                    "quick_wins": {"empty_dirs": 0, "stale_caches": 0},
-                }
-            )
-        )
-        assert widget._clean_btn.isEnabled() is False
-
-    def test_clean_requested_is_emitted_on_click(self, widget):
-        widget.update_from_status(
-            FileStatusResponse.from_dict(
-                {
-                    "scan_root": "/x",
-                    "scanned_at": "2026-07-24T02:00:00+00:00",
-                    "quick_wins": {"stale_caches": 3},
-                }
-            )
-        )
-        seen = []
-        widget.clean_requested.connect(lambda: seen.append(True))
-        widget._clean_btn.click()
-        assert seen == [True]
-
-    def test_busy_state_disables_and_relabels(self, widget):
-        widget.update_from_status(
-            FileStatusResponse.from_dict(
-                {
-                    "scan_root": "/x",
-                    "scanned_at": "2026-07-24T02:00:00+00:00",
-                    "quick_wins": {"stale_caches": 3},
-                }
-            )
-        )
-        widget.set_cleaning(True)
-        assert widget._clean_btn.isEnabled() is False
-        assert widget._clean_btn.text() == "Cleaning…"
-
-        widget.set_cleaning(False)
-        assert widget._clean_btn.isEnabled() is True
-        assert widget._clean_btn.text() == "Clean stale caches…"
-
-    def test_result_message_is_shown(self, widget):
-        widget.show_result(True, "Removed 12 caches")
-        assert widget._result_label.text() == "Removed 12 caches"
-        assert GREEN in widget._result_label.styleSheet()
-
-    def test_unavailable_backend_disables_the_button(self, widget):
-        widget.update_from_status(
-            FileStatusResponse.from_dict(
-                {
-                    "scan_root": "/x",
-                    "scanned_at": "2026-07-24T02:00:00+00:00",
-                    "quick_wins": {"stale_caches": 3},
-                }
-            )
-        )
-        widget.set_available(False)
-        assert widget._clean_btn.isEnabled() is False
-        widget.set_available(True)
-        assert widget._clean_btn.isEnabled() is True
 
     def test_renders_headless(self, widget):
         assert not render_offscreen(widget).isNull()

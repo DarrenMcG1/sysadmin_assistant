@@ -27,7 +27,6 @@ from sysadmin.core.contracts import (  # noqa: F401
     TRAY_CLIENT,
     AlertInfo,
     AlertsResponse,
-    CleanResultResponse,
     DiskInfo,
     DiskReviewResponse,
     DiskThresholdInfo,

@@ -1006,21 +1006,6 @@ class FileTrendsResponse(Contract):
         return _fill_count(data, "scans")
 
 
-class CleanResultResponse(Contract):
-    """POST /api/files/clean/stale-caches."""
-
-    status: str = ""
-    message: str = ""
-    removed_caches: int = 0
-    removed_empty_dirs: int = 0
-    details: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("details", mode="before")
-    @classmethod
-    def _none_to_empty(cls, v: Any) -> Any:
-        return {} if v is None else v
-
-
 class FileRecommendationInfo(Contract):
     """One actionable filesystem finding.
 

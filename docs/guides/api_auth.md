@@ -29,7 +29,6 @@ token up automatically.
 - `/api/sysadmin/scan-all`
 - `/api/projects/scan`
 - `/api/files/scan`
-- `/api/files/clean/stale-caches`
 
 All GET endpoints (status, resources, alerts, logs, summary, briefing preview,
 DND status, etc.) remain unauthenticated.
