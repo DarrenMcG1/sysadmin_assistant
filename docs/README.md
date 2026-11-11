@@ -107,6 +107,8 @@ pointer rather than a copy, which is why the stubs remain.
 
 - **[`insights/`](insights/)** — three retrospectives written at points where a
   batch of sessions had a common lesson.
+- **[`review/`](review/)** — a whole-repository bug review and six v2
+  proposals, written 2026-11-11 at commit `751d1fc`.
 - **[`sessions/movement-log.md`](sessions/movement-log.md)** — snag-count
   movement for Sessions 82–170, split out of `snag_list.md` when it outgrew it.
 - **[`project-capability-audit.md`](project-capability-audit.md)** — a 2026-08-07
