@@ -44,6 +44,7 @@ evidence, and any document-ish filename marker wins immediately.
 from __future__ import annotations
 
 import errno
+import hashlib
 import logging
 import os
 import re
@@ -525,10 +526,14 @@ def plan_duplicate_cleanup(
     excluded_roots: list[Path],
     strategy: str | None = None,
 ) -> FileActionResponse:
-    """Plan removal of duplicate copies, retaining exactly one per group.
+    """Plan removal of duplicate copies, retaining one copy per group.
 
-    Reuses the agent's ``file_hash`` (size + MD5 of the first 1 MB) so the
-    grouping matches what ``/api/files/duplicates`` reports.
+    The agent's ``file_hash`` (size + MD5 of the first 1 MB) is only a
+    pre-filter: two files of one size that share their first megabyte
+    fingerprint alike and can still differ.  So each fingerprint group is
+    split again by a full-content SHA-256 (:func:`_confirmed_groups`), and
+    only files whose whole content matches are planned.  Hardlinks to the
+    retained copy are left alone: trashing one frees nothing.
 
     Strategy ``newest`` retains the most recently modified copy,
     ``largest`` the biggest; ties break on the shortest path, then
@@ -558,35 +563,97 @@ def plan_duplicate_cleanup(
         if digest:
             groups[digest].append(path)
 
-    for digest, members in sorted(groups.items()):
-        if len(members) < 2:
+    for digest, candidates in sorted(groups.items()):
+        if len(candidates) < 2:
             continue
-        if len(response.operations) >= config.max_operations:
-            response.truncated = True
+        for members in _confirmed_groups(candidates):
+            if len(response.operations) >= config.max_operations:
+                response.truncated = True
+                break
+
+            keeper = _pick_keeper(members, strategy)
+            keeper_inode = _inode_of(keeper)
+            if keeper_inode is None:
+                # The keeper vanished since it was hashed: planning the
+                # rest would leave no copy at all.
+                continue
+            kept = [p for p in members if _inode_of(p) == keeper_inode]
+            removals = [p for p in members if _inode_of(p) != keeper_inode]
+
+            # Invariant: the keeper survives every group.  A bug here
+            # would delete the user's only copy, so it is checked rather
+            # than assumed (and again in execute_plan).
+            if (
+                keeper not in kept
+                or keeper in removals
+                or len(kept) + len(removals) != len(members)
+            ):
+                raise RuntimeError(
+                    f"duplicate group {digest} would not retain its keeper"
+                )
+
+            for path in removals:
+                response.operations.append(FileOperation(
+                    action="trash",
+                    source=str(path),
+                    size_bytes=_size_of(path),
+                    reason=f"duplicate ({strategy} copy retained)",
+                    keep_path=str(keeper),
+                ))
+        if response.truncated:
             break
-
-        keeper = _pick_keeper(members, strategy)
-        removals = [p for p in members if p != keeper]
-
-        # Invariant: exactly one copy survives every group.  A bug here
-        # would delete the user's only copy, so it is checked rather than
-        # assumed (and again in execute_plan).
-        if len(removals) != len(members) - 1 or keeper in removals:
-            raise RuntimeError(
-                f"duplicate group {digest} would not retain exactly one copy"
-            )
-
-        for path in removals:
-            response.operations.append(FileOperation(
-                action="trash",
-                source=str(path),
-                size_bytes=_size_of(path),
-                reason=f"duplicate ({strategy} copy retained)",
-                keep_path=str(keeper),
-            ))
 
     response.message = f"retaining the {strategy} copy of each duplicate group"
     return _finalise(response)
+
+
+def _inode_of(path: Path) -> tuple[int, int] | None:
+    """``(st_dev, st_ino)`` of a path, or ``None`` when it cannot be read."""
+    try:
+        stat = path.lstat()
+    except OSError:
+        return None
+    return (stat.st_dev, stat.st_ino)
+
+
+def _full_digest(path: Path) -> str | None:
+    """SHA-256 of a file's whole content, or ``None`` when it cannot be read."""
+    hasher = hashlib.sha256()
+    try:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                hasher.update(chunk)
+    except OSError:
+        return None
+    return hasher.hexdigest()
+
+
+def _confirmed_groups(candidates: list[Path]) -> list[list[Path]]:
+    """Split one fingerprint group into groups whose whole content matches.
+
+    Each file is hashed once per inode, so the links of one hardlinked
+    file cost one read.  A group survives only when it holds at least two
+    distinct inodes: links to one file are one copy, not duplicates.  A
+    file that cannot be read is left out, never planned.
+    """
+    by_inode: dict[tuple[int, int], list[Path]] = defaultdict(list)
+    for path in candidates:
+        inode = _inode_of(path)
+        if inode is not None:
+            by_inode[inode].append(path)
+
+    by_content: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    for inode, links in by_inode.items():
+        digest = _full_digest(links[0])
+        if digest is not None:
+            by_content[digest].append(inode)
+
+    return [
+        sorted(path for inode in inodes for path in by_inode[inode])
+        for _, inodes in sorted(by_content.items())
+        if len(inodes) >= 2
+    ]
+
 
 
 def _pick_keeper(members: list[Path], strategy: str) -> Path:

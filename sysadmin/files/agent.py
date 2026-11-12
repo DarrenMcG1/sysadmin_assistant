@@ -70,8 +70,10 @@ STALE_PROJECT_DIRS = {
 def file_hash(filepath: Path, size: int) -> str | None:
     """MD5 of the first 1MB plus the file size — fast duplicate fingerprint.
 
-    Shared with the duplicate-cleanup action
-    (``sysadmin.files.actions``) so both group files identically.
+    A fingerprint, not proof: two files of one size sharing their first
+    megabyte collide.  The duplicate-cleanup action
+    (``sysadmin.files.actions``) uses it as a pre-filter and confirms each
+    group with a full-content hash before planning anything.
     """
     try:
         hasher = hashlib.md5()

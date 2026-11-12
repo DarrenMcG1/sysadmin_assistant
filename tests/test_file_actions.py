@@ -38,6 +38,7 @@ from sysadmin.files.actions import (
     trash_is_usable,
     walk_files,
 )
+from sysadmin.files.agent import file_hash
 
 # ---------------------------------------------------------------------------
 # Fixtures and helpers
@@ -640,6 +641,70 @@ class TestDuplicateCleanup:
         content = b"vendored" * 400
         make_file(tmp_path / "node_modules" / "pkg" / "same.bin", content)
         make_file(tmp_path / ".git" / "objects" / "same.bin", content)
+        assert plan_duplicate_cleanup(organiser, []).operations == []
+
+    # Finding H2 (docs/review/bug-review.md): the fingerprint reads only
+    # the first megabyte, so it is a pre-filter and never the verdict.
+
+    def test_shared_head_different_tail_is_not_a_duplicate(self, tmp_path, organiser):
+        head = b"h" * (1024 * 1024)
+        first = make_file(tmp_path / "a" / "build.apk", head + b"tail-one")
+        second = make_file(tmp_path / "b" / "build.apk", head + b"tail-two")
+        assert file_hash(first, 1024 * 1024 + 8) == file_hash(second, 1024 * 1024 + 8)
+
+        assert plan_duplicate_cleanup(organiser, []).operations == []
+
+    def test_a_fingerprint_group_splits_by_full_content(self, tmp_path, organiser):
+        head = b"h" * (1024 * 1024)
+        make_file(tmp_path / "a" / "x.bin", head + b"AAAA", days_old=5)
+        keeper_a = make_file(tmp_path / "b" / "x.bin", head + b"AAAA", days_old=1)
+        make_file(tmp_path / "c" / "x.bin", head + b"BBBB", days_old=5)
+        keeper_b = make_file(tmp_path / "d" / "x.bin", head + b"BBBB", days_old=1)
+
+        plan = plan_duplicate_cleanup(organiser, [])
+
+        removals = {o.source: o.keep_path for o in plan.operations}
+        assert removals == {
+            str(tmp_path / "a" / "x.bin"): str(keeper_a),
+            str(tmp_path / "c" / "x.bin"): str(keeper_b),
+        }
+
+    def test_a_hardlink_of_the_keeper_is_not_planned(self, tmp_path, organiser):
+        content = b"linked" * 400
+        old = make_file(tmp_path / "a" / "same.bin", content, days_old=9)
+        keeper = make_file(tmp_path / "b" / "same.bin", content, days_old=1)
+        link = tmp_path / "c" / "same.bin"
+        link.parent.mkdir()
+        os.link(keeper, link)
+
+        plan = plan_duplicate_cleanup(organiser, [])
+
+        assert sources(plan) == {str(old)}
+        assert plan.operations[0].keep_path in {str(keeper), str(link)}
+
+    def test_hardlinks_alone_are_not_a_duplicate_group(self, tmp_path, organiser):
+        original = make_file(tmp_path / "a" / "same.bin", b"once" * 400)
+        link = tmp_path / "b" / "same.bin"
+        link.parent.mkdir()
+        os.link(original, link)
+
+        assert plan_duplicate_cleanup(organiser, []).operations == []
+
+    def test_a_vanished_keeper_plans_nothing(self, tmp_path, organiser, monkeypatch):
+        content = b"vanish" * 400
+        make_file(tmp_path / "a" / "same.bin", content, days_old=9)
+        keeper = make_file(tmp_path / "b" / "same.bin", content, days_old=1)
+        real_inode_of = file_actions._inode_of
+
+        def inode_of(path):
+            return None if path == keeper else real_inode_of(path)
+
+        monkeypatch.setattr(
+            file_actions, "_confirmed_groups",
+            lambda candidates: [sorted(candidates)],
+        )
+        monkeypatch.setattr(file_actions, "_inode_of", inode_of)
+
         assert plan_duplicate_cleanup(organiser, []).operations == []
 
 
