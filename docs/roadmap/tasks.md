@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-11
+> **Last Updated**: 2026-11-12
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
@@ -29,7 +29,11 @@ Opened on the owner's request for a two-phase review.
       and the empty-directories recommendation are removed.
       **H2 done 2026-11-12, Session 445** (`a31c077`): each fingerprint
       group is split by a full-content SHA-256, and links to the keeper
-      are not planned. H3 and H4 remain, so the box stays open.
+      are not planned.
+      **H3 done 2026-11-12, Session 446** (`212dd5b`): the kernel
+      journal is read by `_TRANSPORT=kernel`, in the aggregator's read
+      and in the command a log recommendation prints. H4 remains, so the
+      box stays open.
 - [ ] **STATUS.md's Alerts paragraph names 1 of 2 open rows**, a
       second concern Session 444 met and did not work.
       `check-ops-claims.sh` reads 2 unresolved rows against the block's

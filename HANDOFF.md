@@ -1,8 +1,8 @@
-# Handoff — 2026-11-12 (Session 445)
+# Handoff — 2026-11-12 (Session 446)
 
 ## Next action
 
-Read the kernel journal with `_TRANSPORT=kernel` so a reboot loses no lines: finding H3 in `docs/review/bug-review.md`. *(For: session)*
+Declare the tray's two D-Bus slots with `"uint"` so the toast's Restart and Snooze buttons fire: finding H4 in `docs/review/bug-review.md`. *(For: session)*
 
 ## Scheduled action
 
@@ -10,6 +10,41 @@ Read the kernel journal with `_TRANSPORT=kernel` so a reboot loses no lines: fin
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 446: the kernel journal is read across boots (finding H3)
+
+Opened on Session 445's Next action.
+
+- **Fixed** (`212dd5b`) `read_journal` in `sysadmin/monitor/journal.py`.
+  The kernel source is read by the match `_TRANSPORT=kernel` instead of
+  `-k`. `-k` implies the current boot, so after a reboot the read
+  `--since @floor` could not reach the lines logged before the crash.
+- **Also fixed:** `journal_command` in `sysadmin/monitor/log_actions.py`,
+  the command a log recommendation prints, had the same `-k`. Its
+  docstring says the two must state the same fact, so both changed.
+- **Tested:** one new test pins that neither the cursor read nor the
+  window read carries `-k`, `--dmesg`, `-b` or `--boot`; it fails with
+  `-k` put back. Two `journal_command` tests updated. Suite: 4,762
+  passed, 2 skipped; ruff and mypy clean.
+- **Live:** the real `read_journal` over the 2026-10-31 14:42 reboot
+  returns 47 error and critical lines from before it, ending with
+  `watchdog did not stop!`. `-k` returned none of them. The daemon
+  restarted at 11:20:36 and `/api/health` answers 200.
+- **Not backfilled:** the 2026-10-31 lines are still not in
+  `log_entries`, because the resume floor is past them. The fix covers
+  the next reboot.
+- **Limit, unchanged:** the first read after a reboot is still bounded
+  by `-n` (500), which keeps the newest lines. A boot that logs more
+  than 500 error lines before the first poll would push out the
+  pre-crash lines, and `log_read_truncated` would say so. The current
+  boot has logged 12 in twelve days.
+- **Seen, not worked:** `check-ops-claims.sh` reads "no" on the
+  idle-nudge family (two rows above `info`). That is the open
+  Alerts-paragraph task in `tasks.md`.
+
+## What Session 445 handed on
+
+Read the kernel journal with `_TRANSPORT=kernel` so a reboot loses no lines: finding H3 in `docs/review/bug-review.md`. *(For: session)*
 
 ## Session 445: duplicate groups are confirmed by full content (finding H2)
 
