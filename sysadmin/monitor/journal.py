@@ -401,9 +401,17 @@ async def read_journal(
         # entry's own named remedy.
         "-p", str(read_ceiling(severity_filter, declared)),
     ]
-    # Kernel messages use -k/--dmesg rather than -u
+    # The kernel is read by the match ``_TRANSPORT=kernel``, never by
+    # ``-k``.  ``-k`` adds the same match **and implies ``--boot=0``**, so
+    # after a reboot ``--since @floor`` could not reach the lines the
+    # kernel logged between the last poll and the crash — the lines of the
+    # fault that caused the reboot (finding H3, docs/review/bug-review.md).
+    # Measured 2026-11-12 over the 2026-10-31 14:42 reboot: ``-k -p 3``
+    # returns the 2 lines after it, ``_TRANSPORT=kernel -p 3`` the GPU
+    # hang before it as well.  The bare match crosses boots, as
+    # ``--since`` and ``--after-cursor`` both need.
     if unit == "kernel":
-        base.insert(1, "-k")
+        base.insert(1, "_TRANSPORT=kernel")
     else:
         base[1:1] = ["-u", unit]
         if user:

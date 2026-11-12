@@ -96,7 +96,7 @@ class TestPriorityIsPassedToJournalctl:
         cmd = run.call_args[0][0]
         assert "-p" in cmd
         assert cmd[cmd.index("-p") + 1] == "3"
-        assert "-k" in cmd and "-u" not in cmd
+        assert "_TRANSPORT=kernel" in cmd and "-u" not in cmd
 
     @pytest.mark.asyncio
     async def test_user_unit_warning_filter_passes_p_warning(self) -> None:
@@ -127,6 +127,41 @@ class TestPriorityIsPassedToJournalctl:
         cmd = run.call_args[0][0]
         assert cmd[cmd.index("-n") + 1] == "250"
         assert cmd[cmd.index("-p") + 1] == "3"
+
+
+class TestTheKernelReadCrossesBoots:
+    """Finding H3: ``-k`` implies ``--boot=0``, so a reboot lost lines.
+
+    The lines the kernel logs between the last poll and a crash are the
+    fault that caused the reboot.  On 2026-10-31 the GPU hang before the
+    14:42:53 reboot was in the journal and not in ``log_entries``: after
+    the restart the read was ``-k --since @floor``, and ``-k`` cannot see
+    the previous boot.  Both reads are pinned, the cursor resume and the
+    window it falls back to, because either can be the first after a
+    reboot.
+    """
+
+    BOOT_FLAGS = ("-k", "--dmesg", "-b", "--boot")
+
+    @pytest.mark.asyncio
+    async def test_neither_read_restricts_the_boot(self) -> None:
+        # The cursor read answers ``None`` (a cursor the journal no longer
+        # holds), so the window read runs too, and both are asserted.
+        with patch(
+            "sysadmin.monitor.journal._run",
+            new=AsyncMock(side_effect=[None, ""]),
+        ) as run:
+            await read_journal(
+                "kernel", since="@1761921720", after_cursor="s=stale"
+            )
+
+        commands = [call[0][0] for call in run.call_args_list]
+        assert len(commands) == 2
+        assert "--after-cursor" in commands[0]
+        assert "--since" in commands[1]
+        for cmd in commands:
+            assert "_TRANSPORT=kernel" in cmd
+            assert not set(self.BOOT_FLAGS) & set(cmd), cmd
 
 
 class TestPythonFilterRemainsTheAuthority:

@@ -630,10 +630,12 @@ def journal_command(
     surface against real data before believing it.  The draft emitted
     ``journalctl -u <source> --since …`` for everything, and:
 
-    * ``kernel`` is not a unit.  It needs ``-k``, which
-      :func:`~sysadmin.monitor.journal.read_journal` has always known and
-      this module did not — the same fact, stated twice, one of them
-      wrong.
+    * ``kernel`` is not a unit.  It needs the match ``_TRANSPORT=kernel``,
+      which :func:`~sysadmin.monitor.journal.read_journal` has always
+      known and this module did not — the same fact, stated twice, one of
+      them wrong.  It was ``-k`` in both until 2026-11-12, and ``-k``
+      implies the current boot, so a command for a fault first seen
+      before a reboot printed nothing (finding H3).
     * **Seven of the fourteen declared log sources are user units**
       (``alfred-backend``, ``sportsanalyser-*``, ``venture-assistant``,
       ``estate-manager-api``, …), and ``journalctl -u`` without
@@ -651,9 +653,9 @@ def journal_command(
     incident spanning more than one.  They are safe to fold into one
     command because a declared relation cannot cross scopes — systemd
     does not order across managers — so every unit in a group shares the
-    anchor's journal.  ``kernel`` takes ``-k`` and can never have
+    anchor's journal.  ``kernel`` takes its match and can never have
     company: it has no unit file, so it declares no relation and groups
-    only with itself.
+    only with itself, and its match never meets a ``-u``.
 
     **``since`` is a ``datetime``, not a rendered string, and that is the
     fix rather than a tidying** (``SNAG-LOG-009``).  Three callers each
@@ -669,13 +671,13 @@ def journal_command(
     the rendering is
     :func:`~sysadmin.monitor.journal.since_timestamp`'s alone, and it has
     said why since the module was written — the same fact stated twice
-    with one of them wrong, which is what the ``-k`` bullet above is
+    with one of them wrong, which is what the ``kernel`` bullet above is
     already about.  ``@<epoch>`` carries no zone at all, so it is
     unambiguous rather than merely correct here.
     """
     stamp = since_timestamp(since)
     if source == "kernel":
-        return f"journalctl -k --since '{stamp}'"
+        return f"journalctl _TRANSPORT=kernel --since '{stamp}'"
     scope = "--user " if (scopes or {}).get(source) else ""
     units = " ".join(f"-u {unit}" for unit in (source, *others))
     return f"journalctl {scope}{units} --since '{stamp}'"

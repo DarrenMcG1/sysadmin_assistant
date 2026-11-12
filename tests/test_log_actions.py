@@ -94,16 +94,19 @@ BLUETOOTH = _group(
 
 
 class TestJournalCommand:
-    def test_kernel_uses_dash_k_not_dash_u(self):
+    def test_kernel_uses_the_transport_match_not_dash_u(self):
         """``kernel`` is not a unit.
 
         ``read_journal`` has always known this; the first draft of this
         module did not, so the same fact was stated twice and one of them
-        was wrong. Verified by running it: ``journalctl -k`` over the
-        window returns 31,151 lines.
+        was wrong.  It was ``-k`` until finding H3 (2026-11-12): ``-k``
+        implies the current boot, so the command printed nothing for a
+        fault first seen before a reboot.  Driven 2026-11-12 over the
+        2026-10-31 14:42 reboot at ``-p 3``: ``-k`` returns 2 lines and
+        ``_TRANSPORT=kernel`` the GPU hang before them as well.
         """
         assert journal_command("kernel", KERNEL_WINDOW) == (
-            f"journalctl -k --since '{KERNEL_WINDOW_EPOCH}'"
+            f"journalctl _TRANSPORT=kernel --since '{KERNEL_WINDOW_EPOCH}'"
         )
 
     def test_a_user_unit_gets_dash_dash_user(self):
@@ -814,7 +817,7 @@ class TestIncidentJournalCommand:
         """It has no unit file, so it declares no relation."""
         assert journal_command("kernel", CRASH_WINDOW, {},
                                ("mosquitto.service",)) == (
-            f"journalctl -k --since '{CRASH_WINDOW_EPOCH}'"
+            f"journalctl _TRANSPORT=kernel --since '{CRASH_WINDOW_EPOCH}'"
         )
 
 
