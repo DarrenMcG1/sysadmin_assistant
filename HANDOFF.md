@@ -1,8 +1,8 @@
-# Handoff — 2026-11-12 (Session 444)
+# Handoff — 2026-11-12 (Session 445)
 
 ## Next action
 
-Confirm a duplicate group with a full hash before `/clean/duplicates` plans it: finding H2 in `docs/review/bug-review.md`. *(For: session)*
+Read the kernel journal with `_TRANSPORT=kernel` so a reboot loses no lines: finding H3 in `docs/review/bug-review.md`. *(For: session)*
 
 ## Scheduled action
 
@@ -10,6 +10,41 @@ Confirm a duplicate group with a full hash before `/clean/duplicates` plans it: 
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 445: duplicate groups are confirmed by full content (finding H2)
+
+Opened on Session 444's Next action.
+
+- **Fixed** (`a31c077`) `plan_duplicate_cleanup` in
+  `sysadmin/files/actions.py`. The fingerprint (size plus MD5 of the
+  first 1 MB) now only pre-filters. Each group is split by a
+  full-content SHA-256, hashed once per inode. A group needs two
+  distinct inodes, and links to the keeper are not planned.
+- **Also guarded:** a keeper that vanishes between hashing and planning
+  skips its group. Without that, the rest of the group would be planned
+  with no copy kept; a test proves it by disabling the guard.
+- **Tested:** five new tests. All five fail against the pre-fix
+  planner. Suite: 4,761 passed, 2 skipped; ruff and mypy clean.
+- **Live:** a dry run of the old and new planners against the real
+  config plans the same 12,279 operations (2.1 GB). The five misgrouped
+  sets the review found are under `~/projects`, which the action
+  excludes, so the fix guards against a case that has not happened yet
+  and changes no current plan. The daemon restarted at 08:07:34 and
+  `/api/health` answers 200.
+- **Fork:** the planner is fixed and the scan's report is not.
+  `/api/files/duplicates` and the "frees at least 7.9 GB" figure still
+  group by fingerprint and count hardlinks. They only display; the task
+  named the planner.
+- **Fork:** the full hash runs at plan time, not again at execute time.
+  The route plans and executes in one request, so the gap is
+  milliseconds.
+- **Push:** `main` is 4 ahead of `origin/main`, and the pre-push gate
+  allows 2. Session 444's two (`b371eb4`, `a8b4a75`) go first, then
+  this session's two.
+
+## What Session 444 handed on
+
+Confirm a duplicate group with a full hash before `/clean/duplicates` plans it: finding H2 in `docs/review/bug-review.md`. *(For: session)*
 
 ## Session 444: the stale-cache clean is removed (finding H1)
 

@@ -26,8 +26,10 @@ Opened on the owner's request for a two-phase review.
       declare the tray's two D-Bus slots with `"uint"`.
       Evidence and line numbers are in `docs/review/bug-review.md`.
       **H1 done 2026-11-11, Session 444**: the route, the tray button
-      and the empty-directories recommendation are removed. H2, H3 and
-      H4 remain, so the box stays open.
+      and the empty-directories recommendation are removed.
+      **H2 done 2026-11-12, Session 445** (`a31c077`): each fingerprint
+      group is split by a full-content SHA-256, and links to the keeper
+      are not planned. H3 and H4 remain, so the box stays open.
 - [ ] **STATUS.md's Alerts paragraph names 1 of 2 open rows**, a
       second concern Session 444 met and did not work.
       `check-ops-claims.sh` reads 2 unresolved rows against the block's

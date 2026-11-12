@@ -10,6 +10,12 @@
 
 ## Open Issues
 
+- [P3] SNAG-FILES-003: **the scan's duplicate report still groups by fingerprint and counts hardlinks, so `/api/files/duplicates` and the "frees at least 7.9 GB" figure overstate what a clean would free** (2026-11-12, opened by Session 445 as the half of finding H2 it left)
+  - **Symptom**: the file organiser's duplicate groups and the bytes it says they would free. The review (`docs/review/bug-review.md`, H2) found 5 of 49 stored groups with different content and at least 14 that are hardlink pairs.
+  - **Cause**: `sysadmin/files/agent.py` groups by `file_hash`, which is size plus an MD5 of the first 1 MB, and never compares inodes.
+  - **Why it is left**: the report only displays. `/clean/duplicates`, which acts, was fixed in `a31c077`; it confirms each group by full content and leaves links to the keeper alone. Under the freeze this is a known issue until it misleads a decision.
+  - **Fix options**: reuse the planner's `_confirmed_groups` in the scan, at the cost of a full read of every candidate on each weekly scan.
+
 - [P2] SNAG-TEST-022: **the pre-push gate's blind half fails 7 arc tests, because coverage.py 7.17.0 reports arcs the rules do not expect and the drive fetches coverage unpinned** (2026-10-30, opened by Session 430 while running the push-stage checks; **CLOSED 2026-10-30 by Session 431**: the cause was the interpreter, not coverage)
   - **Symptom**: `pre-commit run --hook-stage pre-push` on 2026-10-30, over the docs-only `73bd82d`: `7 failed, 4545 passed`, all in `tests/test_vacuous_guards_live.py`, e.g. `assert (-3, 3) in {…}` and `assert (20, 18) in {(18, 18), (20, 20)}`.
   - **Cause, measured**: the file drives `uv run --with coverage[toml]` with no version, which resolves 7.17.0 today. The interpreter is unchanged (3.12.12, matching `ci.yml`'s `UV_PYTHON`), so the open `UV_PYTHON` task is not it. Arch's `python-coverage` went 7.16.2 → 7.17.0 on 2026-10-27, which dates the release; the last green gate was Session 429's, 2026-10-26.
