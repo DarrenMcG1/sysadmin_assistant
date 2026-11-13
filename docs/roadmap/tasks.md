@@ -16,7 +16,7 @@ Opened on the owner's request for a two-phase review.
 
 - [x] **`docs/review/bug-review.md` and `v2-proposals.md` written**
       (`d1785f2`): 43 findings, 0 critical, 4 high, 19 medium, 20 low.
-- [ ] **Fix the four high findings**, a second concern found by the
+- [x] **Fix the four high findings**, a second concern found by the
       review and not worked. Each is a bug fix under the freeze, and
       each is its own small change, H1 first:
       H1 remove `POST /api/files/clean/stale-caches` with its tray
@@ -32,8 +32,10 @@ Opened on the owner's request for a two-phase review.
       are not planned.
       **H3 done 2026-11-12, Session 446** (`212dd5b`): the kernel
       journal is read by `_TRANSPORT=kernel`, in the aggregator's read
-      and in the command a log recommendation prints. H4 remains, so the
-      box stays open.
+      and in the command a log recommendation prints.
+      **H4 done 2026-11-13, Session 447** (`bcfec3c`): the slots are
+      declared `"uint"`, and a test sends the two signals over a private
+      bus to the real `DbusNotifier`. All four high findings are fixed.
 - [ ] **STATUS.md's Alerts paragraph names 1 of 2 open rows**, a
       second concern Session 444 met and did not work.
       `check-ops-claims.sh` reads 2 unresolved rows against the block's
@@ -41,6 +43,11 @@ Opened on the owner's request for a two-phase review.
       the paragraph names only `High disk usage on /`. Also stale:
       `config.yaml`'s comment on `api.auth_token` still lists the
       stale-cache clean among what the token guards.
+      **Re-measured 2026-11-13, Session 447:** the unresolved count now
+      reads `ok` (1 against 1). The one `no` left is the block setting
+      aside `Project % next action idle`: 3 open, 2 of them above
+      `info`, so the paragraph should name those two and drop the
+      set-aside.
 
 ---
 

@@ -6,6 +6,205 @@ file under estate rule 2's 500-line bound. The live Next action and the
 scheduled action stay there; nothing here is current. A later move puts
 its sections at the top of this file, below this paragraph.
 
+## What Session 437 handed on
+
+Re-measure STATUS.md's opening block (tasks.md, Session 436's last item); the daemon has since restarted again, at 2026-11-04 09:34. *(For: session)*
+
+## Session 437: the freeze is declared in the manifest
+
+Opened on estate message `94a1713e-4c05-4a14-8f29-1ba5b599ee70`
+(estate-manager): the `freeze:` key was safe to write. Manifest in
+`d59ffe8`. Both estate messages, it and `64a3782e`, are closed.
+
+- **Checked both conditions first:** `sysadmin.service` started at
+  09:34:18 GMT, and estate-manager's board row carries a `freeze`.
+- **Dates chosen:** `since: 2026-10-30`, when 1.0's second item closed
+  (`e983696`), and `until: 2027-02-01`, from the owner's ruling. I did
+  not use the estate template's 2026-11-04 and 2027-01-04, which are
+  its own dates.
+- **Verified:** `load_registry` parses the key; `/api/projects/managed`
+  still serves 42 projects. The board shows `null` for this row until
+  its next scan (04:30, or when the registry changes).
+- **Corrected:** Session 436 wrote *For: none* while its own
+  STATUS.md re-measure task stood open and startable; it is now the
+  Next action.
+
+## What Session 436 handed on
+
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
+
+## Session 436: the blinded push half hides the rest of the box
+
+Opened on the owner's request: fix `SNAG-TEST-020`, a known issue under
+the freeze. Code in `35c26f0`.
+
+- **Confirmed first:** a probe of the four `box` resources passed 5 of
+  5 inside `scripts/pytest-without-the-box.sh`.
+- **Fix:** `unshare -rnm` and an empty tmpfs over six directories (the
+  script's header lists them). The entry's reason for leaving it, that
+  all of `/home/gaddi` had to go and so needed fresh clones, was wrong:
+  only those six do.
+- **Caught one:** `test_an_absent_unit_is_indistinguishable_from_an_untriggered_one`
+  reads `systemctl --user`; marked `box`, like its sibling premise.
+- **Rejected:** leaving `/run/user/<uid>` visible, because the box's
+  running user manager would still answer; and starting a fresh
+  `systemd --user` inside the namespace, too heavy for one test.
+- **Stated limit:** the rest of `~/projects` stays visible; the `box`
+  mark does not cover it. The blind is stricter than the runner, which
+  has a journal and a user manager of its own.
+
+## What Session 435 handed on
+
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
+
+## Session 435: the disk alert on / closes
+
+Opened on Session 434's Next action, the owner's. No code.
+
+- **The target was 139 GB, not one game.** The monitor reads psutil's
+  percent, used ÷ (used + free), which leaves out root's reserved
+  blocks: 88.3 % where `df` size gives 84 %. Under 80 % needed
+  `/` at 1,328 GB used or less.
+- **The owner uninstalled** War Thunder (91 GB), ELDEN RING (55 GB) and
+  Pillars of Eternity (47 GB) through Steam; the `steam://uninstall`
+  links errored. 260 KB of leftover files stay in two `common/`
+  folders.
+- **Measured:** the 15:27:10 snapshot read 76.5 %, and
+  `High disk usage on /` resolved at 15:27:14, its first cycle.
+  STATUS.md's Alerts paragraph now names one open row; the claim check
+  reads 14 of 14 `ok`.
+- **Left alone:** Baldur's Gate 3 and Oblivion Remastered have
+  manifests but no game folder, so Steam lists them as installed;
+  their shader caches hold about 6 GB.
+
+## What Session 434 handed on
+
+Free space on / by uninstalling a Steam game you no longer play, so the 88 % disk alert falls under its 80 % threshold and closes. *(For: owner, ~10 min)*
+
+## Session 434: STATUS.md's Deploy and prediction claims re-measured
+
+Opened on Session 433's Next action. Docs only.
+
+- **Deploy:** the 2026-10-28 07:02:10 restart was the box booting after
+  an overnight shutdown; the daemon still runs `3992b99`.
+- **Chosen:** replace the spent prediction with the one the same test
+  now depends on (3 shared instants, clearing 2026-11-22). Rejected:
+  retiring it outright as the task said, because
+  `test_the_block_states_at_least_one_prediction` then goes red; and
+  relaxing that test, which is code the freeze does not admit and a
+  guard deleted beside its last finding.
+
+## What Session 433 handed on
+
+Fix the two STATUS.md claims Session 432 found failing, the Deploy paragraph's restart and the 2026-10-27 expiry, per tasks.md's Session 432 block. *(For: session)*
+
+## Session 433: the notification probe stops reaching the screen
+
+Opened on Session 432's Next action, 1.0 item 1. Code in `901e12f`.
+
+- **1.0 is done**: both items of the owner's ruling. The freeze holds
+  from today. No version string or freeze date is written anywhere
+  machine-readable; the estate decides where on 2026-11-04.
+- **Chosen:** the served half of the hazard runs on a private bus with
+  `test_failure_replay_live.py`'s stand-in owning the name, so the
+  probe never reaches Plasma. Rejected: an opt-in mark on the live
+  call, because the suite would then never run it; and a second close,
+  because it cannot reach a cause nobody found.
+- **Given up, knowingly:** the suite no longer shows that *Plasma*
+  answers the announcer's call quickly. The hazard is about whether a
+  server owns the name, not about which server it is.
+  `test_it_admits_the_live_bus` still asks the live bus, by
+  `NameHasOwner`.
+- **Left on disk:** `~/.local/state/sysadmin_assistant/notify-probe.jsonl`,
+  492 lines, all `closed`. Nothing writes to it any more.
+
+## What Session 432 handed on
+
+1.0, item 1: fix SNAG-TEST-014, the live notification test that leaves its probe on the owner's screen, per tasks.md's Session 430 block. *(For: session)*
+
+## Session 432: STATUS.md's Alerts paragraph names the open rows
+
+Opened on Session 431's Next action, 1.0 item 2. Docs only.
+
+- **Measured live:** 2 rows open. `High disk usage on /` (88 %, since
+  2026-10-19) and `Estate project next actions idle`, the roll-up the
+  estate judge raises in place of a row each once more than five
+  repositories are idle (six were). The audit rows and `Short journal
+  window` closed on 2026-10-27.
+- **Chosen:** name the roll-up in the paragraph. Rejected: widening the
+  `rotating` check's family to cover it, which is code the freeze does
+  not admit, and would hide a row that does count.
+- **`SNAG-TEST-014` is now owed in the register.** The push-stage
+  suite refused the new Next action because the entry still read
+  "decided, no session owes work", which the owner's 1.0 ruling
+  overturned and Session 430 had not carried into the register.
+- **Left, as a task in Session 432's block:** the same check run fails
+  the Deploy paragraph's restart time (the 2026-10-28 boot) and a
+  prediction that fell due on 2026-10-27.
+
+## What Session 431 handed on
+
+1.0, item 2: rewrite STATUS.md's Alerts paragraph from the open rows, per the first unticked item in tasks.md's Session 430 block. *(For: session)*
+
+## Session 431: the arc tests drive the suite's own interpreter
+
+Opened on Session 430's Next action. Code in `34e918c`.
+
+- **Cause, measured, and not the one recorded:** coverage 7.17.0 is
+  innocent. The gate's blind half launches `.venv/bin/python -m pytest`,
+  so no `VIRTUAL_ENV` reaches the fixture's `uv run --with
+  coverage[toml]`. It runs in a temporary directory outside any project,
+  so uv used its own default Python: 3.14.7 since 2026-10-28 17:34, when
+  uv installed it. `uv run pytest` passes the variable on, gets 3.12.12,
+  and was green on 7.17.0 throughout. Session 430 read 3.12.12 from the
+  repository, where the project picks the interpreter.
+- **Fixed:** the fixture passes `--python sys.executable`, so the drive
+  runs on whatever interpreter runs the suite. Rejected: pinning
+  coverage, which is not the cause; `UV_PYTHON` in the blind wrapper,
+  which fixes one launcher and is a second version number to keep in
+  step with `ci.yml`'s.
+- **The recorded reach was wrong too:** `check-vacuous-guards.sh` runs
+  from the repository root, where `.venv` decides, so it never saw 3.14.
+- `ci.yml`'s `UV_PYTHON` comment says the variable reaches the ephemeral
+  run; it still does, and is now redundant there but harmless. Left as
+  is: config, and not this concern.
+
+## What Session 430 handed on
+
+Make the pre-push gate green: 7 arc tests fail on coverage.py 7.17.0, fetched unpinned, per SNAG-TEST-022 in tasks.md's Session 430 block. *(For: session)*
+
+## Session 430: the owner rules on 1.0 and the feature freeze
+
+Opened on estate message `256c64ad-041d-4a78-b136-b33e462bd62f`
+(estate-manager, 2026-10-30), which asked every active repository to put
+a 1.0 scope and a v2 date to the owner. Docs only.
+
+- **Ruled:** 1.0 is `SNAG-TEST-014` fixed and STATUS.md's Alerts
+  paragraph rewritten; after it, only bug fixes and what daily use
+  forces; new ideas one line under *v2* in `ideas.md`; the owner reads
+  that list on 2027-02-01. Recorded in `CLAUDE.md`, "1.0, then a
+  feature freeze until 2027-02-01".
+- **Rejected by the owner:** the session's recommendation, 1.0 as main
+  stood with a v2 date of 2027-01-04 to match project-manager; and 1.0
+  after all eleven of this repository's own P3 snags.
+- **Measured:** both audit rows have closed, so Session 428's check is
+  ticked and the scheduled action is gone. Open outside the idle family:
+  `High disk usage on /` and `Estate project next actions idle`, a title
+  the paragraph's family exemption does not match.
+- **Not invented:** a machine-readable version or freeze date. The
+  estate decides where they live on 2026-11-04; tasks.md carries the
+  write.
+- **The push-stage run is red, and not from this commit:** the
+  `not box` half fails 7 tests in `tests/test_vacuous_guards_live.py`.
+  They drive `uv run --with coverage[toml]` unpinned, which now
+  resolves 7.17.0; the interpreter is unchanged at 3.12.12. Recorded as
+  `SNAG-TEST-022` (P2) and the Next action, ahead of the STATUS.md
+  rewrite, because the owner's push is refused until it is fixed. Not
+  fixed here: a second concern.
+- **HANDOFF.md was 505 lines**, over estate rule 2's 500-line bound:
+  Sessions 419 back to 411 moved to the top of `HANDOFF-archive.md`,
+  unedited.
+
 ## What Session 429 handed on
 
 Nothing is startable: every open task waits on the scheduled audit run, a third missing `box` mark, or an interpreter change. *(For: none)*
