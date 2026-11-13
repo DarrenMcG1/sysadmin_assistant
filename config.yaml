@@ -11,7 +11,7 @@ service:
     - http://127.0.0.1:3100
 
 # API authentication — bearer token checked on state-changing endpoints
-# (service actions, scans, stale-cache clean, DND toggle, alert ack).
+# (service actions, scans, file cleans, DND toggle, alert ack).
 # Read-only GET endpoints stay open (the tray and any dashboard keep working).
 # Generate a token with:  python -c "import secrets; print(secrets.token_hex(32))"
 # Leave empty to disable auth (a warning is logged at startup).

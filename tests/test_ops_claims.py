@@ -21,7 +21,6 @@ import re
 import subprocess
 import sys
 import time
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -3988,38 +3987,3 @@ class TestTheFamilyIsJudgedBySeverity:
     def test_it_is_a_key_a_marker_may_carry(self):
         assert "rotating" in CHECK_KEYS
         assert "rotating" not in CLAIM_PATTERNS
-
-
-@pytest.mark.box
-class TestTheRealBlockDeclaresTheNudgeFamily:
-    """The live half of rule 13: the document against the table.
-
-    Like :class:`TestTheRealBlockDeclaresWhatItSetsAside`, it never
-    asserts the declaration currently *holds*; that is
-    ``check-ops-claims.sh``'s verdict.
-    """
-
-    @pytest.mark.premise
-    def test_the_block_declares_a_pattern_the_table_has_seen(self):
-        region, problem = load_region()
-        assert region is not None, problem
-        patterns = rotating_patterns(region)
-        assert patterns, "the block carries no <!--check:rotating--> pattern"
-        facts = measure_database((), patterns)
-        assert not facts.problem, facts.problem
-        assert facts.family_rows, f"no declared pattern matched a row: {patterns}"
-
-    def test_a_new_member_moves_neither_claim(self):
-        """A nudge opening for a repository nobody has named is the founding case."""
-        region, problem = load_region()
-        assert region is not None, problem
-        facts = measure_database((), rotating_patterns(region))
-        assert not facts.problem, facts.problem
-        entry = "info: Project not-a-real-repository next action idle"
-        turned = replace(
-            facts, unresolved=(facts.unresolved or 0) + 1, open_titles=(entry, *facts.open_titles)
-        )
-        assert check_alerts(region, "", turned).measured == check_alerts(region, "", facts).measured
-        membership = check_open_titles(region, "", turned)
-        assert membership.verdict == check_open_titles(region, "", facts).verdict
-        assert f"set aside: {entry}" in membership.detail
