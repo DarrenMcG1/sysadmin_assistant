@@ -1300,8 +1300,13 @@ class DbusNotifier(QObject):
         return value if isinstance(value, bool) else None
 
     # ── Signal handlers ──────────────────────────────────────────────
+    #
+    # "uint", never int: the signals are ActionInvoked(us) and
+    # NotificationClosed(uu), and QtDBus delivers only to a slot whose
+    # signature matches. An int slot is connected, silent and never
+    # called. Guarded by tests/test_tray/test_notification_signals_live.py.
 
-    @pyqtSlot(int, str)
+    @pyqtSlot("uint", str)
     def _on_action_invoked(self, notification_id: int, action_key: str) -> None:
         """Handle D-Bus ActionInvoked signal."""
         service_name = self._pending_actions.pop(notification_id, None)
@@ -1316,7 +1321,7 @@ class DbusNotifier(QObject):
             logger.info("snooze requested via notification for %s", snooze_key)
             self.snooze_requested.emit(snooze_key)
 
-    @pyqtSlot(int, int)
+    @pyqtSlot("uint", "uint")
     def _on_notification_closed(self, notification_id: int, reason: int) -> None:
         """Handle D-Bus NotificationClosed signal — clean up pending actions."""
         self._pending_actions.pop(notification_id, None)
