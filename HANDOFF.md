@@ -1,8 +1,8 @@
-# Handoff — 2026-11-13 (Session 447)
+# Handoff — 2026-11-13 (Session 448)
 
 ## Next action
 
-Name the two idle-nudge rows above `info` in STATUS.md's Alerts paragraph and drop that family's set-aside: the open task in `docs/roadmap/tasks.md`. *(For: session)*
+Nothing is startable under the feature freeze; the scheduled items below carry the next work. *(For: none)*
 
 ## Scheduled action
 
@@ -10,6 +10,40 @@ Name the two idle-nudge rows above `info` in STATUS.md's Alerts paragraph and dr
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 448: the idle-nudge rows are named, not set aside
+
+Opened on Session 447's Next action.
+
+- **Withdrawn:** the `<!--check:rotating-->` set-aside of
+  `Project % next action idle` in STATUS.md's Alerts paragraph. Two
+  members are at `warning`, and the check reads those as asking for
+  action. The paragraph now names all four open rows and counts 4.
+  Kaggle's `info` row is counted too, because without the set-aside
+  every row counts.
+- **Retired** (`8ce8732`): the live class
+  `TestTheRealBlockDeclaresTheNudgeFamily` in
+  `tests/test_ops_claims.py`. Its two tests asserted that the real
+  block declares the family, so they could not pass once the
+  declaration was gone. The rule stays tested by the synthetic
+  `TestTheFamilyIsJudgedBySeverity`. The collected count went from
+  4765 to 4763.
+- **Decision reversed:** Session 438 kept the declaration instead,
+  so as not to delete a guard under the freeze. Its reasons, and the
+  answer to each, are under the ticked task in `tasks.md`.
+- **Cost accepted:** these rows turn over most mornings, so the count
+  and the names will drift, and the preflight will report each drift.
+  That cadence is what the set-aside was added to avoid
+  (`SNAG-DOCS-035`).
+- **Also fixed:** `config.yaml`'s comment on `api.auth_token` said
+  "stale-cache clean", a route finding H1 removed; it now says "file
+  cleans".
+- **Tested:** `check-ops-claims.sh` reads `ok` on every claim, and
+  `tests/test_ops_claims.py` passes, 228 tests.
+
+## What Session 447 handed on
+
+Name the two idle-nudge rows above `info` in STATUS.md's Alerts paragraph and drop that family's set-aside: the open task in `docs/roadmap/tasks.md`. *(For: session)*
 
 ## Session 447: the toast's Restart and Snooze buttons fire (finding H4)
 

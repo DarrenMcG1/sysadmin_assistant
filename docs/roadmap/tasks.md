@@ -4,7 +4,7 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-12
+> **Last Updated**: 2026-11-13
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
@@ -36,7 +36,7 @@ Opened on the owner's request for a two-phase review.
       **H4 done 2026-11-13, Session 447** (`bcfec3c`): the slots are
       declared `"uint"`, and a test sends the two signals over a private
       bus to the real `DbusNotifier`. All four high findings are fixed.
-- [ ] **STATUS.md's Alerts paragraph names 1 of 2 open rows**, a
+- [x] **STATUS.md's Alerts paragraph names 1 of 2 open rows**, a
       second concern Session 444 met and did not work.
       `check-ops-claims.sh` reads 2 unresolved rows against the block's
       1: `Estate project next actions idle` opened 2026-11-10 04:35 and
@@ -48,6 +48,21 @@ Opened on the owner's request for a two-phase review.
       aside `Project % next action idle`: 3 open, 2 of them above
       `info`, so the paragraph should name those two and drop the
       set-aside.
+      **Done 2026-11-13, Session 448** (`8ce8732` and the docs commit
+      after it): the set-aside is withdrawn and the paragraph names all
+      four open rows and counts 4, kaggle's `info` row included, since
+      without the set-aside it counts too. The live class
+      `TestTheRealBlockDeclaresTheNudgeFamily` went with the
+      declaration, and `config.yaml`'s token comment now says "file
+      cleans". This reverses Session 438's choice below, which kept the
+      declaration for two reasons. First, deleting the test would
+      relax a guard to fit the document. The answer: the guard pinned
+      that the block declares a family, so with no family declared it
+      has nothing to guard, and the synthetic class
+      `TestTheFamilyIsJudgedBySeverity` still tests the rule. Second,
+      it would be code under the freeze. The answer: it is two test
+      deletions that this docs fix needs to keep the suite green.
+      `check-ops-claims.sh` reads all `ok`.
 
 ---
 
