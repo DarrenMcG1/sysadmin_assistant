@@ -25,7 +25,7 @@ configuration only, outside this repository; nothing here changed.
       and WirePlumber's remembered target; a `Club Bass` preset was
       tuned by ear. The facts are in the session's memory
       `native-easyeffects-needs-its-plugin-packs`.
-- [ ] **Compact `MEMORY.md` under 17.1 KB**, a second concern this
+- [x] **Compact `MEMORY.md` under 17.1 KB**, a second concern this
       session raised and did not work. A hook flagged the index at
       20.4 KB on 2026-11-16; the byte limit for reading it is 24.4 KB,
       so nothing is truncated yet. The one rule-excused lever (memories
@@ -33,7 +33,10 @@ configuration only, outside this repository; nothing here changed.
       session procedure. The bytes are in the link filenames, so
       trimming descriptions cannot reach the target: about 20 memories
       have to go, each checked against the box first (Session 377's
-      method).
+      method). *(Done by Session 450, 20,393 bytes to 16,784, with no
+      memory dropped: see that session's block in `HANDOFF.md`. The
+      "about 20 have to go" estimate did not hold, because the titles
+      were 6.1 KB and repeated their filenames.)*
 
 ---
 

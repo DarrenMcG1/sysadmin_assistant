@@ -1,8 +1,8 @@
-# Handoff — 2026-11-16 (Session 449)
+# Handoff — 2026-11-16 (Session 450)
 
 ## Next action
 
-Compact the memory index `MEMORY.md` from 20.4 KB to under 17.1 KB, checking each dropped memory against the box first. *(For: session)*
+Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
 
 ## Scheduled action
 
@@ -10,6 +10,44 @@ Compact the memory index `MEMORY.md` from 20.4 KB to under 17.1 KB, checking eac
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 450: the memory index under 17.1 KB, by its titles
+
+Opened on Session 449's Next action. The memory directory is outside
+the repository, so only this block and `tasks.md` are committed.
+
+- **Done:** `MEMORY.md` went from 20,393 bytes to 16,784, still 131
+  lines. Every one of its 157 links is kept, in the same order, and
+  each resolves.
+- **How:** the titles were 6.1 KB of the 20.4 and spelt out the same
+  words as their filenames, so each became a two-to-three-word tag.
+  The header now states the 17,100-byte budget and puts "shorten a
+  title" first among the levers.
+- **Rejected:** dropping about 20 memories, Session 449's estimate.
+  Eleven were checked against the box by their specific claim, and
+  none was falsified whole: agent_runs' held-branch keys, the
+  arbiter's FIFO, the first-run delay, the pre-commit five-file rule,
+  the `estate_service` editable, the daemon's system unit, the deploy
+  check's mtimes, ruff's config, the pre-push gates, and the two
+  below. The other 146 had their cited files checked for existence
+  only. A dropped line would hide a true memory with nothing left
+  pointing at it.
+- **Headroom:** 17,100 − 16,784 leaves about 300 bytes, two or three
+  new lines, and the title lever is spent. The next compaction has to
+  fold families or drop lines.
+- **Corrected in two memory files:** `stack-facts-not-in-claude-md`
+  gave the wheel `packages` as `sysadmin` alone (now `sysadmin` and
+  `sysadmin_tray`). `enumerate-the-estate-at-depth-2` counted 27
+  repositories in six tiers; there are 39 in nine.
+- **Backup:** the whole memory directory as it was is at
+  `/tmp/claude-1000/-home-gaddi-projects-sysadmin-assistant/ec6b7453-89d2-4be4-8470-ff2fc9f05b7a/scratchpad/membak/`
+  until a reboot clears it.
+- **Not this session's:** `18f9309`, home-manager's own
+  `services.yaml` declaration, landed from that session meanwhile.
+
+## What Session 449 handed on
+
+Compact the memory index `MEMORY.md` from 20.4 KB to under 17.1 KB, checking each dropped memory against the box first. *(For: session)*
 
 ## Session 449: Easy Effects, on the owner's request
 
