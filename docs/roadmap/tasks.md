@@ -10,6 +10,31 @@
 
 ---
 
+## Session 451: home-manager's frontend entry, logged and checked (2026-11-16)
+
+Opened on estate message `03b92b7c-be7d-419a-a560-4b96348de555`, in
+which home-manager said it had added `home-manager-frontend` to
+`services.yaml`. The entry is their own commit, `18f9309`.
+
+- [x] **The entry is live.** The daemon restarted at 11:33:02, and
+      `/api/sysadmin/status` reads the service `ok` in 9 ms. The 595
+      services, registry and port tests pass with it. The unit sweep
+      gives it only the `advice`-level "bound the restart loop"
+      recommendation that nine other estate units carry. The unit has
+      logged nothing at warning or above, so it has no log rows yet.
+- [x] **STATUS.md's Deploy sentence rewritten** for the 11:33:02
+      restart; its two checks read `ok`.
+- [x] **Message `03b92b7c` closed** with a note of the above.
+- [ ] **Account for the two alert rows STATUS.md's Alerts block does
+      not name**, a second concern this session found and did not work.
+      `estate-broker-provision critical` has been open since 15:11 on
+      2026-11-14: the unit failed at that boot with "broker not
+      answering after 150s", although mosquitto has been active since
+      21:20 on 2026-11-15. `Project powerbi-ae next action idle` is at
+      `info`. The unit is estate-manager's, as Session 402's mosquitto
+      gate was, so the work here is a measurement and a filing, then
+      rewriting the Alerts paragraph.
+
 ## Session 449: Easy Effects on the desktop, and the memory index owed (2026-11-16)
 
 Opened on the owner's request: Easy Effects failing to start. Desktop

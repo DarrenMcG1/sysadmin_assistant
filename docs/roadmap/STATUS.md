@@ -1,5 +1,5 @@
 # Project Status Dashboard
-**Last Updated**: 2026-11-13
+**Last Updated**: 2026-11-16
 
 > **The box as it stands.** This block holds only the claims
 > `scripts/check-ops-claims.sh` re-measures at every preflight, one
@@ -8,14 +8,14 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-11-12 11:20:36**
-> <!--check:deploy--> <!--check:daemon_start-->, when Session 446
-> restarted it to serve `212dd5b`: the log aggregator reads the kernel
-> journal by `_TRANSPORT=kernel`, so the lines before a reboot are
-> ingested after it (finding H3 of `docs/review/bug-review.md`).
-> Session 445's `a31c077` confirms each duplicate group by full content
-> before `POST /api/files/clean/duplicates` plans it (finding H2), and
-> the stale-cache clean (finding H1) has answered 404 since Session 444. `/health` answers
+> **Deploy.** The daemon restarted at **2026-11-16 11:33:02**
+> <!--check:deploy--> <!--check:daemon_start-->, a systemd restart that
+> home-manager's session asked the owner for, so the monitor would read
+> `18f9309`: home-manager's own `services.yaml` entry for
+> `home-manager-frontend` on :3400 (estate message `03b92b7c`), polled
+> `ok` since. The other code it serves beyond Session 446's restart is
+> `bcfec3c`, the toast's D-Bus slots declared `uint` so Restart and
+> Snooze fire, and `8ce8732`, a test change. `/health` answers
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >

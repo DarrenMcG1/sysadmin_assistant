@@ -1,8 +1,8 @@
-# Handoff — 2026-11-16 (Session 450)
+# Handoff — 2026-11-16 (Session 451)
 
 ## Next action
 
-Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
+Measure why estate-broker-provision failed at the 2026-11-14 boot, file it at estate-manager, and name its row in STATUS.md's Alerts paragraph. *(For: session)*
 
 ## Scheduled action
 
@@ -10,6 +10,30 @@ Nothing is startable under the freeze until a bug or an incident in daily use ca
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 451: home-manager's frontend entry, logged and checked
+
+Opened on estate message `03b92b7c-be7d-419a-a560-4b96348de555`, in
+which home-manager said it had added `home-manager-frontend` to
+`services.yaml` (`18f9309`, their commit).
+
+- **Done:** checked that the entry is live. The service has been polled
+  `ok` since the 11:33:02 restart. The services tests pass, and the unit
+  sweep raises only the `advice` nine other units carry. STATUS.md's
+  Deploy sentence now names the restart, and the message is closed.
+- **Attribution, as measured:** the journal shows a systemd stop job at
+  11:32:59, not a kill. home-manager's transcript `2019669c` asked the
+  owner for `sudo systemctl restart sysadmin.service`, so the sentence
+  says the restart was asked for and does not say who ran it.
+- **Second concern, recorded and not worked:** two alert rows the
+  Alerts paragraph does not name, among them `estate-broker-provision
+  critical`, open since the 2026-11-14 boot. They are the task at the
+  top of `tasks.md` and the Next action above. The two Alerts checks in
+  `check-ops-claims.sh` stay `no` until then.
+
+## What Session 450 handed on
+
+Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
 
 ## Session 450: the memory index under 17.1 KB, by its titles
 
