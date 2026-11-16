@@ -1,8 +1,8 @@
-# Handoff — 2026-11-13 (Session 448)
+# Handoff — 2026-11-16 (Session 449)
 
 ## Next action
 
-Nothing is startable under the feature freeze; the scheduled items below carry the next work. *(For: none)*
+Compact the memory index `MEMORY.md` from 20.4 KB to under 17.1 KB, checking each dropped memory against the box first. *(For: session)*
 
 ## Scheduled action
 
@@ -10,6 +10,20 @@ Nothing is startable under the feature freeze; the scheduled items below carry t
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 449: Easy Effects, on the owner's request
+
+Desktop configuration outside this repository; nothing here changed.
+
+- **Fixed:** Easy Effects' autostart. The Flatpak segfaulted every
+  time; Arch's 8.3.2 now runs with `--service-mode -w`, and the owner
+  installed the plugin packs it needs (`lsp-plugins-lv2`, `calf`).
+- **Rejected:** a WirePlumber `stream.rules` file to route Spotify. In
+  WirePlumber 0.5 those rules only reach its bookkeeping copy, and a
+  target set there stops the remembered one being restored. Spotify is
+  routed by restore-target instead.
+- **Raised, not worked:** the memory index at 20.4 KB against the
+  hook's 17.1 KB target, now the Next action and a `tasks.md` item.
 
 ## Session 448: the idle-nudge rows are named, not set aside
 

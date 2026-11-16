@@ -4,9 +4,36 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-13
+> **Last Updated**: 2026-11-16
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
+
+---
+
+## Session 449: Easy Effects on the desktop, and the memory index owed (2026-11-16)
+
+Opened on the owner's request: Easy Effects failing to start. Desktop
+configuration only, outside this repository; nothing here changed.
+
+- [x] **Easy Effects runs again.** The Flatpak 7.2.5 segfaulted in its
+      bundled GTK 4 at every autostart (dumps from 2026-10-26 on). The
+      autostart now runs Arch's `easyeffects` 8.3.2 in service mode,
+      and the owner removed the Flatpak. Arch's package needed
+      `lsp-plugins-lv2` and `calf`, which the owner installed; without
+      them every preset loaded and processed nothing.
+- [x] **Spotify alone goes through it**, by `processAllOutputs=false`
+      and WirePlumber's remembered target; a `Club Bass` preset was
+      tuned by ear. The facts are in the session's memory
+      `native-easyeffects-needs-its-plugin-packs`.
+- [ ] **Compact `MEMORY.md` under 17.1 KB**, a second concern this
+      session raised and did not work. A hook flagged the index at
+      20.4 KB on 2026-11-16; the byte limit for reading it is 24.4 KB,
+      so nothing is truncated yet. The one rule-excused lever (memories
+      linked four or more times) frees nothing, since all three are
+      session procedure. The bytes are in the link filenames, so
+      trimming descriptions cannot reach the target: about 20 memories
+      have to go, each checked against the box first (Session 377's
+      method).
 
 ---
 
