@@ -8,33 +8,31 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-11-16 11:33:02**
-> <!--check:deploy--> <!--check:daemon_start-->, a systemd restart that
-> home-manager's session asked the owner for, so the monitor would read
-> `18f9309`: home-manager's own `services.yaml` entry for
-> `home-manager-frontend` on :3400 (estate message `03b92b7c`), polled
-> `ok` since. The other code it serves beyond Session 446's restart is
-> `bcfec3c`, the toast's D-Bus slots declared `uint` so Restart and
-> Snooze fire, and `8ce8732`, a test change. `/health` answers
+> **Deploy.** The daemon restarted at **2026-11-16 19:15:37**
+> <!--check:deploy--> <!--check:daemon_start-->, Session 453's SIGTERM,
+> so it loads estate-manager's `6d274a5`: `estate.queue.acquire` now
+> releases a still-waiting lease when its caller is cancelled (estate
+> message `5d5c92ce`). This repository's own code is unchanged since the
+> 11:33:02 restart, which picked up home-manager's `services.yaml` entry
+> for `home-manager-frontend` (`18f9309`, theirs), and `bcfec3c`, the
+> toast's D-Bus slots declared `uint` so Restart and Snooze fire. `/health` answers
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **6** unresolved rows <!--check:alerts-->,
-> not counting the two flapping titles below:
-> `estate-broker-provision critical` at `critical`, `High disk usage on
-> /`, `Project InvestingAssistant next action idle` and `Project
-> portfolio next action idle` at `warning`, and `Project kaggle next
-> action idle` and `Project powerbi-ae next action idle` at `info`
+> **Alerts.** `alerts` holds **5** unresolved rows <!--check:alerts-->,
+> not counting the two flapping titles below: `High disk usage on /`,
+> `Project InvestingAssistant next action idle` and `Project portfolio
+> next action idle` at `warning`, and `Project kaggle next action idle`
+> and `Project powerbi-ae next action idle` at `info`
 > <!--check:open_titles-->.
 >
-> **The critical row is the estate's unit, filed there.** It opened at
-> 15:11 UTC on 2026-11-14. That boot, `eno1` had no link for 27.5
-> minutes, so mosquitto gave up at 15:08:26 and the provisioner, waiting
-> 150 s for it, failed at 15:08:50. The estate's ADR-0260 now restarts
-> mosquitto when the address arrives, and it has run since 21:20 on
-> 2026-11-15, but nothing restarts the provisioner. Filed as estate
-> message `d340c4ff-0047-4b93-88da-92ec57ff420a`; the row closes when
-> the unit next runs clean, which needs `sudo` and is the estate's step.
+> **The critical row closed at 15:38 UTC on 2026-11-16.**
+> `estate-broker-provision` had been `failed` since the 2026-11-14 boot,
+> when `eno1` came up 27.5 minutes late and the broker with it. It was
+> rerun at 15:37:30 and logged *"schema already asserted; no changes"*,
+> so the dynsec store already matched `mqtt/dynsec.yaml`. A path back
+> for the next late link is the estate's open task (message
+> `d340c4ff-0047-4b93-88da-92ec57ff420a`).
 >
 > The disk row opened at 12:34 UTC on 2026-11-09 with `/` at 80.1 %,
 > against a warning line of 80 %. A World of Warcraft install under

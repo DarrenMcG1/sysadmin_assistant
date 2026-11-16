@@ -10,6 +10,23 @@
 
 ---
 
+## Session 453: the queue library's cancel fix, loaded by a restart (2026-11-16)
+
+Opened on estate message `5d5c92ce-39f1-4ddf-8cd4-16c663e7dab6`.
+
+- [x] **Checked the one caller.** `acquire_review_lease` in
+      `sysadmin/core/gpu_lease.py` catches only `QueueUnavailable`,
+      `AcquireDropped` and `AcquireTimeout`, so a `CancelledError` still
+      reaches the caller after the library's release. No code change.
+      `tests/test_gpu_lease.py` and `tests/test_gpu_lease_live.py`
+      pass (39).
+- [x] **Restarted the daemon at 19:15:37** by SIGTERM (the owner's
+      standing ruling of 2026-10-21), so it runs estate-manager's
+      `6d274a5`. `/api/health` answers 200.
+- [x] **STATUS.md's Alerts paragraph rewritten for 5 rows.** The
+      provisioner was rerun at 15:37:30 and its critical row closed at
+      15:38.
+
 ## Session 452: why estate-broker-provision failed, filed at the estate (2026-11-16)
 
 Opened on Session 451's Next action.

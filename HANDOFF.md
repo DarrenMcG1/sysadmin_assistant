@@ -1,4 +1,4 @@
-# Handoff — 2026-11-16 (Session 452)
+# Handoff — 2026-11-16 (Session 453)
 
 ## Next action
 
@@ -10,6 +10,30 @@ Nothing is startable under the freeze until a bug or an incident in daily use ca
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 453: the queue library's cancel fix, loaded by a restart
+
+Opened on estate message `5d5c92ce-39f1-4ddf-8cd4-16c663e7dab6`:
+`estate.queue.acquire` now releases a still-waiting lease when its
+caller is cancelled (their `6d274a5`).
+
+- **Our side needs no code.** `acquire_review_lease` catches only the
+  three queue exceptions, so a cancel still propagates after the
+  library's release. The lease tests pass (39).
+- **Restarted** at 19:15:37 by SIGTERM, the owner's standing ruling of
+  2026-10-21, so the daemon runs the fix now rather than at its next
+  start. Health answers 200. Message closed.
+- **Close note on `d340c4ff`** (estate-manager, 15:29): logged as their
+  Session 475's open task, *bring the provisioner back when the broker
+  comes back*, with our two shapes as a recommendation, and the one-off
+  rerun put to the owner. The unit was rerun at 15:37:30 and found
+  *"schema already asserted; no changes"*, which answers Session 452's
+  unmeasured question: the dynsec store matched the yaml. The critical
+  row closed at 15:38, and STATUS.md now names 5 rows.
+
+## What Session 452 handed on
+
+Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
 
 ## Session 452: why estate-broker-provision failed, filed at the estate
 
