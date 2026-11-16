@@ -1,8 +1,8 @@
-# Handoff — 2026-11-16 (Session 451)
+# Handoff — 2026-11-16 (Session 452)
 
 ## Next action
 
-Measure why estate-broker-provision failed at the 2026-11-14 boot, file it at estate-manager, and name its row in STATUS.md's Alerts paragraph. *(For: session)*
+Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
 
 ## Scheduled action
 
@@ -10,6 +10,36 @@ Measure why estate-broker-provision failed at the 2026-11-14 boot, file it at es
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 452: why estate-broker-provision failed, filed at the estate
+
+Opened on Session 451's Next action.
+
+- **Cause, from the journal:** on the 2026-11-14 boot `eno1` had no link
+  for 27.5 minutes (15:06:05 to 15:33:38; 4 s on the three boots
+  before). mosquitto's gate gave up at 15:08:26. The provisioner started
+  at 15:06:20, because `After=` only orders it, waited its 150 s and
+  exited 1 at 15:08:50. Why the link was late is not measured: the
+  kernel logged nothing about `eno1` in between.
+- **What was new:** the estate already fixed the broker half (ADR-0260,
+  on Alfred's `5ee683ac`). Its dispatcher restarts mosquitto only, and
+  neither the ADR nor their Session 471 mentions the provisioner, still
+  `failed` 30 hours after the broker came up.
+- **Filed** as `d340c4ff-0047-4b93-88da-92ec57ff420a`, with two shapes
+  for a fix as a recommendation: the dispatcher also starts the
+  provisioner, or the provisioner gains `WantedBy=mosquitto.service`.
+  The one-off rerun needs `sudo` and was not run here.
+- **Not measured:** whether the dynsec store matches `mqtt/dynsec.yaml`.
+  Every client seen since 21:20 authenticated, except two
+  `alfred-backend-health` refusals at 14:57 today, which are not linked
+  to this and were left out of the filing's cause.
+- **STATUS.md** names all 6 open rows; both Alerts checks read `ok`.
+  When the estate reruns the unit the row closes and the count drifts
+  to 5, which the preflight reports.
+
+## What Session 451 handed on
+
+Measure why estate-broker-provision failed at the 2026-11-14 boot, file it at estate-manager, and name its row in STATUS.md's Alerts paragraph. *(For: session)*
 
 ## Session 451: home-manager's frontend entry, logged and checked
 

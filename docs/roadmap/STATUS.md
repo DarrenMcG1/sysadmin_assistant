@@ -19,11 +19,23 @@
 > **200** <!--check:health-->, and the live schema is at the packaged
 > head <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **4** unresolved rows <!--check:alerts-->,
-> not counting the two flapping titles below: `High disk usage on /`,
-> `Project InvestingAssistant next action idle` and `Project portfolio
-> next action idle` at `warning`, and `Project kaggle next action idle`
-> at `info` <!--check:open_titles-->.
+> **Alerts.** `alerts` holds **6** unresolved rows <!--check:alerts-->,
+> not counting the two flapping titles below:
+> `estate-broker-provision critical` at `critical`, `High disk usage on
+> /`, `Project InvestingAssistant next action idle` and `Project
+> portfolio next action idle` at `warning`, and `Project kaggle next
+> action idle` and `Project powerbi-ae next action idle` at `info`
+> <!--check:open_titles-->.
+>
+> **The critical row is the estate's unit, filed there.** It opened at
+> 15:11 UTC on 2026-11-14. That boot, `eno1` had no link for 27.5
+> minutes, so mosquitto gave up at 15:08:26 and the provisioner, waiting
+> 150 s for it, failed at 15:08:50. The estate's ADR-0260 now restarts
+> mosquitto when the address arrives, and it has run since 21:20 on
+> 2026-11-15, but nothing restarts the provisioner. Filed as estate
+> message `d340c4ff-0047-4b93-88da-92ec57ff420a`; the row closes when
+> the unit next runs clean, which needs `sudo` and is the estate's step.
+>
 > The disk row opened at 12:34 UTC on 2026-11-09 with `/` at 80.1 %,
 > against a warning line of 80 %. A World of Warcraft install under
 > `~/Games/battlenet` wrote about 75 GB between 16:24 on 2026-11-04 and
@@ -33,9 +45,10 @@
 > mismatch until the disk is cleared, and clearing it is the owner's
 > choice, not this repository's.
 >
-> **The idle-nudge rows are counted, no longer set aside.** The three
+> **The idle-nudge rows are counted, no longer set aside.** The four
 > idle rows opened at 04:35 UTC on 2026-11-12 (InvestingAssistant,
-> portfolio) and 05:21 UTC on 2026-11-13 (kaggle). Until 2026-11-13 this
+> portfolio), 05:21 UTC on 2026-11-13 (kaggle) and 05:21 UTC on
+> 2026-11-14 (powerbi-ae). Until 2026-11-13 this
 > block set the `Project … next action idle` family aside, but two of
 > its members are at `warning`, which asks for action, so Session 448
 > withdrew the set-aside and named the rows. Moving each repository's

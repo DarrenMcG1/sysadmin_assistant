@@ -10,6 +10,24 @@
 
 ---
 
+## Session 452: why estate-broker-provision failed, filed at the estate (2026-11-16)
+
+Opened on Session 451's Next action.
+
+- [x] **Cause measured from the journal of the 2026-11-14 boot.** `eno1`
+      had no link from 15:06:05 to 15:33:38, against 4 s on the three
+      boots before. mosquitto's address gate gave up at 15:08:26, and the
+      provisioner, started at 15:06:20 and waiting 150 s for the broker,
+      exited 1 at 15:08:50. The estate's ADR-0260 (on Alfred's message
+      `5ee683ac`) now restarts mosquitto when the address arrives. It
+      never mentions the provisioner, which is still `failed`.
+- [x] **Filed at estate-manager** as
+      `d340c4ff-0047-4b93-88da-92ec57ff420a`, with two shapes for a fix
+      as a recommendation and the one-off `sudo` rerun as their step.
+- [x] **STATUS.md's Alerts paragraph names all 6 rows**, the critical one
+      with its own paragraph, and the powerbi-ae idle row with its open
+      time. Both Alerts checks read `ok`.
+
 ## Session 451: home-manager's frontend entry, logged and checked (2026-11-16)
 
 Opened on estate message `03b92b7c-be7d-419a-a560-4b96348de555`, in
@@ -25,8 +43,9 @@ which home-manager said it had added `home-manager-frontend` to
 - [x] **STATUS.md's Deploy sentence rewritten** for the 11:33:02
       restart; its two checks read `ok`.
 - [x] **Message `03b92b7c` closed** with a note of the above.
-- [ ] **Account for the two alert rows STATUS.md's Alerts block does
+- [x] **Account for the two alert rows STATUS.md's Alerts block does
       not name**, a second concern this session found and did not work.
+      Done by Session 452, below.
       `estate-broker-provision critical` has been open since 15:11 on
       2026-11-14: the unit failed at that boot with "broker not
       answering after 150s", although mosquitto has been active since
