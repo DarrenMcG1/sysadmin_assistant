@@ -502,6 +502,22 @@ services:
     kind: http
     url: https://clydeautomation.co.uk/
 
+  # --- home-manager ---------------------------------------------------
+  # The home app's service on :3400, declared the day the unit was made
+  # (2026-11-16; home-manager ADR-0001 §4): it serves the frontend's build
+  # and passes /api/ through to Alfred. /api/health answers 200 always and
+  # says "degraded" when Alfred or the build is missing, so `expect:`
+  # judges that down.
+  - project: home-manager
+    name: home-manager-frontend
+    role: frontend
+    kind: http
+    url: http://localhost:3400/api/health
+    port: 3400
+    expect: { path: status, equals: ok }
+    systemd: { unit: home-manager-frontend.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
   # --- This service ---------------------------------------------------
   # A system unit, unlike almost everything else here.
   - project: sysadmin-assistant
