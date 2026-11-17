@@ -6,6 +6,74 @@ file under estate rule 2's 500-line bound. The live Next action and the
 scheduled action stay there; nothing here is current. A later move puts
 its sections at the top of this file, below this paragraph.
 
+## What Session 439 handed on
+
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
+
+## Session 439: World of Warcraft joins the game detector's list
+
+Opened on estate message `3e91e0d7-52cd-4368-8f28-5fd19ddc0d1e`
+(Alfred): add `Wow.exe: WoW` to `agents.game_detector.games` so
+Alfred's Downtime lane gets WoW's sessions. Config only.
+
+- **Under the freeze:** a configuration entry the owner asked for,
+  read by the detector that already exists (ADR-0016). No code.
+- **Name:** I used "WoW", Alfred's default, not "World of Warcraft".
+  Alfred's hold (their ADR-0164 §4) matches the game name as a whole
+  word in the owner's `Gaming|WoW` label, so the long name would count
+  each session twice. It is not an owner ruling. If the owner names it
+  otherwise, change the value.
+- **Corrected the message:** it said a restart was needed. The agent
+  reads `get_config()` on every poll (`sysadmin/games/agent.py:163`),
+  and `game_detector` is in neither `RESTART_ONLY` nor any other
+  restart-only list, so a reload delivers it. I sent SIGHUP to the
+  daemon (pid 3283250) at 09:40:18. The reload logged
+  `requires_restart: []`, and the next `game_detector` poll ran on it.
+  `POST /api/sysadmin/reload` answered 401, because the daemon holds
+  a token from systemd.
+- **Verified live:** the owner started WoW during the session. The
+  09:43:18 poll opened a `WoW` span (`matched_by: executable`) with
+  `focus_known: true` and a `focused` stretch, so KWin's probe ties
+  the Wine window to `Wow.exe`'s pid, the one thing Alfred's message
+  had left unchecked.
+- **Closed** the message, the note naming this entry.
+- **go-to-market's close note** (message `f9784d62-cbdd-4b93-ac23-d6c7fb4ec478`,
+  sent by Session 438): already recorded above in Session 438's entry
+  and its tasks.md item; nothing new to tick.
+
+## What Session 438 handed on
+
+No work is startable: the feature freeze admits only a bug fix or what an incident forces, and the dated items wait under Scheduled action. *(For: none)*
+
+## Session 438: STATUS.md's opening block re-measured
+
+Opened on the handoff's Next action. Docs only.
+
+- **Measured first:** 4 of 13 claims read `no`: the daemon's start
+  time, the alert count, the unnamed rows, and the rotating family.
+- **The restart:** at 09:34:16 an estate-manager session ran
+  `sudo systemctl restart sysadmin.service`, so the daemon would load
+  the library that parses `freeze:`. Read from the journal's `sudo`
+  line.
+- **Waited for four `usb 7-1` kernel rows to close.** They opened when
+  the headset receiver re-enumerated at 10:01, and closed at 10:17 as
+  their kind always has. The block was written after that, so it does
+  not name rows that were already closing.
+- **Filed** go-to-market's failing copy job at go-to-market, estate
+  message `f9784d62-cbdd-4b93-ac23-d6c7fb4ec478`; their handoff did not
+  mention it. **Closed by the receiver:** go-to-market fixed the job in
+  their `1a465b2` at 10:20, and the critical row closed at 10:24, so the
+  block now counts 0 unresolved rows.
+- **Fork:** I kept the `rotating` declaration and named
+  InvestingAssistant's `warning` row. I rejected withdrawing the
+  declaration, as the check advises: that reds two premise tests, and
+  relaxing them would be code under the freeze. Cost: `rotating` reads
+  `mismatch` at every preflight until InvestingAssistant's next action
+  moves. The other 12 claims read `ok`.
+- **Found, not worked:** a nudge row never rises to the estate's
+  `warning` rung (kaggle's), because a held row is never escalated in
+  place. Recorded in tasks.md as a known issue.
+
 ## What Session 437 handed on
 
 Re-measure STATUS.md's opening block (tasks.md, Session 436's last item); the daemon has since restarted again, at 2026-11-04 09:34. *(For: session)*

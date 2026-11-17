@@ -4,11 +4,34 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-16
+> **Last Updated**: 2026-11-17
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
 ---
+
+## Session 454: the estate's HTTPS units, logged to declare (2026-11-17)
+
+Logged from estate message `0e20eec6-5cb8-448e-80e0-7a15873adfcd`
+(estate-manager), with its commit corrected by
+`4d87ff6b-aab7-42e7-8733-fb04925a7d89`: the code is their `71d07c5`,
+not `6b5bc29`.
+
+- [ ] **Declare the three user units in `services.yaml`**:
+      `estate-manager-https.service` (Caddy on 443, `GET /api/health`
+      on `127.0.0.1:8602`), and `estate-manager-cert.timer` with its
+      oneshot `estate-manager-cert.service` (lego, daily renewal; a run
+      with nothing due exits 0 and logs *"Skip renewal"*). Their
+      registry rows are 443 (`bind:lan`) and 8602, in
+      monitorable-project.md §2.1, their ADR-0261.
+      The cert unit's result is the only witness of a failed renewal:
+      the Let's Encrypt account has no email. Whether to also read the
+      served expiry (2027-02-15 when filed) is ours to judge; their
+      health endpoint deliberately does not. The declaring session
+      states why the freeze admits it.
+- [x] **The port pin follows the new row.** The live port table's rows
+      outside the audited ranges are now `[443, 22000]` in
+      `tests/test_unit_ports.py`; the push suite found it.
 
 ## Session 453: the queue library's cancel fix, loaded by a restart (2026-11-16)
 
