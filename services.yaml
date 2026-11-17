@@ -809,6 +809,41 @@ services:
     log: { type: journalctl, unit: estate-manager-scan-check.service,
            severity_filter: warning, format: json }
 
+  # The estate's HTTPS origin and its certificate (their ADR-0261,
+  # announced as message `0e20eec6`, code their `71d07c5`), declared
+  # 2026-11-17, the day the units exist. Registry rows 443 (bind:lan) and
+  # 8602. The health endpoint says only that Caddy answers; it does not
+  # read the certificate's expiry.
+  #
+  # The url is 127.0.0.1, not localhost: Caddy binds 8602 on IPv4
+  # loopback alone. 443 is not declared: an entry carries one port, and
+  # 8602 is the one the check reads.
+  #
+  # Neither log block declares `format: json`. Caddy and lego write every
+  # line at PRIORITY=6, Caddy's own 16 "warn" documents included, so the
+  # `warning` filter stores only systemd's lines, which are plain text.
+  - project: estate-manager
+    name: estate-manager-https
+    role: proxy
+    kind: http
+    url: http://127.0.0.1:8602/api/health
+    port: 8602
+    systemd: { unit: estate-manager-https.service, scope: user }
+    log: { type: journalctl, severity_filter: warning }
+
+  # The Let's Encrypt account has no email (owner's ruling, 2026-11-17),
+  # so this check is the only witness of a failed renewal: `kind: timer`
+  # reads the oneshot's Result, and anything but `success` is critical.
+  # A run with nothing due exits 0 and logs "Skip renewal".
+  - project: estate-manager
+    name: estate-manager-cert-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: estate-manager-cert.timer, scope: user }
+    controllable: false
+    log: { type: journalctl, unit: estate-manager-cert.service,
+           severity_filter: warning }
+
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any
   # repository, which is what the unit sweep already calls a host unit.
