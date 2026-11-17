@@ -1409,10 +1409,14 @@ def test_our_parser_and_the_estates_agree_on_the_live_document():
     ours = {c.port for c in P.parse_port_registry(document.read_text(encoding="utf-8"))}
     assert ours, "the live port registry parsed to zero rows"
     # Every port the live table claims is inside the jurisdiction we
-    # judge, or explicitly outside it.  **One row is**, and it is a
-    # third-party daemon the estate hosts rather than a service either
-    # repository wrote: 22000, the syncthing sync port, recorded under
-    # the sidecar rule.  A row inside a range nobody audits is judged by
+    # judge, or explicitly outside it.  **Two rows are**, and each is a
+    # third-party daemon the estate hosts on that daemon's own port
+    # rather than a service either repository wrote: 22000, the
+    # syncthing sync port, recorded under the sidecar rule, and 443,
+    # Caddy as the estate's HTTPS origin, claimed 2026-11-17 (their
+    # ADR-0261; the row says *"443 is HTTPS's own port and Caddy is what
+    # is on it, as with 1883"*).  443's health is its sidecar row 8602,
+    # which is inside the band.  A row inside a range nobody audits is judged by
     # nobody, which is what this assertion exists to catch, and this one
     # is *known* to be — recorded in the row's own text and as their
     # SNAG-ESTATE-070 — so moving it is their decision to ask for and
@@ -1428,7 +1432,7 @@ def test_our_parser_and_the_estates_agree_on_the_live_document():
     # the same defect one repository smaller.
     audited = [tuple(r) for r in get_config().agents.service_discovery.ports.audited_ranges]
     unaudited = sorted(p for p in ours if not P.in_range(p, audited))
-    assert unaudited == [22000], (
+    assert unaudited == [443, 22000], (
         f"registry rows outside the audited ranges {audited}: {unaudited}. "
         "Either the ranges need widening or the row belongs elsewhere."
     )
