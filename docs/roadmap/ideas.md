@@ -14,6 +14,8 @@ The feature freeze after 1.0 (`CLAUDE.md`, "1.0, then a feature
 freeze"): a new idea is one line here. The inbox below predates the
 freeze and is read at the same sitting.
 
+- Read the certificate served on 443 and alert ahead of its expiry, as a second witness beside `estate-manager-cert-timer`'s unit result (Session 455, 2026-11-17; *Explored & Rejected* below turned it down when every service was on localhost).
+
 ---
 
 ## Ideas Inbox

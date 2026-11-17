@@ -17,7 +17,7 @@ Logged from estate message `0e20eec6-5cb8-448e-80e0-7a15873adfcd`
 `4d87ff6b-aab7-42e7-8733-fb04925a7d89`: the code is their `71d07c5`,
 not `6b5bc29`.
 
-- [ ] **Declare the three user units in `services.yaml`**:
+- [x] **Declare the three user units in `services.yaml`**:
       `estate-manager-https.service` (Caddy on 443, `GET /api/health`
       on `127.0.0.1:8602`), and `estate-manager-cert.timer` with its
       oneshot `estate-manager-cert.service` (lego, daily renewal; a run
@@ -29,6 +29,13 @@ not `6b5bc29`.
       served expiry (2027-02-15 when filed) is ours to judge; their
       health endpoint deliberately does not. The declaring session
       states why the freeze admits it.
+      **Done by Session 455** (`a68e608`): `estate-manager-https`
+      (`kind: http`, port 8602) and `estate-manager-cert-timer`
+      (`kind: timer`). The freeze admits it because no code changed:
+      the monitorable-project contract requires every live unit to be
+      declared, and an undeclared one is an unmonitored finding in the
+      next sweep. Reading the served expiry would be new code, so it is
+      a v2 line in `ideas.md`.
 - [x] **The port pin follows the new row.** The live port table's rows
       outside the audited ranges are now `[443, 22000]` in
       `tests/test_unit_ports.py`; the push suite found it.

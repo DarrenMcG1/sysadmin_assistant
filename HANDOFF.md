@@ -1,8 +1,8 @@
-# Handoff — 2026-11-17 (Session 454)
+# Handoff — 2026-11-17 (Session 455)
 
 ## Next action
 
-Declare estate-manager-https.service and estate-manager-cert.timer with its oneshot in services.yaml (tasks.md, Session 454). *(For: session)*
+Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
 
 ## Scheduled action
 
@@ -10,6 +10,37 @@ Declare estate-manager-https.service and estate-manager-cert.timer with its ones
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 455: the estate's HTTPS units, declared
+
+Worked tasks.md's Session 454 item, logged from estate message
+`0e20eec6` with their commit corrected to `71d07c5`.
+
+- **Two entries in `services.yaml`** (`a68e608`): `estate-manager-https`,
+  `kind: http` on `http://127.0.0.1:8602/api/health` with `port: 8602`,
+  and `estate-manager-cert-timer`, `kind: timer`, whose check reads the
+  oneshot's `Result`, so a failed renewal is critical.
+- **Chose 127.0.0.1 over localhost**, the file's usual spelling: Caddy
+  binds 8602 on IPv4 loopback alone. **Left 443 undeclared**: an entry
+  carries one port, and 8602 is the one the check reads.
+- **No `format: json` on either log block.** Measured in the journals:
+  Caddy's 81 and lego's 33 lines are all at PRIORITY=6, Caddy's 16 own
+  "warn" documents included, so the `warning` filter stores only
+  systemd's plain-text lines.
+- **Driven live.** Reloaded at 16:53:12 with the tray's token
+  (`services_added` names both); both rows read `ok` at 16:53:23. The
+  sweep at 16:53:24 counts 43 monitored, 0 unmonitored, 0 port findings.
+  `restart_unbounded` went 16 to 17: the HTTPS unit has
+  `Restart=on-failure` with no start limit, like the 16 before it.
+- **The cert timer has not fired yet.** Its `ok` reads the manual run of
+  13:32:35 (`last_run_recorded: false`); the first timer-driven run is
+  2026-11-18 03:18:59, and the check alerts if it fails.
+- **Reading the served expiry was not built**: new code under the
+  freeze, so it is a v2 line in `ideas.md`.
+
+## What Session 454 handed on
+
+Declare estate-manager-https.service and estate-manager-cert.timer with its oneshot in services.yaml (tasks.md, Session 454). *(For: session)*
 
 ## Session 454: a corrected commit id, and the units it names logged
 
