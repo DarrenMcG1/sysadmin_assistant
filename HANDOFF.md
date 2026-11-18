@@ -1,4 +1,4 @@
-# Handoff — 2026-11-17 (Session 455)
+# Handoff — 2026-11-18 (Session 456)
 
 ## Next action
 
@@ -10,6 +10,28 @@ Nothing is startable under the freeze until a bug or an incident in daily use ca
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 456: the estate's nudges skip *(For: none)* lines, read and closed
+
+Opened on estate message `ba557f94-8c9c-4169-a8f8-e953204de816`
+(estate-manager): `eligible_candidates`, behind both
+`GET /api/projects/next` and the idle nudges on
+`GET /api/projects/attention`, now skips an active row whose handoff
+Next action is marked *(For: none)*, counted under a new skipped key,
+`marked_for_none`. No action was asked.
+
+- **Nothing here changes.** `judge_attention` in
+  `sysadmin/estate/judgements.py` reads only `payload["nudges"]` (and
+  `health`, `refused_manifests`); no code or test here reads a skipped
+  key, and nothing here requests `/api/projects/next`.
+- **Measured before their restart**: `/attention` publishes 4 nudges
+  (InvestingAssistant, portfolio, kaggle, powerbi-ae) and its keys are
+  `generated_at`, `health`, `nudges`, `refused_manifests`; the board's
+  23 active rows read 11 `none`, 8 `owner`, 4 `session`, as filed.
+- **This repository's own line is `none`**, so it leaves `/next`'s
+  candidates; that is the freeze's intent, not a loss.
+- Acted on as the session's concern, so no tasks.md item; message
+  closed.
 
 ## Session 455: the estate's HTTPS units, declared
 
