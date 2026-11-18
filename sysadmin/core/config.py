@@ -824,10 +824,13 @@ class MqttNotificationsConfig(BaseModel):
 
     Session 39's "who watches the watchers" task, built 2026-10-01. The
     identity ``sysadmin-publisher`` is the estate's, declared in
-    ``estate-manager/mqtt/dynsec.yaml`` with write access to ``estate/#``;
-    its password reaches this process as ``$CREDENTIALS_DIRECTORY/<credential>``
-    through ``LoadCredential=`` on ``sysadmin.service`` (ADR-0003), so
-    nothing here is a secret.
+    ``estate-manager/mqtt/dynsec.yaml`` with write access to
+    ``estate/alerts/#`` only (role ``sysadmin-alerts-publisher``, their
+    bug review M15, 2026-11-18; ``estate/#`` until the owner reprovisions),
+    so ``topic`` must stay under ``estate/alerts/`` or the broker drops
+    the publish in silence; its password reaches this process as
+    ``$CREDENTIALS_DIRECTORY/<credential>`` through ``LoadCredential=``
+    on ``sysadmin.service`` (ADR-0003), so nothing here is a secret.
 
     **Off by default in the model, on in config.yaml.** A process started
     outside the unit — the suite, ``run-dev.sh`` — has no credentials

@@ -42,8 +42,12 @@ alert, at well under one a day.
 unauthorised publish — the broker drops it silently (``estate.bus``'s
 docstring, measured 2026-09-04). So ``mqtt_alert_published`` means the
 broker accepted this identity, and the ACL is established by
-``estate-manager/mqtt/dynsec.yaml`` granting ``estate-publisher`` on
-``estate/#``. Only a subscriber can witness more.
+``estate-manager/mqtt/dynsec.yaml``: since their bug review M15
+(2026-11-18) a role of its own, ``sysadmin-alerts-publisher``, on
+``estate/alerts/#`` only, in place of the shared ``estate-publisher`` on
+``estate/#`` (the broker holds the old grant until the owner
+reprovisions). A topic configured outside ``estate/alerts/`` is
+therefore dropped with a zero exit. Only a subscriber can witness more.
 """
 
 import asyncio
