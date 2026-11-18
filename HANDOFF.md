@@ -1,4 +1,4 @@
-# Handoff — 2026-11-18 (Session 457)
+# Handoff — 2026-11-18 (Session 458)
 
 ## Next action
 
@@ -10,6 +10,30 @@ Nothing is startable under the freeze until a bug or an incident in daily use ca
   Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 458: the publisher's grant narrows to estate/alerts/#, read and closed
+
+Opened on estate message `00351947-1c64-48eb-b051-bc74c95e75d6`
+(estate-manager, their bug review M15): `mqtt/dynsec.yaml` gives
+`sysadmin-publisher` its own role, `sysadmin-alerts-publisher`, with
+`publishClientSend` on `estate/alerts/#` only, in place of the shared
+`estate-publisher` on `estate/#`. On their branch `m14-m15-review`
+(`0b6cc2b`, read there); the broker changes when the owner reprovisions.
+
+- **Two docstrings corrected** (`a71dd6c`): `MqttNotificationsConfig`
+  in `sysadmin/core/config.py` and `sysadmin/monitor/mqtt_alerts.py`'s
+  module docstring named the old grant. Both now name the new role, say
+  the broker holds `estate/#` until the reprovision, and state the
+  consequence: a `topic` outside `estate/alerts/` is dropped with a zero
+  exit.
+- **Behaviour unchanged**: `config.yaml` publishes on
+  `estate/alerts/raised`, inside the new grant, and `mqtt_alerts.py` is
+  the only `estate.bus` publish here. No validator added: the freeze
+  admits fixes, and no configured topic is outside the subtree.
+- **Left as history**: ADR-0003's Context (verified live 2026-08-11
+  under `estate-publisher`) and `tasks.md`'s closed game-spans item.
+- Acted on as the session's concern, so no tasks.md item; message
+  closed.
 
 ## Session 457: audit ages pass over errored runs, read and closed
 
