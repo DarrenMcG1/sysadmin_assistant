@@ -405,6 +405,12 @@ class SysAdminAgent(BaseAgent):
     def __init__(self) -> None:
         self._degraded_counts: dict[str, int] = {}
         self._failure_counts: dict[str, int] = {}
+        # Services auto-restarted in this outage: one restart per outage,
+        # cleared on the next healthy poll. Without it the reset below
+        # restarts a broken unit every `auto_restart_after_checks` polls for
+        # ever, and the row the owner needs ("its restart did not bring it
+        # back", ruling of 2026-11-25) never stands on its own.
+        self._restarted: set[str] = set()
         # The estate arbiter's active lease, read at most once per run and
         # only when something is actually down (SNAG-AGENT-011). `None`
         # means "this run has not asked", which is why the reading itself
@@ -510,6 +516,7 @@ class SysAdminAgent(BaseAgent):
         for name in dropped:
             self._degraded_counts.pop(name, None)
             self._failure_counts.pop(name, None)
+            self._restarted.discard(name)
             self._last_status.pop(name, None)
             # A reload can land mid-run; a staged name would otherwise
             # come back into `_last_status` at that run's commit.
@@ -1648,6 +1655,7 @@ class SysAdminAgent(BaseAgent):
         if status == "ok":
             self._degraded_counts[service_name] = 0
             self._failure_counts[service_name] = 0
+            self._restarted.discard(service_name)
             # No resolve here. It used to call
             # `resolve_alerts(session, service_name)` — a substring
             # `ilike`, so `venture-chat` recovering also closed
@@ -1691,11 +1699,20 @@ class SysAdminAgent(BaseAgent):
                 self._failure_counts.get(service_name, 0) + 1
             )
 
-            # Auto-restart if enabled and threshold met
+            # Read before the restart is decided (SNAG-AGENT-013): a unit
+            # the estate's arbiter stopped to free the GPU is not restarted
+            # against its lease, and falls through to the quietened row.
+            stops = self._arbitration or _NO_ARBITRATION
+            arbitrated = stops.stopped(svc.systemd_unit)
+            already_restarted = service_name in self._restarted
+
+            # Auto-restart if enabled and threshold met, once per outage
             if (
                 svc.auto_restart
                 and svc.controllable
                 and svc.systemd_unit
+                and not arbitrated
+                and not already_restarted
                 and self._failure_counts[service_name] >= svc.auto_restart_after_checks
             ):
                 logger.info(
@@ -1706,6 +1723,7 @@ class SysAdminAgent(BaseAgent):
                 success, msg = await restart_unit(svc.systemd_unit, user=svc.user)
                 # Reset counter to avoid restart loop
                 self._failure_counts[service_name] = 0
+                self._restarted.add(service_name)
 
                 return await self._raise_judged(
                     session,
@@ -1744,10 +1762,13 @@ class SysAdminAgent(BaseAgent):
             # 14:00 outage as readily as for the arbitrated 00:00 one,
             # which is the pile-up-wearing-a-declaration-as-an-excuse
             # shape `_resolve_recovered` rule 4 already refuses.
-            stops = self._arbitration or _NO_ARBITRATION
-            arbitrated = stops.stopped(svc.systemd_unit)
             severity = ARBITRATED_STOP_SEVERITY if arbitrated else "critical"
             message = f"{service_name} is {status}"
+            if already_restarted:
+                message += (
+                    " — still down after its automatic restart, which is not "
+                    "tried again until it is next healthy"
+                )
             if arbitrated:
                 message += (
                     " — stopped by the estate's arbiter under lease "
