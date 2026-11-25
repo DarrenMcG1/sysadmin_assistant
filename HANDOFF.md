@@ -1,13 +1,34 @@
-# Handoff — 2026-11-25 (Session 459)
+# Handoff — 2026-11-25 (Session 460)
 
 ## Next action
 
-Re-measure STATUS.md's timed prediction, overdue since 2026-11-22, then rewrite or replace its sentence. *(For: session)*
+Rewrite STATUS.md's Deploy and Alerts sentences: find why the daemon restarted at 2026-11-19 08:19:18, and name the open Athenaeum idle row. *(For: session)*
 
 ## Scheduled action
 
+- 2026-12-20 03:00 UTC: STATUS.md's timed prediction comes due; the
+  preflight reports it, then a session re-measures it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 460: STATUS.md's timed prediction, re-measured and replaced
+
+Opened on Session 459's Next action. Docs only.
+
+- **The prediction held.** The 3 shared log instants of 2026-10-30
+  cleared at retention. The test still has live specimens, because 9
+  new ones were ingested on four days up to 2026-11-20. The sentence
+  now names those 9 and the 2026-12-20 03:00 run that clears the
+  newest.
+- **Forks taken.**
+  - Replaced the prediction rather than deleting it.
+    `test_the_block_states_at_least_one_prediction` requires the block
+    to carry one, so deleting it would red the suite.
+  - Left STATUS.md's `Last Updated` at 2026-11-16. Its Deploy sentence
+    is still stale, and a fresh date over it would read as checked.
+- **Stacked**: the `daemon_start` and `open_titles` claims fail in the
+  same block. Recorded in tasks.md under Session 460 and made the Next
+  action.
 
 ## Session 459: the owner's working-week rulings, logged; self-restart on a branch
 

@@ -62,13 +62,15 @@
 > `flapping` check withdraws the exemption if a declared title stays
 > open for half its 7-day window.
 >
-> **One prediction is timed.** On 2026-10-30, 3 log instants were each
-> shared by two records with different raw lines, the newest pair
-> ingested on 2026-10-22. Retention removes it at 03:00 on 2026-11-22,
-> after which
+> **One prediction is timed.** On 2026-11-25, 9 log instants across 4
+> sources were each shared by two records with different raw lines,
+> ingested on four separate days of the 30-day window. The newest pair
+> was ingested on 2026-11-20. Retention removes it at 03:00 on
+> 2026-12-20, after which
 > `test_a_shared_instant_is_two_records_and_not_one_stored_twice` skips
-> unless a new shared instant has been ingested.
-> <!--check:expires 2026-11-22T03:00+00:00 the 3 shared instants measured on 2026-10-30 clear at retention-->
+> only if no new shared instant has arrived, which those four days make
+> unlikely.
+> <!--check:expires 2026-12-20T03:00+00:00 the 9 shared instants measured on 2026-11-25 clear at retention-->
 >
 > The Alembic head, the route, table and test counts are claimed in the
 > Quick Status table below, each beside its own marker.

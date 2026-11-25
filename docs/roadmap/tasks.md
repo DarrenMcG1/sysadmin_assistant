@@ -10,6 +10,34 @@
 
 ---
 
+## Session 460: STATUS.md's timed prediction re-measured (2026-11-25)
+
+Opened on Session 459's Next action. Docs only.
+
+- [x] **The prediction held and was replaced.** The 3 shared instants
+      of 2026-10-30 are gone: today's oldest `log_entries` row was
+      ingested at 2026-10-26 03:01:35 UTC, which is today's 03:00
+      cutoff, so retention ran on time. The test still passes rather
+      than skipping, because 9 new shared instants were ingested on
+      four days between 2026-10-30 and 2026-11-20, across 4 sources,
+      each two records with different raw lines. The new prediction:
+      the newest pair, ingested 2026-11-20 00:29 UTC, clears at the
+      03:00 run on 2026-12-20, from `purge_statement`'s `ingested_at <
+      now − 30 days`.
+- [x] **Driven:** `check-ops-claims.sh` reads the prediction `ok`, 24
+      days to run, and `test_ops_claims.py` with
+      `test_log_resume_boundary.py` pass, 242 tests. The first rewrite
+      put a sentence between the clock and the marker and two tests
+      went red on it, which is the rule that a marker sits in the
+      sentence naming its clock.
+- [ ] **Two other claims in the same block fail, found by this
+      session's check run and not worked.** `daemon_start`: the daemon
+      has been active since 2026-11-19 08:19:18, and the Deploy
+      paragraph still names Session 453's restart of 2026-11-16, with
+      no record of why it restarted. `open_titles`: `Project Athenaeum
+      next action idle` is open and unnamed, and InvestingAssistant's
+      row has closed.
+
 ## Session 459: the owner's working-week rulings, logged and the self-restart built (2026-11-25)
 
 Logged from estate message `de46c7a3-b008-4425-b3ef-4de64615945b`
@@ -60,8 +88,9 @@ still frozen.
       `sysadmin/monitor/agent.py`, `services.yaml` and `systemd/`.
 - [ ] **Scheduled sessions (question 5).** This repository is among the
       15. The design is estate-manager's open row.
-- [ ] **STATUS.md's timed prediction, due 2026-11-22, is overdue.** A
+- [x] **STATUS.md's timed prediction, due 2026-11-22, is overdue.** A
       second concern found this session, recorded and not worked.
+      Done by Session 460.
 
 ## Session 454: the estate's HTTPS units, logged to declare (2026-11-17)
 
