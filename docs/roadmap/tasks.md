@@ -10,6 +10,31 @@
 
 ---
 
+## Session 461: STATUS.md's Deploy and Alerts rewritten; dotfiles' live folder logged (2026-11-25)
+
+Opened on Session 460's Next action. Docs only.
+
+- [ ] **Declare dotfiles' two live-folder units in `services.yaml` once
+      they exist.** Logged from estate message
+      `0ff03232-df47-4577-9cd3-38d6f39477e6` (dotfiles, advance notice
+      of their ADR-0014, decided and not built). A timer,
+      `dotfiles-live.timer`, every 15 minutes starts the oneshot
+      `dotfiles-live.service`, which fast-forwards a second clone at
+      `~/.local/share/dotfiles-live`. Both are user units, project
+      `dotfiles`, and the timer is the one to check (`kind: timer`).
+      **Waits on dotfiles' reply** (`in_reply_to` that message) the day
+      they are installed, because an entry declared before then alarms
+      on a missing unit. Writing `services.yaml` is ours; dotfiles will
+      not.
+- [ ] **Re-read `sysadmin/estate/hook_wiring.py` at dotfiles' cut-over.**
+      Same message. `~/.claude/settings.json` stops being a symlink into
+      `~/projects/dotfiles` and becomes a regular file at the same path.
+      The reads keep working, but `_where`'s resolved target will then
+      equal the declared path, and its docstrings saying the file is a
+      symlink go stale. The ELOOP case it guards gets harder to build,
+      not impossible. The cut-over is the owner's hand step after their
+      review, so nothing changes here before it.
+
 ## Session 460: STATUS.md's timed prediction re-measured (2026-11-25)
 
 Opened on Session 459's Next action. Docs only.
