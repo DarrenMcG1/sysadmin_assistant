@@ -16,17 +16,22 @@ Opened on estate message `de46c7a3-b008-4425-b3ef-4de64615945b`
 review). The freeze exception he named that day covers it. Each ruling
 is a task under Session 459 in `docs/roadmap/tasks.md`.
 
-- **Self-restart is built on branch `self-restart-three` (`27c3cc9`),
-  unmerged.** The branch sits in its own worktree. Service control
-  always waits for the owner's merge, and `sysadmin.service` runs this
-  checkout, so main carries only docs. Four services set
+- **Self-restart is built on branch `self-restart-three` (`27c3cc9`,
+  `5e3dbee`), unmerged.** The branch sits in its own worktree. Service
+  control always waits for the owner's merge, and `sysadmin.service`
+  runs this checkout, so main carries only docs. Five services set
   `auto_restart`. The GPU lease is read before a restart, which closes
   `SNAG-AGENT-013`. One restart per outage. 1,048 of the diff's lines
   are the retired check and its tests.
 - **Forks taken.**
-  - `llama-server` is off the list. `restart_unit` blocks with no
-    timeout and the unit waits on the GPU, so a restart could stall
-    every check.
+  - The auto-restart is queued with `--no-block`, so success means
+    queued, not started. The tray's service-control route keeps the
+    blocking call, so its result stays real. Rejected: a timeout on
+    the blocking call, which would report a slow GPU start as a
+    failure.
+  - `llama-server` was first left off because the blocking restart
+    could stall every check. The owner then ruled it in, and the
+    non-blocking restart is what made that safe.
   - `sysadmin-service` is off. A monitor cannot restart itself, and
     `Restart=always` already does.
   - Once per outage rather than every third poll, because a broken

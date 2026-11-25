@@ -19,17 +19,16 @@ fitting the estate to the working week; work no ruling leads to is
 still frozen.
 
 - [x] **Self-restart for the three named projects (question 14).**
-      Built on branch `self-restart-three` (`27c3cc9`), not on main:
-      service control always waits for his merge (question 2, case 4),
-      and the daemon runs this checkout. `auto_restart: true` on
-      `alfred`, `alfred-frontend`, `estate-manager-api` and
-      `estate-manager-https`. The lease is read before a restart
-      (`SNAG-AGENT-013` closed), and a unit is restarted once per outage.
-      Live only once he merges it and the daemon restarts.
-      Owner: `llama-server` (alfred-inference) is left off, because the
-      restart call blocks the poll with no timeout and that unit waits for
-      the GPU at start. Default meanwhile: off. Setting it needs a
-      non-blocking restart first.
+      Built on branch `self-restart-three` (`27c3cc9`, `5e3dbee`), not
+      on main: service control always waits for his merge (question 2,
+      case 4), and the daemon runs this checkout. `auto_restart: true` on
+      `alfred`, `alfred-frontend`, `llama-server`, `estate-manager-api`
+      and `estate-manager-https`. The lease is read before a restart
+      (`SNAG-AGENT-013` closed), a unit is restarted once per outage, and
+      the restart is queued with `--no-block`, so a unit waiting for the
+      GPU cannot stall the other checks. `llama-server` was added on the
+      owner's word in the session the same day. Live only once he merges
+      it and the daemon restarts.
 - [ ] **Phone item 2: "a service failed and its restart did not bring it
       back" as its own critical event.** After the branch is merged, the
       row that says so is the already-open critical, refreshed in place,
