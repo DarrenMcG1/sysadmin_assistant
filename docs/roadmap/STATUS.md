@@ -1,5 +1,5 @@
 # Project Status Dashboard
-**Last Updated**: 2026-11-16
+**Last Updated**: 2026-11-25
 
 > **The box as it stands.** This block holds only the claims
 > `scripts/check-ops-claims.sh` re-measures at every preflight, one
@@ -8,22 +8,27 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-11-16 19:15:37**
-> <!--check:deploy--> <!--check:daemon_start-->, Session 453's SIGTERM,
-> so it loads estate-manager's `6d274a5`: `estate.queue.acquire` now
-> releases a still-waiting lease when its caller is cancelled (estate
-> message `5d5c92ce`). This repository's own code is unchanged since the
-> 11:33:02 restart, which picked up home-manager's `services.yaml` entry
-> for `home-manager-frontend` (`18f9309`, theirs), and `bcfec3c`, the
-> toast's D-Bus slots declared `uint` so Restart and Snooze fire. `/health` answers
-> **200** <!--check:health-->, and the live schema is at the packaged
-> head <!--check:schema-->.
+> **Deploy.** The daemon restarted at **2026-11-19 08:19:18**
+> <!--check:deploy--> <!--check:daemon_start--> when the box booted, so
+> it was a boot and not a restart of the unit (`NRestarts=0`). A full
+> system upgrade of 325 packages ran from 22:03 UTC on 2026-11-18,
+> taking `linux-lts` from 6.18.63 to 6.18.64 and PostgreSQL from 18.6 to
+> 18.7, and a `poweroff` from the user session followed at 22:12:05,
+> which stopped the daemon cleanly. The boot loaded two changes that
+> were not yet live: this repository's `a71dd6c`, which corrects two
+> docstrings, and estate-manager's `8c717c6` and `c37e6a9` in
+> `estate.llama`, which put llama-server's reason in a status error and
+> refuse an embedding reply whose indexes are not the batch's. The
+> `services.yaml` entries of `a68e608` were already live, installed by
+> a reload at 16:53 UTC on 2026-11-17. `/health` answers **200**
+> <!--check:health-->, and the live schema is at the packaged head
+> <!--check:schema-->.
 >
 > **Alerts.** `alerts` holds **5** unresolved rows <!--check:alerts-->,
-> not counting the two flapping titles below: `High disk usage on /`,
-> `Project InvestingAssistant next action idle` and `Project portfolio
-> next action idle` at `warning`, and `Project kaggle next action idle`
-> and `Project powerbi-ae next action idle` at `info`
+> not counting the two flapping titles below: `High disk usage on /`
+> and `Project portfolio next action idle` at `warning`, and `Project
+> Athenaeum next action idle`, `Project kaggle next action idle` and
+> `Project powerbi-ae next action idle` at `info`
 > <!--check:open_titles-->.
 >
 > **The critical row closed at 15:38 UTC on 2026-11-16.**
@@ -32,21 +37,25 @@
 > rerun at 15:37:30 and logged *"schema already asserted; no changes"*,
 > so the dynsec store already matched `mqtt/dynsec.yaml`. A path back
 > for the next late link is the estate's open task (message
-> `d340c4ff-0047-4b93-88da-92ec57ff420a`).
+> `d340c4ff-0047-4b93-88da-92ec57ff420a`). At the 2026-11-19 boot the
+> provisioner ran clean, at 08:19:19.
 >
 > The disk row opened at 12:34 UTC on 2026-11-09 with `/` at 80.1 %,
 > against a warning line of 80 %. A World of Warcraft install under
 > `~/Games/battlenet` wrote about 75 GB between 16:24 on 2026-11-04 and
-> 02:54 the next morning, taking `/` from 76 % to 81 %. Since then it has
-> sat between 79.8 % and 82 %, so the row has opened three times since
-> 2026-11-05 and closed twice. Each close will turn this count into a
-> mismatch until the disk is cleared, and clearing it is the owner's
-> choice, not this repository's.
+> 02:54 the next morning, taking `/` from 76 % to 81 %. The row has
+> opened three times since 2026-11-05 and closed twice, and it has
+> stayed open since 2026-11-09 because `/` has kept climbing, from
+> 79.9 % that day to 87.0 % on 2026-11-25. That is about 0.44 points a
+> day, so at that rate `/` crosses the 90 % critical line around
+> 2026-12-02. What is writing it has not been measured. Clearing the
+> disk is the owner's choice, not this repository's.
 >
 > **The idle-nudge rows are counted, no longer set aside.** The four
-> idle rows opened at 04:35 UTC on 2026-11-12 (InvestingAssistant,
-> portfolio), 05:21 UTC on 2026-11-13 (kaggle) and 05:21 UTC on
-> 2026-11-14 (powerbi-ae). Until 2026-11-13 this
+> idle rows opened at 04:35 UTC on 2026-11-12 (portfolio), 05:21 UTC on
+> 2026-11-13 (kaggle), 05:21 UTC on 2026-11-14 (powerbi-ae) and 05:20
+> UTC on 2026-11-24 (Athenaeum). InvestingAssistant's row, opened with
+> portfolio's, closed at 17:20 UTC on 2026-11-25. Until 2026-11-13 this
 > block set the `Project … next action idle` family aside, but two of
 > its members are at `warning`, which asks for action, so Session 448
 > withdrew the set-aside and named the rows. Moving each repository's

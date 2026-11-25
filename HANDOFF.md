@@ -1,8 +1,8 @@
-# Handoff — 2026-11-25 (Session 460)
+# Handoff — 2026-11-25 (Session 461)
 
 ## Next action
 
-Rewrite STATUS.md's Deploy and Alerts sentences: find why the daemon restarted at 2026-11-19 08:19:18, and name the open Athenaeum idle row. *(For: session)*
+Find what has filled / from 79.9 % to 87.0 % since 2026-11-09, before it crosses 90 % around 2026-12-02, and name it for the owner. *(For: session)*
 
 ## Scheduled action
 
@@ -10,6 +10,28 @@ Rewrite STATUS.md's Deploy and Alerts sentences: find why the daemon restarted a
   preflight reports it, then a session re-measures it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 461: STATUS.md's Deploy and Alerts, rewritten
+
+Opened on Session 460's Next action. Docs only.
+
+- **The 2026-11-19 08:19:18 start was a boot**, after a 325-package
+  system upgrade and a clean `poweroff` at 22:12:05 on 2026-11-18. The
+  journal names no person, only a `poweroff` client in the user
+  session, so the paragraph names none.
+- **Forks taken.**
+  - Bumped `Last Updated` to 2026-11-25, which Session 460 declined.
+    Every paragraph of the block was re-measured first, and the disk
+    paragraph was false, so it was rewritten too.
+  - Said the boot did not load `a68e608`. A reload at 16:53 UTC on
+    2026-11-17 had already installed its `services.yaml` entries.
+  - Left the pacman `python-*` upgrades out. The daemon runs from its
+    own venv.
+- **Stacked**: `/` is at 87.0 % and rising about 0.44 points a day. It
+  is recorded in tasks.md under Session 461 and made the Next action.
+- **Logged** estate message `0ff03232-df47-4577-9cd3-38d6f39477e6`
+  (dotfiles' live folder) as two waiting tasks under Session 461 and
+  closed it.
 
 ## Session 460: STATUS.md's timed prediction, re-measured and replaced
 

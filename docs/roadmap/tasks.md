@@ -14,6 +14,29 @@
 
 Opened on Session 460's Next action. Docs only.
 
+- [x] **Why the daemon restarted at 2026-11-19 08:19:18: a boot.** A
+      full system upgrade of 325 packages ran from 22:03 UTC on
+      2026-11-18 (`linux-lts` 6.18.63 → 6.18.64, PostgreSQL 18.6 →
+      18.7), then a `poweroff` from the user session at 22:12:05. The
+      daemon stopped cleanly and the unit's `NRestarts` is 0. The boot
+      newly loaded `a71dd6c` (two docstrings) and estate-manager's
+      `8c717c6` and `c37e6a9` in `estate.llama`; `a68e608`'s
+      `services.yaml` entries were already live from a reload at 16:53
+      UTC on 2026-11-17. STATUS.md's Deploy paragraph now says so.
+- [x] **Alerts named.** `Project Athenaeum next action idle` (`info`,
+      opened 05:20 UTC on 2026-11-24) is in the marked sentence, and
+      InvestingAssistant's row, closed 17:20 UTC on 2026-11-25, is out.
+      `check-ops-claims.sh` has no failing claim, and
+      `test_ops_claims.py` with `test_log_resume_boundary.py` pass, 242
+      tests.
+- [ ] **Find what has been filling `/` since 2026-11-09.** Found while
+      re-measuring the disk paragraph, which said `/` sat between 79.8 %
+      and 82 %. It has climbed every day since, from 79.9 % to 87.0 % on
+      2026-11-25, about 0.44 points a day, so it crosses the 90 %
+      critical line around 2026-12-02. The method is the memory's
+      *date a disk jump from snapshots*: the step in
+      `resource_snapshots` first, then file births. Clearing it stays
+      the owner's choice; this task finds and names it.
 - [ ] **Declare dotfiles' two live-folder units in `services.yaml` once
       they exist.** Logged from estate message
       `0ff03232-df47-4577-9cd3-38d6f39477e6` (dotfiles, advance notice
@@ -55,8 +78,8 @@ Opened on Session 459's Next action. Docs only.
       put a sentence between the clock and the marker and two tests
       went red on it, which is the rule that a marker sits in the
       sentence naming its clock.
-- [ ] **Two other claims in the same block fail, found by this
-      session's check run and not worked.** `daemon_start`: the daemon
+- [x] **Two other claims in the same block fail, found by this
+      session's check run and not worked.** Done by Session 461. `daemon_start`: the daemon
       has been active since 2026-11-19 08:19:18, and the Deploy
       paragraph still names Session 453's restart of 2026-11-16, with
       no record of why it restarted. `open_titles`: `Project Athenaeum
