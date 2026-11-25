@@ -1,15 +1,50 @@
-# Handoff — 2026-11-18 (Session 458)
+# Handoff — 2026-11-25 (Session 459)
 
 ## Next action
 
-Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
+Re-measure STATUS.md's timed prediction, overdue since 2026-11-22, then rewrite or replace its sentence. *(For: session)*
 
 ## Scheduled action
 
-- 2026-11-22, after 03:00: STATUS.md's timed prediction falls due.
-  Measure the shared instants again, then rewrite or replace it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 459: the owner's working-week rulings, logged; self-restart on a branch
+
+Opened on estate message `de46c7a3-b008-4425-b3ef-4de64615945b`
+(estate-manager, the owner's rulings of 2026-11-25 on his working-weeks
+review). The freeze exception he named that day covers it. Each ruling
+is a task under Session 459 in `docs/roadmap/tasks.md`.
+
+- **Self-restart is built on branch `self-restart-three` (`27c3cc9`),
+  unmerged.** The branch sits in its own worktree. Service control
+  always waits for the owner's merge, and `sysadmin.service` runs this
+  checkout, so main carries only docs. Four services set
+  `auto_restart`. The GPU lease is read before a restart, which closes
+  `SNAG-AGENT-013`. One restart per outage. 1,048 of the diff's lines
+  are the retired check and its tests.
+- **Forks taken.**
+  - `llama-server` is off the list. `restart_unit` blocks with no
+    timeout and the unit waits on the GPU, so a restart could stall
+    every check.
+  - `sysadmin-service` is off. A monitor cannot restart itself, and
+    `Restart=always` already does.
+  - Once per outage rather than every third poll, because a broken
+    unit would otherwise restart for ever.
+  - Rejected: putting the flags on main and trusting a later review.
+    The flags would go live at the next daemon restart.
+- **Suite on the branch**: the six SNAG-AGENT-013 tests went with the
+  check. Ten failures come from running in the worktree (its path, no
+  `.venv`), and `test_game_spans_db` fails on main too. ruff and mypy
+  are clean.
+- **Not built, and why**:
+  - Phone item 2 needs a fresh critical event.
+  - Items 4 to 6 wait on other work.
+  - The live folder follows dotfiles, estate-manager and Alfred.
+  - The pull-request trial and the path list are estate-manager's rows.
+- **Stacked**: STATUS.md's timed prediction, overdue since 2026-11-22.
+  Recorded in tasks.md and made the Next action. The scheduled line
+  for it moved there.
 
 ## Session 458: the publisher's grant narrows to estate/alerts/#, read and closed
 

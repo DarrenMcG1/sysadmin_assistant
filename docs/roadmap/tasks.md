@@ -4,11 +4,65 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-17
+> **Last Updated**: 2026-11-25
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
 ---
+
+## Session 459: the owner's working-week rulings, logged and the self-restart built (2026-11-25)
+
+Logged from estate message `de46c7a3-b008-4425-b3ef-4de64615945b`
+(estate-manager, the owner's rulings of 2026-11-25 on his working-weeks
+review). All of it falls under the freeze exception he named that day,
+fitting the estate to the working week; work no ruling leads to is
+still frozen.
+
+- [x] **Self-restart for the three named projects (question 14).**
+      Built on branch `self-restart-three` (`27c3cc9`), not on main:
+      service control always waits for his merge (question 2, case 4),
+      and the daemon runs this checkout. `auto_restart: true` on
+      `alfred`, `alfred-frontend`, `estate-manager-api` and
+      `estate-manager-https`. The lease is read before a restart
+      (`SNAG-AGENT-013` closed), and a unit is restarted once per outage.
+      Live only once he merges it and the daemon restarts.
+      Owner: `llama-server` (alfred-inference) is left off, because the
+      restart call blocks the poll with no timeout and that unit waits for
+      the GPU at start. Default meanwhile: off. Setting it needs a
+      non-blocking restart first.
+- [ ] **Phone item 2: "a service failed and its restart did not bring it
+      back" as its own critical event.** After the branch is merged, the
+      row that says so is the already-open critical, refreshed in place,
+      so the topic `estate/alerts/raised` hears nothing new. Item 1
+      (Alfred is down) is already published there as a critical. Making
+      either push to the phone is alfred-glance's half, filed there by the
+      estate. That this repository raises them is the audit session's
+      recommendation, not a ruling.
+- [ ] **Phone items 4, 5 and 6 wait on other work.** 4 (a scheduled
+      session failed, hung or ran out of usage) and 6 (a pull request
+      waits for his sign-off) wait for the estate's scheduled sessions and
+      pull-request gate. 5 (the phone cannot reach home) cannot be sent
+      over the link that failed, so it needs something outside the house.
+      None is this repository's to start.
+- [ ] **The daemon runs from a live folder on merged main (question
+      23).** `/etc/systemd/system/sysadmin.service` runs this checkout,
+      so a change is live at the next restart before it is reviewed. The
+      ruled order is dotfiles, estate-manager, then Alfred, then the
+      pull-request gate. Moving this unit needs `sudo` and follows their
+      pattern.
+- [ ] **Pull-request sign-off trial (question 1).** This repository is
+      one of the five. Waits on the estate's gate and the Review tab's
+      repurposing.
+- [ ] **The enforced path list (questions 2 and 3).** The list is
+      estate-manager's open row. Recommended for case 4 here, not ruled:
+      `sysadmin/files/`, the service-control routes
+      (`POST /api/sysadmin/services/{name}/{action}` and its router),
+      `sysadmin/monitor/systemd.py`, the `auto_restart` branch in
+      `sysadmin/monitor/agent.py`, `services.yaml` and `systemd/`.
+- [ ] **Scheduled sessions (question 5).** This repository is among the
+      15. The design is estate-manager's open row.
+- [ ] **STATUS.md's timed prediction, due 2026-11-22, is overdue.** A
+      second concern found this session, recorded and not worked.
 
 ## Session 454: the estate's HTTPS units, logged to declare (2026-11-17)
 
