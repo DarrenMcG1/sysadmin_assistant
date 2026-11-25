@@ -1720,7 +1720,11 @@ class SysAdminAgent(BaseAgent):
                     service_name,
                     self._failure_counts[service_name],
                 )
-                success, msg = await restart_unit(svc.systemd_unit, user=svc.user)
+                # Queued, never waited on: a blocking restart holds every
+                # other check in this run until the unit is up.
+                success, msg = await restart_unit(
+                    svc.systemd_unit, user=svc.user, no_block=True
+                )
                 # Reset counter to avoid restart loop
                 self._failure_counts[service_name] = 0
                 self._restarted.add(service_name)
@@ -1732,7 +1736,7 @@ class SysAdminAgent(BaseAgent):
                     message=(
                         f"{service_name} was automatically restarted after "
                         f"{svc.auto_restart_after_checks} consecutive failures"
-                        f" — {'succeeded' if success else f'failed: {msg}'}"
+                        f" — {'queued' if success else f'failed: {msg}'}"
                     ),
                     details={**details, "service_name": service_name, "auto_restart": True},
                     # The one title in this family that is an event

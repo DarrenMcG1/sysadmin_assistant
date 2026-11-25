@@ -155,6 +155,18 @@ class TestSubprocessEnvironment:
         assert spawn.call_args.kwargs["env"]["XDG_RUNTIME_DIR"] == runtime_dir
 
     @pytest.mark.asyncio
+    async def test_no_block_queues_the_restart(self, runtime_dir):
+        """The auto-restart's call returns once the job is queued."""
+        with patch(_SPAWN, new_callable=AsyncMock) as spawn:
+            spawn.return_value = _proc(returncode=0)
+            await restart_unit("alfred-inference.service", user=True, no_block=True)
+            await restart_unit("alfred-inference.service", user=True)
+
+        queued, blocking = (call.args for call in spawn.call_args_list)
+        assert queued[-3:] == ("--no-block", "restart", "alfred-inference.service")
+        assert "--no-block" not in blocking
+
+    @pytest.mark.asyncio
     async def test_missing_runtime_dir_never_spawns_systemctl(
         self, tmp_path, monkeypatch
     ):

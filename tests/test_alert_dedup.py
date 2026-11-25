@@ -630,7 +630,7 @@ class TestAutoRestartIsAnEventNotAState:
 
             await agent._handle_status(session, svc, "critical", {})
 
-        restart.assert_awaited_once_with("svc.service", user=False)
+        restart.assert_awaited_once_with("svc.service", user=False, no_block=True)
         assert agent._failure_counts["svc"] == 0
 
 

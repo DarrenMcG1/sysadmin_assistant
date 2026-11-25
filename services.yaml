@@ -32,13 +32,13 @@
 # once per outage, and never while the estate's GPU arbiter holds it
 # stopped. The owner ruled on 2026-11-25 (estate message de46c7a3) that
 # only estate-manager's, sysadmin_assistant's and Alfred's services may
-# restart themselves. Four set it. Two of those projects' units do not:
-#   llama-server (alfred-inference)  the restart call blocks the monitor's
-#            poll with no timeout, and this unit waits for the GPU before it
-#            starts, so a restart could hold every other check for minutes
-#   sysadmin-service                 a monitor cannot restart itself, and
-#            when it is dead nothing here runs; the unit's
-#            `Restart=always` is what brings it back
+# restart themselves, and in the session the same day that llama-server
+# (alfred-inference) does too. Five set it. The restart is queued with
+# `--no-block`, so a unit that waits for the GPU before it starts cannot
+# hold the other checks. One controllable unit of the three does not:
+#   sysadmin-service  a monitor cannot restart itself, and when it is dead
+#                     nothing here runs; the unit's `Restart=always` is
+#                     what brings it back
 
 schema: 1
 
@@ -135,6 +135,7 @@ services:
     port: 8081
     holds_vram: true
     systemd: { unit: alfred-inference.service, scope: user }
+    auto_restart: true   # owner, 2026-11-25, in the session on de46c7a3
     log: { type: journalctl, severity_filter: warning }
 
   # Nightly evaluation. The service is Type=oneshot and therefore
