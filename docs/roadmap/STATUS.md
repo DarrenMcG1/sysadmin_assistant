@@ -13,8 +13,10 @@
 > Session 462, so that it serves `hook_wiring.py`'s corrected
 > docstrings: `~/.claude/settings.json` stopped being a symlink into
 > `~/projects/dotfiles` at 06:16 that day. At 06:22:52 a `SIGHUP`
-> reload added `dotfiles-live-timer`, making 52 declared services, and
-> its first check read `ok` at 06:24:18. The start before
+> reload added `dotfiles-live-timer`, and its first check read `ok` at
+> 06:24:18. A second `SIGHUP` at 08:27:48, from Session 464, added
+> `estate-manager-live-timer`, making 53 declared services; its first
+> check read `ok` at 08:30:06. The start before
 > was the boot of 2026-11-19 08:19:18, after a system upgrade and a
 > clean `poweroff`. `/health` answers **200**
 > <!--check:health-->, and the live schema is at the packaged head

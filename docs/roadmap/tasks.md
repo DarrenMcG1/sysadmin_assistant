@@ -58,7 +58,7 @@ Opened on Session 462's Next action. Docs only.
       and the backup unit are estate-manager's, not this repository's.
       Meanwhile: nothing is changed, and the 2026-11-29 expiry gives
       about a week of headroom.
-- [ ] **Declare `estate-manager-live.timer` in `services.yaml`** as
+- [x] **Declare `estate-manager-live.timer` in `services.yaml`** as
       `kind: timer`, user scope, project `estate-manager`. Logged from
       estate messages `ff20a6c0-cdf0-4976-b97a-ca438a645bde` (advance
       notice of their ADR-0262 step 2: a 15-minute timer starting the
@@ -68,7 +68,8 @@ Opened on Session 462's Next action. Docs only.
       06:58 GMT on 2026-11-26, first timer run clean at 07:00:04). It
       can land now. It is the same shape as Session 462's
       `dotfiles-live-timer`. Not worked here, because it is a second
-      concern.
+      concern. Done by Session 464 (`f4298f1`): a `SIGHUP` at 08:27:48
+      UTC added it, and its first check read `ok` at 08:30:06.
 
 ## Session 462: dotfiles' live-folder timer declared; hook_wiring re-read (2026-11-26)
 

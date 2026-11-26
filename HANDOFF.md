@@ -1,8 +1,8 @@
-# Handoff — 2026-11-26 (Session 463)
+# Handoff — 2026-11-26 (Session 464)
 
 ## Next action
 
-Declare estate-manager-live.timer in services.yaml as kind: timer, logged from estate messages ef523070 and ff20a6c0 under Session 463. *(For: session)*
+Choose a lever on the WAL volume filling /: recommended wal_compression = lz4 in the cluster config, as recorded in tasks.md under Session 463. *(For: owner, ~10 min)*
 
 ## Scheduled action
 
@@ -10,6 +10,27 @@ Declare estate-manager-live.timer in services.yaml as kind: timer, logged from e
   preflight reports it, then a session re-measures it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 464: estate-manager's live-folder timer declared
+
+Opened on Session 463's Next action. Code in `f4298f1`.
+
+- **Declared `estate-manager-live-timer`**, `kind: timer`, user scope,
+  `controllable: false`, the shape of Session 462's dotfiles timer. A
+  `SIGHUP` at 08:27:48 UTC added it (53 services); its first check
+  read `ok` at 08:30:06.
+- **Forks taken.**
+  - No `log:` block, unlike the other estate-manager timers. Their
+    blocks read Python JSON records; this unit is a shell script, and
+    all 21 of its journal records are PRIORITY=6, so a `warning`
+    filter would store none of its refusal reasons.
+  - Watched the timer, not the service, as estate-manager's message
+    asked and as for their scan timer.
+- **Differs from dotfiles' timer**: a failed fetch exits 0 until the
+  last good fetch is 24 hours old, so an offline afternoon reads `ok`.
+  The comment says so.
+- **Next action** is the owner's WAL lever from Session 463, because
+  it is the one item in tasks.md waiting on the owner.
 
 ## Session 463: what fills `/`, named
 
