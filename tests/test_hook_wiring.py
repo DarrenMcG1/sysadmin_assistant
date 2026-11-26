@@ -145,9 +145,10 @@ class TestTheFaultCarriesJsonsOwnSentence:
 
 
 class TestTheReadNamesWhereItActuallyLanded:
-    """The trap is one day old: since 2026-09-06 this path is a symlink
-    into ``~/projects/dotfiles``, so the obvious fix edits a tracked file
-    in a repository nobody mentioned."""
+    """The trap was a symlink into ``~/projects/dotfiles`` from 2026-09-06
+    to 2026-11-26, when the obvious fix edited a tracked file in a
+    repository nobody mentioned; a regular file since, and the read still
+    names a target the day the path is re-linked."""
 
     def test_a_symlink_names_its_target(self, tmp_path):
         target = tmp_path / "tracked" / "settings.json"
