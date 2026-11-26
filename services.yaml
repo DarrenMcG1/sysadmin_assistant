@@ -844,6 +844,28 @@ services:
     log: { type: journalctl, unit: estate-manager-cert.service,
            severity_filter: warning }
 
+  # The estate's live folder, ~/.local/share/estate-manager-live, moved to
+  # origin/main every 15 minutes by scripts/live-update (their ADR-0262
+  # step 2, announced as message `ff20a6c0`), declared 2026-11-26, the day
+  # the units were installed (message `ef523070`). A oneshot, so the timer
+  # is watched and `kind: timer` reads the service's Result. It exits 1
+  # on a changed or untracked tree, a branch checked out, or an
+  # origin/main that does not descend from the checkout, so a failed run
+  # means the live folder has stopped following origin/main. Unlike
+  # dotfiles' timer, a failed fetch exits 0 until the last good fetch is
+  # 24 hours old, so a box offline for an afternoon reads `ok`.
+  #
+  # No `log:` block: the script and systemd's start lines all arrive at
+  # PRIORITY=6 (21 of 21 records at declaration), so a `warning` filter
+  # would store none of the script's refusal reasons. The journal
+  # identifier is `estate-manager-live`.
+  - project: estate-manager
+    name: estate-manager-live-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: estate-manager-live.timer, scope: user }
+    controllable: false
+
   # --- dotfiles -------------------------------------------------------
   # The live folder, ~/.local/share/dotfiles-live, fast-forwarded to
   # origin/main every 15 minutes (dotfiles ADR-0014), declared the day the
