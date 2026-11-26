@@ -44,10 +44,21 @@
 > 02:54 the next morning, taking `/` from 76 % to 81 %. The row has
 > opened three times since 2026-11-05 and closed twice, and it has
 > stayed open since 2026-11-09 because `/` has kept climbing, from
-> 79.9 % that day to 87.0 % on 2026-11-25. That is about 0.44 points a
-> day, so at that rate `/` crosses the 90 % critical line around
-> 2026-12-02. What is writing it has not been measured. Clearing the
-> disk is the owner's choice, not this repository's.
+> 79.9 % that day to 87.0 % on 2026-11-26. Session 463 measured what
+> fills it: pgBackRest's WAL archive in `/var/lib/pgbackrest`. That
+> directory is unreadable to this user, so the figure is inferred: `du`
+> sees 76 GiB less than `df`. PostgreSQL wrote about 177 GB of WAL from
+> 02:02 on 2026-11-22 to 07:50 on 2026-11-26, nearly all of it
+> full-page images. The cluster's lifetime update counter puts 422 M
+> row updates in the `venture` database, against under 5 M in any
+> other. The archive is cut back each Sunday at about 02:03, when a new
+> full backup expires the set from a fortnight before: −37.7 GiB on
+> 2026-11-22. A Stable Diffusion install of 25 GiB on 2026-11-23 is the
+> one-off step. So the line is a sawtooth, and the straight-line date
+> of 2026-12-02 was wrong. `/` should peak near 88.4 % before Sunday
+> 2026-11-29, fall to about 85 %, and peak near 89 to 90 % before
+> Sunday 2026-12-06 if WAL holds its current rate. Clearing the disk is
+> the owner's choice, not this repository's.
 >
 > **The idle-nudge rows are counted, no longer set aside.** The four
 > idle rows opened at 04:35 UTC on 2026-11-12 (portfolio), 05:21 UTC on

@@ -1,8 +1,8 @@
-# Handoff — 2026-11-26 (Session 462)
+# Handoff — 2026-11-26 (Session 463)
 
 ## Next action
 
-Find what has filled / from 79.9 % to 87.0 % since 2026-11-09, before it crosses 90 % around 2026-12-02, and name it for the owner. *(For: session)*
+Declare estate-manager-live.timer in services.yaml as kind: timer, logged from estate messages ef523070 and ff20a6c0 under Session 463. *(For: session)*
 
 ## Scheduled action
 
@@ -10,6 +10,39 @@ Find what has filled / from 79.9 % to 87.0 % since 2026-11-09, before it crosses
   preflight reports it, then a session re-measures it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 463: what fills `/`, named
+
+Opened on Session 462's Next action. Docs only.
+
+- **It is pgBackRest's WAL archive** in `/var/lib/pgbackrest`, inferred
+  because that directory is unreadable here: `du` sees 76 GiB less
+  than `df`. PostgreSQL wrote about 177 GB of WAL from 2026-11-22 to
+  2026-11-26, nearly all of it full-page images. The archive is cut
+  back each Sunday at about 02:03 (−37.7 GiB on 2026-11-22), so `/` is
+  a sawtooth. The 2026-12-02 crossing was a trough-to-peak line, and it
+  was wrong. Next peaks: about 88.4 % before 2026-11-29 and 89 to 90 %
+  before 2026-12-06. The 25 GiB Stable Diffusion install of 2026-11-23
+  is the one-off step.
+- **The writer is attributed, not caught**: `venture` holds 422 M of the
+  cluster's lifetime row updates, and only venture-assistant's backend
+  connects to it. Filed to them as estate message
+  `bdca0861-d677-43b2-ad05-9e5e504ff0dc` (which job makes the updates).
+- **Forks taken.**
+  - Did not read `pg_stat_user_tables` inside `venture`, which would
+    have named the table. The estate's database rule bars it even
+    read-only, so I filed the question to the owner of the database
+    instead.
+  - Did not change the cluster's WAL settings (`wal_compression` off,
+    `max_wal_size` 1 GB). They are the owner's choice and
+    estate-manager's config. `lz4` compression is recorded in tasks.md
+    as a recommendation.
+  - Did not bump STATUS.md's `Last Updated`, because only the disk
+    paragraph was re-measured.
+- **Logged** estate messages `ff20a6c0-cdf0-4976-b97a-ca438a645bde` and
+  `ef523070-ffbd-46f3-b2c3-0863794a2b10` (estate-manager's live-folder
+  timer, installed 06:58 on 2026-11-26) as one task under Session 463,
+  and closed both. The task is the Next action.
 
 ## Session 462: dotfiles' live-folder timer declared; hook_wiring re-read
 

@@ -4,11 +4,71 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-25
+> **Last Updated**: 2026-11-26
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
 ---
+
+## Session 463: what fills `/`, named; estate-manager's live timer logged (2026-11-26)
+
+Opened on Session 462's Next action. Docs only.
+
+- [x] **What has filled `/` since 2026-11-09: pgBackRest's WAL
+      archive.** Measured from cluster-wide views and the backup unit's
+      journal. Nothing inside another application's database was read.
+      - The step series shows no single jump. `/` grows 5 to 10 GiB a
+        day and falls each Sunday at about 02:03, when the weekly full
+        expires the set from a fortnight before (−37.7 GiB at 02:03 on
+        2026-11-22, which removed about 180 GB of raw WAL).
+      - The backup LSNs (positions in the WAL stream) give about 177 GB
+        of WAL from 02:02 on 2026-11-22 to 07:50 on 2026-11-26, and
+        86 GB in the single day to 02:04 on 2026-11-23.
+        `pg_stat_wal` counts 634 GB since 2026-10-26, 75.9 M of it
+        full-page images.
+      - `du` over everything this user can read is 76 GiB short of
+        `df`, which is roughly the size of a repository holding 11 days
+        of WAL at 5:1. It is an estimate: `du -b` counts apparent
+        bytes.
+      - Since 2026-11-22: +57 GiB on `/`. About 32 GiB is WAL, and
+        25 GiB is a Stable Diffusion install under
+        `~/.local/opt/stable-diffusion`, born on 2026-11-23.
+      - The writer is attributed, not caught. `pg_stat_database` gives
+        `venture` 422,682,613 row updates against 4,850,770 for the next
+        database. Every connection to `venture` is
+        venture-assistant's backend. The writes come in bursts, though,
+        and no burst has been tied to a job. Filed to venture-assistant
+        as estate message `bdca0861-d677-43b2-ad05-9e5e504ff0dc` (which
+        job makes the updates).
+      - The straight-line date of 2026-12-02 was wrong. The 90 % line
+        is 1391.5 GiB used, measured as used plus available, as psutil
+        and `df` do. `/` should peak near 88.4 % before 02:00 on
+        Sunday 2026-11-29, then fall to about 85 % when 2026-11-15's
+        set expires. The next peak, before Sunday 2026-12-06, is near
+        89 to 90 % if WAL holds its current rate. One large install
+        before then would cross the line.
+- [ ] **Owner: choose a lever on the WAL volume.** Recorded as a
+      recommendation, not a ruling. The cluster runs with
+      `wal_compression` off, `max_wal_size` at 1 GB and the default
+      5-minute `checkpoint_timeout`: 3,082 WAL-forced checkpoints since
+      2026-10-26, about 100 a day. A full-page image is written on the
+      first change to each page after a checkpoint. **Recommended:**
+      `wal_compression = lz4`, which cuts the archive without touching
+      any application, then a larger `max_wal_size`. The cluster config
+      and the backup unit are estate-manager's, not this repository's.
+      Meanwhile: nothing is changed, and the 2026-11-29 expiry gives
+      about a week of headroom.
+- [ ] **Declare `estate-manager-live.timer` in `services.yaml`** as
+      `kind: timer`, user scope, project `estate-manager`. Logged from
+      estate messages `ff20a6c0-cdf0-4976-b97a-ca438a645bde` (advance
+      notice of their ADR-0262 step 2: a 15-minute timer starting the
+      oneshot `estate-manager-live.service`, which follows origin/main
+      in `~/.local/share/estate-manager-live`) and
+      `ef523070-ffbd-46f3-b2c3-0863794a2b10` (installed and enabled at
+      06:58 GMT on 2026-11-26, first timer run clean at 07:00:04). It
+      can land now. It is the same shape as Session 462's
+      `dotfiles-live-timer`. Not worked here, because it is a second
+      concern.
 
 ## Session 462: dotfiles' live-folder timer declared; hook_wiring re-read (2026-11-26)
 
@@ -50,7 +110,9 @@ Opened on Session 460's Next action. Docs only.
       `check-ops-claims.sh` has no failing claim, and
       `test_ops_claims.py` with `test_log_resume_boundary.py` pass, 242
       tests.
-- [ ] **Find what has been filling `/` since 2026-11-09.** Found while
+- [x] **Find what has been filling `/` since 2026-11-09.** Done by
+      Session 463: pgBackRest's WAL archive, fed mostly by the `venture`
+      database's updates; see that session. Found while
       re-measuring the disk paragraph, which said `/` sat between 79.8 %
       and 82 %. It has climbed every day since, from 79.9 % to 87.0 % on
       2026-11-25, about 0.44 points a day, so it crosses the 90 %
