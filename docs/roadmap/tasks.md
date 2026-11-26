@@ -10,6 +10,32 @@
 
 ---
 
+## Session 466: phone item 1 marked on the estate bus (2026-11-26)
+
+Opened on Session 465's Next action. Code in `bbfd7e2`, a test fix in
+`2783678`.
+
+- [x] **Phone item 1, "Alfred is down", carries `kind: "alfred-down"`
+      on `estate/alerts/raised`.** Every payload now has `kind`, null
+      unless the alert is an outage (critical or unreachable) of a
+      service declaring `outage_kind: alfred-down` in `services.yaml`.
+      - Marked: `alfred` (backend, 8100) and `alfred-frontend` (3100),
+        the two units the owner's Alfred self-restart ruling covers.
+        Not marked: `alfred-bus`, `alfred-telegram`, `alfred-inference`,
+        `alfred-desktop` and the three timers.
+      - The mark is on the row (`details.alert_kind`) and the publisher
+        reads it back, so the row and the bus agree.
+      - Announced first to alfred-glance, the topic's one measured
+        reader, as estate message `c2f77a4b-48c6-4ee3-b403-51c9bd299588`,
+        in reply to `db66a2c0`.
+      - Live at the daemon's next restart, held until the owner's review
+        (question 23: the daemon should run reviewed code). The claims
+        check reads `daemon_start` as `no` until then.
+- [x] **Second concern, found by the full suite:**
+      `test_the_route_serves_every_span_overlapping_the_range` went red
+      on 2026-11-13 from the clock alone. The route's `datetime.now` is
+      frozen in the test now (`2783678`).
+
 ## Session 465: the WAL lever re-measured; alfred-glance's mark logged (2026-11-26)
 
 Opened on Session 464's Next action (the owner's WAL lever, under
@@ -37,8 +63,14 @@ Session 463).
       - Works only if the venture writer keeps its rate. The question
         of which job it is stays open with venture-assistant (estate
         message `bdca0861-d677-43b2-ad05-9e5e504ff0dc`).
+      - Answered on its close: the writer is venture-assistant's test
+        suite, run against the live `venture` database, not a pipeline
+        job. Their `f4612d6` (not yet pushed) cuts one full run from
+        3.65 GB of WAL to 679 MB. So Sunday's figures mix two causes:
+        split them by the review-push hours, when their suite runs.
 
-- [ ] **Mark the criticals that are phone items 1 and 2.** Logged from
+- [ ] **Mark the criticals that are phone items 1 and 2.** Item 1 done
+      by Session 466 (`bbfd7e2`); item 2 remains. Logged from
       estate messages `db66a2c0-1e58-42fc-ac40-ceddd7b9298d` and
       `47410a04-c6e4-44b3-9b8d-f7bae8568ed2` (alfred-glance, 2026-11-26,
       and its correction).
