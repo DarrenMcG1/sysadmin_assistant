@@ -10,6 +10,40 @@
 
 ---
 
+## Session 467: phone item 2 raised as its own critical, on the branch (2026-11-26)
+
+Opened on Session 466's Next action. Code on branch `self-restart-three`
+only, after merging main into it for the `kind` field.
+
+- [x] **Phone item 2, "a restart did not bring it back", is its own
+      critical with `kind: "restart-failed"`.** Built on the branch,
+      unmerged; live only once the owner merges it and the daemon
+      restarts.
+      - Title `<service> restart-failed`, a sixth member of
+        `SERVICE_ALERT_KINDS`, so the first healthy poll closes it.
+      - Raised when a restarted service is still critical or
+        unreachable a full `auto_restart_after_checks` streak (3 polls,
+        about 15 minutes) after its restart. Deduplicated, so one
+        publish per outage. Never for a unit the arbiter stopped.
+      - Raised beside the outage row, not instead of it, so an Alfred
+        failure gives `alfred-down` first and `restart-failed` later.
+      - Announced first to alfred-glance as estate message
+        `c61da678-f6f8-426d-ba80-8d2dbd70e491`, in reply to `c2f77a4b`.
+- [ ] **Tell estate-manager when the daemon has loaded `live_folder:`.**
+      Logged from estate message `97b41b41-84ab-4f01-8bcb-56ac4578c73f`
+      (estate-manager, 2026-11-26).
+      - `estate.registry` gains an optional `live_folder:` key in
+        `.project.yaml` (their `d05d81e`, 10:01:31 UTC).
+      - This daemon's boot refuses a manifest key its library does not
+        know. So estate-manager writes the key into its own manifest
+        only after `sysadmin.service` restarts on a library holding the
+        parse.
+      - The library is an editable install of their `lib/`, so a restart
+        is all it needs. The last one was 10:00:16 UTC, 75 s too early.
+      - Default meanwhile: the restart that goes with merging
+        `self-restart-three` does it. That restart is the owner's, and
+        estate-manager holds it under its Scheduled action.
+
 ## Session 466: phone item 1 marked on the estate bus (2026-11-26)
 
 Opened on Session 465's Next action. Code in `bbfd7e2`, a test fix in
@@ -73,8 +107,9 @@ Session 463).
         3.65 GB of WAL to 679 MB. So Sunday's figures mix two causes:
         split them by the review-push hours, when their suite runs.
 
-- [ ] **Mark the criticals that are phone items 1 and 2.** Item 1 done
-      by Session 466 (`bbfd7e2`); item 2 remains. Logged from
+- [x] **Mark the criticals that are phone items 1 and 2.** Item 1 done
+      by Session 466 (`bbfd7e2`); item 2 by Session 467 on branch
+      `self-restart-three`, live at its merge. Logged from
       estate messages `db66a2c0-1e58-42fc-ac40-ceddd7b9298d` and
       `47410a04-c6e4-44b3-9b8d-f7bae8568ed2` (alfred-glance, 2026-11-26,
       and its correction).
@@ -289,8 +324,9 @@ still frozen.
       GPU cannot stall the other checks. `llama-server` was added on the
       owner's word in the session the same day. Live only once he merges
       it and the daemon restarts.
-- [ ] **Phone item 2: "a service failed and its restart did not bring it
-      back" as its own critical event.** After the branch is merged, the
+- [x] **Phone item 2: "a service failed and its restart did not bring it
+      back" as its own critical event.** Built by Session 467 on the
+      branch, `<service> restart-failed`. After the branch is merged, the
       row that says so is the already-open critical, refreshed in place,
       so the topic `estate/alerts/raised` hears nothing new. Item 1
       (Alfred is down) is already published there as a critical. Making

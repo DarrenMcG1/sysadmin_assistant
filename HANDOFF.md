@@ -1,8 +1,8 @@
-# Handoff — 2026-11-26 (Session 466)
+# Handoff — 2026-11-26 (Session 467)
 
 ## Next action
 
-Raise phone item 2, a restart that did not bring a service back, as its own critical with kind restart-failed, on branch self-restart-three. *(For: session)*
+Merge branch self-restart-three into main and restart sysadmin.service, which makes phone item 2 live and loads the estate's live_folder parse. *(For: owner, ~30 min)*
 
 ## Scheduled action
 
@@ -12,6 +12,52 @@ Raise phone item 2, a restart that did not bring a service back, as its own crit
   preflight reports it, then a session re-measures it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 467: phone item 2 raised as its own critical, on the branch
+
+Opened on Session 466's Next action. Code on branch `self-restart-three`
+only; this entry and the task rows are on main.
+
+- **A restart that did not bring a service back is now its own
+  critical.** The title is `<service> restart-failed`, and the row
+  carries `kind: "restart-failed"` on `estate/alerts/raised`. It is
+  raised once a restarted service is still critical or unreachable a
+  full streak after its restart: 3 polls, about 15 minutes. It is
+  deduplicated, so it publishes once per outage. It closes on the
+  first healthy poll, because the kind joined `SERVICE_ALERT_KINDS`.
+- **Main merged into the branch first** (merge commit on the branch),
+  because the `kind` field is on main only.
+  - Rejected: a rebase, which would rewrite `27c3cc9` and `5e3dbee`,
+    both cited by hash in this file and tasks.md.
+- **Forks taken.**
+  - Chosen: the same streak after the restart as before it, which is
+    `auto_restart_after_checks`. Rejected: the first failed poll after
+    the restart, 5 minutes on, because `alfred-inference` waits for the
+    GPU before it starts and a slow start would page the phone.
+  - Chosen: a row beside the outage row. Rejected: replacing it, which
+    would let `_resolve_recovered` close the still-true outage row.
+  - Chosen: `restart-failed` as a constant in `mqtt_alerts.py`, outside
+    `OutageKind`. Rejected: widening `OutageKind`, which would let
+    `services.yaml` declare a failed restart.
+  - Not built: raising it at once when `systemctl` refuses to queue the
+    restart. That case is still caught a streak later, and it already
+    writes a warning saying "failed".
+- **Announced first** to alfred-glance as estate message
+  `c61da678-f6f8-426d-ba80-8d2dbd70e491`, in reply to `c2f77a4b`. The
+  message says it is live only after the merge and a restart.
+- **Close notes on this repository's filings**, both alfred-glance's,
+  2026-11-26:
+  - `c2f77a4b`: the owner ruled that glance keeps pushing every critical
+    and decodes no `kind` yet (glance's ADR-0041, amended 2026-11-26).
+    Glance keeps both units under "Alfred is down". It still wanted item
+    2 announced, which `c61da678` does.
+  - `caeb1df7`: logged in glance's handoff (their `64fbfd4`). Nothing in
+    glance changes.
+- **Logged** estate message `97b41b41` (estate-manager's `live_folder:`
+  manifest key) as a task under Session 467. The daemon started 75 s
+  before their parse landed, so the next restart is what loads it.
+- **HANDOFF.md was 529 lines**: Sessions 449 to 454 moved to
+  `HANDOFF-archive.md`, unedited.
 
 ## Session 466: Alfred's outages marked on the estate bus
 
@@ -366,164 +412,3 @@ Worked tasks.md's Session 454 item, logged from estate message
   2026-11-18 03:18:59, and the check alerts if it fails.
 - **Reading the served expiry was not built**: new code under the
   freeze, so it is a v2 line in `ideas.md`.
-
-## What Session 454 handed on
-
-Declare estate-manager-https.service and estate-manager-cert.timer with its oneshot in services.yaml (tasks.md, Session 454). *(For: session)*
-
-## Session 454: a corrected commit id, and the units it names logged
-
-Opened on estate message `4d87ff6b-aab7-42e7-8733-fb04925a7d89`
-(estate-manager): the HTTPS origin's code is their commit `71d07c5`,
-not `6b5bc29` as message `0e20eec6-5cb8-448e-80e0-7a15873adfcd` said.
-
-- **Checked in estate-manager's checkout.** `71d07c5` is *"the estate
-  serves HTTPS on the home network"* and adds the three unit files;
-  `6b5bc29` is still an object in their store but on no branch.
-- **Nothing here cited either hash** (`git grep`, the archive included),
-  so no correction was owed in this repository.
-- **Logged `0e20eec6`** as tasks.md's Session 454 item, with `71d07c5`
-  written in so the wrong hash in that message's detail is not copied
-  into `services.yaml`. Both messages closed. Not worked: the
-  declaration is the next session's concern.
-- **The push suite went red on the estate's new row.**
-  `test_our_parser_and_the_estates_agree_on_the_live_document` pins the
-  live port table's rows outside the audited ranges, and 443 joined
-  22000 there today. Both are a daemon on its own port, so the pin
-  widened to `[443, 22000]`; the ranges stay matched to the estate's.
-- **Moved** Sessions 438 and 439 to `HANDOFF-archive.md`, unedited:
-  this file was 508 lines, over estate rule 2's 500.
-
-## What Session 453 handed on
-
-Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
-
-## Session 453: the queue library's cancel fix, loaded by a restart
-
-Opened on estate message `5d5c92ce-39f1-4ddf-8cd4-16c663e7dab6`:
-`estate.queue.acquire` now releases a still-waiting lease when its
-caller is cancelled (their `6d274a5`).
-
-- **Our side needs no code.** `acquire_review_lease` catches only the
-  three queue exceptions, so a cancel still propagates after the
-  library's release. The lease tests pass (39).
-- **Restarted** at 19:15:37 by SIGTERM, the owner's standing ruling of
-  2026-10-21, so the daemon runs the fix now rather than at its next
-  start. Health answers 200. Message closed.
-- **Close note on `d340c4ff`** (estate-manager, 15:29): logged as their
-  Session 475's open task, *bring the provisioner back when the broker
-  comes back*, with our two shapes as a recommendation, and the one-off
-  rerun put to the owner. The unit was rerun at 15:37:30 and found
-  *"schema already asserted; no changes"*, which answers Session 452's
-  unmeasured question: the dynsec store matched the yaml. The critical
-  row closed at 15:38, and STATUS.md now names 5 rows.
-
-## What Session 452 handed on
-
-Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
-
-## Session 452: why estate-broker-provision failed, filed at the estate
-
-Opened on Session 451's Next action.
-
-- **Cause, from the journal:** on the 2026-11-14 boot `eno1` had no link
-  for 27.5 minutes (15:06:05 to 15:33:38; 4 s on the three boots
-  before). mosquitto's gate gave up at 15:08:26. The provisioner started
-  at 15:06:20, because `After=` only orders it, waited its 150 s and
-  exited 1 at 15:08:50. Why the link was late is not measured: the
-  kernel logged nothing about `eno1` in between.
-- **What was new:** the estate already fixed the broker half (ADR-0260,
-  on Alfred's `5ee683ac`). Its dispatcher restarts mosquitto only, and
-  neither the ADR nor their Session 471 mentions the provisioner, still
-  `failed` 30 hours after the broker came up.
-- **Filed** as `d340c4ff-0047-4b93-88da-92ec57ff420a`, with two shapes
-  for a fix as a recommendation: the dispatcher also starts the
-  provisioner, or the provisioner gains `WantedBy=mosquitto.service`.
-  The one-off rerun needs `sudo` and was not run here.
-- **Not measured:** whether the dynsec store matches `mqtt/dynsec.yaml`.
-  Every client seen since 21:20 authenticated, except two
-  `alfred-backend-health` refusals at 14:57 today, which are not linked
-  to this and were left out of the filing's cause.
-- **STATUS.md** names all 6 open rows; both Alerts checks read `ok`.
-  When the estate reruns the unit the row closes and the count drifts
-  to 5, which the preflight reports.
-
-## What Session 451 handed on
-
-Measure why estate-broker-provision failed at the 2026-11-14 boot, file it at estate-manager, and name its row in STATUS.md's Alerts paragraph. *(For: session)*
-
-## Session 451: home-manager's frontend entry, logged and checked
-
-Opened on estate message `03b92b7c-be7d-419a-a560-4b96348de555`, in
-which home-manager said it had added `home-manager-frontend` to
-`services.yaml` (`18f9309`, their commit).
-
-- **Done:** checked that the entry is live. The service has been polled
-  `ok` since the 11:33:02 restart. The services tests pass, and the unit
-  sweep raises only the `advice` nine other units carry. STATUS.md's
-  Deploy sentence now names the restart, and the message is closed.
-- **Attribution, as measured:** the journal shows a systemd stop job at
-  11:32:59, not a kill. home-manager's transcript `2019669c` asked the
-  owner for `sudo systemctl restart sysadmin.service`, so the sentence
-  says the restart was asked for and does not say who ran it.
-- **Second concern, recorded and not worked:** two alert rows the
-  Alerts paragraph does not name, among them `estate-broker-provision
-  critical`, open since the 2026-11-14 boot. They are the task at the
-  top of `tasks.md` and the Next action above. The two Alerts checks in
-  `check-ops-claims.sh` stay `no` until then.
-
-## What Session 450 handed on
-
-Nothing is startable under the freeze until a bug or an incident in daily use calls for work. *(For: none)*
-
-## Session 450: the memory index under 17.1 KB, by its titles
-
-Opened on Session 449's Next action. The memory directory is outside
-the repository, so only this block and `tasks.md` are committed.
-
-- **Done:** `MEMORY.md` went from 20,393 bytes to 16,784, still 131
-  lines. Every one of its 157 links is kept, in the same order, and
-  each resolves.
-- **How:** the titles were 6.1 KB of the 20.4 and spelt out the same
-  words as their filenames, so each became a two-to-three-word tag.
-  The header now states the 17,100-byte budget and puts "shorten a
-  title" first among the levers.
-- **Rejected:** dropping about 20 memories, Session 449's estimate.
-  Eleven were checked against the box by their specific claim, and
-  none was falsified whole: agent_runs' held-branch keys, the
-  arbiter's FIFO, the first-run delay, the pre-commit five-file rule,
-  the `estate_service` editable, the daemon's system unit, the deploy
-  check's mtimes, ruff's config, the pre-push gates, and the two
-  below. The other 146 had their cited files checked for existence
-  only. A dropped line would hide a true memory with nothing left
-  pointing at it.
-- **Headroom:** 17,100 − 16,784 leaves about 300 bytes, two or three
-  new lines, and the title lever is spent. The next compaction has to
-  fold families or drop lines.
-- **Corrected in two memory files:** `stack-facts-not-in-claude-md`
-  gave the wheel `packages` as `sysadmin` alone (now `sysadmin` and
-  `sysadmin_tray`). `enumerate-the-estate-at-depth-2` counted 27
-  repositories in six tiers; there are 39 in nine.
-- **Backup:** the whole memory directory as it was is at
-  `/tmp/claude-1000/-home-gaddi-projects-sysadmin-assistant/ec6b7453-89d2-4be4-8470-ff2fc9f05b7a/scratchpad/membak/`
-  until a reboot clears it.
-- **Not this session's:** `18f9309`, home-manager's own
-  `services.yaml` declaration, landed from that session meanwhile.
-
-## What Session 449 handed on
-
-Compact the memory index `MEMORY.md` from 20.4 KB to under 17.1 KB, checking each dropped memory against the box first. *(For: session)*
-
-## Session 449: Easy Effects, on the owner's request
-
-Desktop configuration outside this repository; nothing here changed.
-
-- **Fixed:** Easy Effects' autostart. The Flatpak segfaulted every
-  time; Arch's 8.3.2 now runs with `--service-mode -w`, and the owner
-  installed the plugin packs it needs (`lsp-plugins-lv2`, `calf`).
-- **Rejected:** a WirePlumber `stream.rules` file to route Spotify. In
-  WirePlumber 0.5 those rules only reach its bookkeeping copy, and a
-  target set there stops the remembered one being restored. Spotify is
-  routed by restore-target instead.
-- **Raised, not worked:** the memory index at 20.4 KB against the
-  hook's 17.1 KB target, now the Next action and a `tasks.md` item.
