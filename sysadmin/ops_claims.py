@@ -890,8 +890,9 @@ def quick_status_rows(region: str) -> list[StatusRow]:
     convention, and this repository already has the convention.
 
     Two things this deliberately does **not** conclude.  The standing
-    figures are real — ``0 of 31`` services still set ``auto_restart``,
-    re-asked — so the refusal is of the *totality* rule, never of the
+    figures are real — ``0 of 31`` services set ``auto_restart`` when
+    this was written, re-asked (four have set it since 2026-11-25) —
+    so the refusal is of the *totality* rule, never of the
     claim that a snag figure can be checked, which is what the 25
     registered checks already do, and what 7 of them do to the number
     the entry itself states.  And ``SNAG-DOCS-010`` is the residue

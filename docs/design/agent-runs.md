@@ -38,7 +38,7 @@ they are looking at the same data.
 Four rules. **The suffix `agent failing` is load-bearing**: `failing` is
 not one of `SERVICE_ALERT_KINDS`, which is the only thing keeping these
 rows out of `_resolve_recovered`'s reach — a family ending in
-`degraded`/`warning`/`critical`/`unreachable`/`auto-restarted` would have
+`degraded`/`warning`/`critical`/`unreachable`/`auto-restarted`/`restart-failed` would have
 its rows closed by the sysadmin agent while they were still true, and a
 test pins it. **The threshold is a count of runs, never a duration** —
 deliberately the opposite unit from `escalate_after_hours` in the same

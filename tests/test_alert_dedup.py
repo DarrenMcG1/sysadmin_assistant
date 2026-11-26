@@ -601,6 +601,24 @@ class TestAutoRestartIsAnEventNotAState:
         assert written == 0
         assert agent._suppressed == 1
 
+    async def test_a_failed_restart_publishes_once_per_outage(self, agent, svc):
+        """Phone item 2 is a state: a later run with its row open writes
+        nothing, so ``estate/alerts/raised`` hears it once per outage."""
+        session = _no_rows_session()
+        agent._restarted.add("svc")
+        agent._failure_counts["svc"] = 5
+        agent._open_titles = {"svc critical", "svc restart-failed"}
+
+        with patch(
+            "sysadmin.monitor.agent.restart_unit", new_callable=AsyncMock
+        ) as restart:
+            written = await agent._handle_status(session, svc, "critical", {})
+
+        restart.assert_not_awaited()
+        assert written == 0
+        assert agent._suppressed == 2
+        assert "svc restart-failed" in agent._judged_titles
+
     async def test_the_restart_still_happens_when_a_raise_is_suppressed(
         self, agent
     ):
@@ -630,7 +648,7 @@ class TestAutoRestartIsAnEventNotAState:
 
             await agent._handle_status(session, svc, "critical", {})
 
-        restart.assert_awaited_once_with("svc.service", user=False)
+        restart.assert_awaited_once_with("svc.service", user=False, no_block=True)
         assert agent._failure_counts["svc"] == 0
 
 

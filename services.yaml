@@ -26,6 +26,19 @@
 # service_health, reliability scores and the tray's mute list, so renaming
 # one to something tidier (`alfred` -> `alfred-backend`) would orphan its
 # history. `role` carries the tidier label instead.
+#
+# `auto_restart: true` lets the monitor restart a unit after
+# `auto_restart_after_checks` (default 3) critical or unreachable polls,
+# once per outage, and never while the estate's GPU arbiter holds it
+# stopped. The owner ruled on 2026-11-25 (estate message de46c7a3) that
+# only estate-manager's, sysadmin_assistant's and Alfred's services may
+# restart themselves, and in the session the same day that llama-server
+# (alfred-inference) does too. Five set it. The restart is queued with
+# `--no-block`, so a unit that waits for the GPU before it starts cannot
+# hold the other checks. One controllable unit of the three does not:
+#   sysadmin-service  a monitor cannot restart itself, and when it is dead
+#                     nothing here runs; the unit's `Restart=always` is
+#                     what brings it back
 
 schema: 1
 
@@ -56,6 +69,7 @@ services:
     url: http://localhost:8100/api/health   # /health and /api/v1/health both 404
     port: 8100
     systemd: { unit: alfred-backend.service, scope: user }
+    auto_restart: true   # owner's ruling 2026-11-25, estate message de46c7a3
     log: { type: journalctl, severity_filter: warning }
 
   # Alfred's MQTT connection, read out of the same 200 the entry above
@@ -104,6 +118,7 @@ services:
     url: http://localhost:3100              # Nuxt/Nitro
     port: 3100
     systemd: { unit: alfred-frontend.service, scope: user }
+    auto_restart: true   # owner's ruling 2026-11-25, estate message de46c7a3
     log: { type: journalctl, severity_filter: warning }
 
   # `holds_vram: true`: llama-server runs with `-ngl 99`, so the model
@@ -122,6 +137,7 @@ services:
     port: 8081
     holds_vram: true
     systemd: { unit: alfred-inference.service, scope: user }
+    auto_restart: true   # owner, 2026-11-25, in the session on de46c7a3
     log: { type: journalctl, severity_filter: warning }
 
   # Nightly evaluation. The service is Type=oneshot and therefore
@@ -673,6 +689,7 @@ services:
     url: http://localhost:8400/api/health
     port: 8400
     systemd: { unit: estate-manager-api.service, scope: user }
+    auto_restart: true   # owner's ruling 2026-11-25, estate message de46c7a3
     # `format: json` from 2026-08-31, on estate-manager's announcement
     # `76e0438b` (their ADR-0079, closing their SNAG-ESTATE-092): the
     # estate's four entry points now emit one JSON document per record,
@@ -831,6 +848,7 @@ services:
     url: http://127.0.0.1:8602/api/health
     port: 8602
     systemd: { unit: estate-manager-https.service, scope: user }
+    auto_restart: true   # owner's ruling 2026-11-25, estate message de46c7a3
     log: { type: journalctl, severity_filter: warning }
 
   # The Let's Encrypt account has no email (owner's ruling, 2026-11-17),

@@ -424,7 +424,8 @@ class TestHandleStatus:
                 mock_session, auto_restart_svc, "critical", {}
             )
         assert alerts == 1
-        restart_mock.assert_called_once_with("svc.service", user=False)
+        # Queued, never waited on: a blocking restart stalls every check.
+        restart_mock.assert_called_once_with("svc.service", user=False, no_block=True)
         assert agent._failure_counts["svc"] == 0  # Reset after restart
         assert "auto-restarted" in ra.call_args.kwargs["title"]
 
@@ -444,6 +445,128 @@ class TestHandleStatus:
             await agent._handle_status(mock_session, auto_restart_svc, "critical", {})
         restart_mock.assert_not_called()
         assert agent._failure_counts["svc"] == 1
+
+    @pytest.mark.asyncio
+    async def test_a_unit_the_arbiter_stopped_is_not_restarted(
+        self, agent, mock_session, auto_restart_svc
+    ):
+        """SNAG-AGENT-013: the lease is read before the restart, and the
+        fault is still written, at the quietened rung."""
+        from sysadmin.estate import client as estate_client
+
+        agent._arbitration = estate_client.ArbitratedStops(
+            reading=estate_client.ARBITRATION_GRANTED,
+            units=frozenset({"svc.service"}),
+            lease_id=7,
+        )
+        agent._failure_counts["svc"] = 2
+        with (
+            patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra,
+            patch(
+                "sysadmin.monitor.agent.restart_unit", new_callable=AsyncMock
+            ) as restart_mock,
+        ):
+            alerts = await agent._handle_status(
+                mock_session, auto_restart_svc, "unreachable", {}
+            )
+        restart_mock.assert_not_called()
+        assert alerts == 1
+        assert ra.call_args.kwargs["title"] == "svc unreachable"
+        assert ra.call_args.kwargs["severity"] != "critical"
+
+    @pytest.mark.asyncio
+    async def test_one_restart_per_outage(self, agent, mock_session, auto_restart_svc):
+        """A second streak in the same outage raises a critical that says the
+        restart did not bring it back, and restarts nothing; a healthy poll
+        re-arms it."""
+        with (
+            patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra,
+            patch(
+                "sysadmin.monitor.agent.restart_unit",
+                new_callable=AsyncMock,
+                return_value=(True, "ok"),
+            ) as restart_mock,
+        ):
+            for _ in range(6):
+                await agent._handle_status(mock_session, auto_restart_svc, "critical", {})
+            assert restart_mock.call_count == 1
+            # The critical row opened on the first polls, so later polls in
+            # one run are deduplicated; a fresh run with no row open shows
+            # the sentence a refresh of the open row would carry.
+            agent._written_titles = set()
+            agent._open_titles = set()
+            await agent._handle_status(mock_session, auto_restart_svc, "critical", {})
+            assert restart_mock.call_count == 1
+            last = ra.call_args.kwargs
+            assert last["severity"] == "critical"
+            assert last["title"] == "svc critical"
+            assert "still down after its automatic restart" in last["message"]
+
+            await agent._handle_status(mock_session, auto_restart_svc, "ok", {})
+            for _ in range(3):
+                await agent._handle_status(mock_session, auto_restart_svc, "critical", {})
+            assert restart_mock.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_a_restart_that_did_not_bring_it_back_is_its_own_critical(
+        self, agent, mock_session, auto_restart_svc
+    ):
+        """Phone item 2: a full streak after the queued restart, a row of its
+        own with kind ``restart-failed``, beside the outage row."""
+        from sysadmin.monitor.mqtt_alerts import ALERT_KIND_DETAIL
+
+        with (
+            patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra,
+            patch(
+                "sysadmin.monitor.agent.restart_unit",
+                new_callable=AsyncMock,
+                return_value=(True, "queued"),
+            ),
+        ):
+            per_poll = []
+            for _ in range(7):
+                before = ra.call_count
+                await agent._handle_status(mock_session, auto_restart_svc, "critical", {})
+                per_poll.append([c.kwargs["title"] for c in ra.call_args_list[before:]])
+        # Restarted on poll 3; polls 4 and 5 are a slow start, not a failed
+        # restart; poll 6 is. Deduplicated within the run after that.
+        assert per_poll[2] == ["svc auto-restarted"]
+        assert [i for i, t in enumerate(per_poll) if "svc restart-failed" in t] == [5]
+        row = next(c.kwargs for c in ra.call_args_list
+                   if c.kwargs["title"] == "svc restart-failed")
+        assert row["severity"] == "critical"
+        assert row["details"][ALERT_KIND_DETAIL] == "restart-failed"
+        assert row["details"]["unit"] == "svc.service"
+        assert "after its automatic restart" in row["message"]
+        # The outage row is judged on that poll too, so the sweep keeps it open.
+        assert "svc critical" in agent._judged_titles
+        assert "svc restart-failed" in agent._judged_titles
+
+    @pytest.mark.asyncio
+    async def test_a_unit_the_arbiter_stopped_after_its_restart_is_no_failed_restart(
+        self, agent, mock_session, auto_restart_svc
+    ):
+        from sysadmin.estate import client as estate_client
+
+        agent._restarted.add("svc")
+        agent._failure_counts["svc"] = 5
+        agent._arbitration = estate_client.ArbitratedStops(
+            reading=estate_client.ARBITRATION_GRANTED,
+            units=frozenset({"svc.service"}),
+            lease_id=7,
+        )
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            await agent._handle_status(mock_session, auto_restart_svc, "unreachable", {})
+        titles = [c.kwargs["title"] for c in ra.call_args_list]
+        assert titles == ["svc unreachable"]
+
+    @pytest.mark.asyncio
+    async def test_no_restart_means_no_failed_restart(self, agent, mock_session, svc):
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            for _ in range(10):
+                await agent._handle_status(mock_session, svc, "critical", {})
+        titles = {c.kwargs["title"] for c in ra.call_args_list}
+        assert "svc restart-failed" not in titles
 
     @pytest.mark.asyncio
     async def test_non_controllable_skips_auto_restart(self, agent, mock_session):

@@ -265,10 +265,18 @@ async def get_unit_status(
     return result
 
 
-async def _control_unit(action: str, unit: str, user: bool = False) -> tuple[bool, str]:
-    """Run ``systemctl [--user] <action> <unit>`` and return (success, message)."""
+async def _control_unit(
+    action: str, unit: str, user: bool = False, no_block: bool = False
+) -> tuple[bool, str]:
+    """Run ``systemctl [--user] [--no-block] <action> <unit>``; (success, message).
+
+    ``no_block`` queues the job and returns at once, so success means
+    *queued*, not *started*; the next health check is what says whether
+    the unit came back.
+    """
+    args = ["--no-block", action, unit] if no_block else [action, unit]
     try:
-        returncode, _, stderr = await _run([action, unit], user)
+        returncode, _, stderr = await _run(args, user)
     except SystemdQueryError as e:
         logger.warning("systemctl %s %s failed: %s", action, unit, e)
         return False, str(e)
@@ -280,9 +288,16 @@ async def _control_unit(action: str, unit: str, user: bool = False) -> tuple[boo
     return False, msg
 
 
-async def restart_unit(unit: str, user: bool = False) -> tuple[bool, str]:
-    """Restart a systemd unit.  Returns (success, message)."""
-    return await _control_unit("restart", unit, user)
+async def restart_unit(
+    unit: str, user: bool = False, no_block: bool = False
+) -> tuple[bool, str]:
+    """Restart a systemd unit.  Returns (success, message).
+
+    The monitor's auto-restart passes ``no_block``: a blocking restart
+    holds the whole health-check run until the unit is up, and
+    ``alfred-inference`` waits for the GPU before it starts.
+    """
+    return await _control_unit("restart", unit, user, no_block)
 
 
 async def start_unit(unit: str, user: bool = False) -> tuple[bool, str]:
