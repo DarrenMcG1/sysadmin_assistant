@@ -1,4 +1,4 @@
-# Handoff — 2026-11-25 (Session 461)
+# Handoff — 2026-11-26 (Session 462)
 
 ## Next action
 
@@ -10,6 +10,28 @@ Find what has filled / from 79.9 % to 87.0 % since 2026-11-09, before it crosses
   preflight reports it, then a session re-measures it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 462: dotfiles' live-folder timer declared; hook_wiring re-read
+
+Opened on estate message `d6dab8bf-6734-42e9-8f2b-877709d3b6c6`
+(dotfiles: their units exist, and `~/.claude/settings.json` is a regular
+file, both 2026-11-26). Code in `279622d`.
+
+- **Declared one entry, the timer.** The service is a oneshot, so
+  `kind: timer` reads its `Result` and a failed fast-forward shows.
+- **Forks taken.**
+  - No `log:` block. The cert timer's block has a reason specific to
+    renewal; `venture-manager-backup-timer`, the other 15-minute
+    oneshot, has none.
+  - Did not start `estate-manager-audit.service`. It is estate-manager's
+    unit; the owner was asked to run it.
+- **Restarted the daemon** at 06:25:06 to serve the docstring edit,
+  under the owner's standing permission of 2026-10-21.
+- **Stacked**: the cut-over opened `Estate wiring check and this
+  monitor read different settings files` at 06:20, because the estate's
+  05:04 audit still names the old symlink target. Recorded as
+  `SNAG-CFG-009` and a task under Session 462. It turns STATUS.md's two
+  alert claims and one box test red until the estate re-audits.
 
 ## Session 461: STATUS.md's Deploy and Alerts, rewritten
 

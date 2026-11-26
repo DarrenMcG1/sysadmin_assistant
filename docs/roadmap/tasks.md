@@ -10,6 +10,26 @@
 
 ---
 
+## Session 462: dotfiles' live-folder timer declared; hook_wiring re-read (2026-11-26)
+
+Logged from and acting on estate message
+`d6dab8bf-6734-42e9-8f2b-877709d3b6c6` (dotfiles: their units exist and
+`~/.claude/settings.json` is a regular file, both 2026-11-26).
+
+- [x] **`dotfiles-live-timer` declared** in `services.yaml` (`279622d`),
+      `kind: timer`, user scope, so the oneshot's `Result` is read. A
+      `SIGHUP` reload at 06:22:52 UTC added it; its first check read `ok`
+      at 06:24:18.
+- [x] **`hook_wiring.py` re-read.** The code needed no change:
+      `resolves_to` is absent when the path resolves to itself. `_where`'s
+      two present-tense symlink sentences and one test docstring now say
+      the symlink is history. The daemon was restarted at 06:25:06 to
+      serve them.
+- [ ] **The settings-path warning closes once the estate re-audits.**
+      Opened at 06:20 UTC because the 05:04 audit predates the cut-over
+      (`SNAG-CFG-009`). Until it closes, STATUS.md's alert claims and the
+      box test `test_both_readers_name_one_file_today` are red.
+
 ## Session 461: STATUS.md's Deploy and Alerts rewritten; dotfiles' live folder logged (2026-11-25)
 
 Opened on Session 460's Next action. Docs only.
@@ -37,8 +57,8 @@ Opened on Session 460's Next action. Docs only.
       *date a disk jump from snapshots*: the step in
       `resource_snapshots` first, then file births. Clearing it stays
       the owner's choice; this task finds and names it.
-- [ ] **Declare dotfiles' two live-folder units in `services.yaml` once
-      they exist.** Logged from estate message
+- [x] **Declare dotfiles' two live-folder units in `services.yaml` once
+      they exist.** Done by Session 462: one entry, the timer. Logged from estate message
       `0ff03232-df47-4577-9cd3-38d6f39477e6` (dotfiles, advance notice
       of their ADR-0014, decided and not built). A timer,
       `dotfiles-live.timer`, every 15 minutes starts the oneshot
@@ -49,7 +69,8 @@ Opened on Session 460's Next action. Docs only.
       they are installed, because an entry declared before then alarms
       on a missing unit. Writing `services.yaml` is ours; dotfiles will
       not.
-- [ ] **Re-read `sysadmin/estate/hook_wiring.py` at dotfiles' cut-over.**
+- [x] **Re-read `sysadmin/estate/hook_wiring.py` at dotfiles' cut-over.**
+      Done by Session 462: docstrings only.
       Same message. `~/.claude/settings.json` stops being a symlink into
       `~/projects/dotfiles` and becomes a regular file at the same path.
       The reads keep working, but `_where`'s resolved target will then

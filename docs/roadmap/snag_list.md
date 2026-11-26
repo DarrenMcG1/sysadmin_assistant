@@ -10,6 +10,12 @@
 
 ## Open Issues
 
+- [P4] SNAG-CFG-009: **the settings-path comparison sets a live read against an audit up to a day old, so re-linking `settings.json` between audits raises a warning that is true only of the stored audit** (2026-11-26, opened by Session 462 at dotfiles' cut-over)
+  - **Symptom**: `Estate wiring check and this monitor read different settings files` (`warning`) opened at 06:20 UTC on 2026-11-26. `~/.claude/settings.json` became a regular file at 06:16; the estate's last audit, at 05:04, had published `resolves_to: ~/projects/dotfiles/claude/settings.json`.
+  - **Cause**: `hook_wiring.compare_settings_paths` reads the file now and takes the estate's `inputs.settings_file` from `last_audit`, which runs daily at about 05:03. Nothing compares the audit's `finished_at` with the moment the file last changed.
+  - **Why it is left**: it bit once, on a one-off cut-over, and it closes by itself at the first judge run after the next audit. Under the freeze it is a known issue until it bites again.
+  - **Fix options**: hold the comparison as unread while the file's mtime is newer than `audit_finished_at`, which the payload already carries.
+
 - [P3] SNAG-FILES-003: **the scan's duplicate report still groups by fingerprint and counts hardlinks, so `/api/files/duplicates` and the "frees at least 7.9 GB" figure overstate what a clean would free** (2026-11-12, opened by Session 445 as the half of finding H2 it left)
   - **Symptom**: the file organiser's duplicate groups and the bytes it says they would free. The review (`docs/review/bug-review.md`, H2) found 5 of 49 stored groups with different content and at least 14 that are hardlink pairs.
   - **Cause**: `sysadmin/files/agent.py` groups by `file_hash`, which is size plus an MD5 of the first 1 MB, and never compares inodes.

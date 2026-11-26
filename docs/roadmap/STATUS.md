@@ -8,19 +8,15 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-11-19 08:19:18**
-> <!--check:deploy--> <!--check:daemon_start--> when the box booted, so
-> it was a boot and not a restart of the unit (`NRestarts=0`). A full
-> system upgrade of 325 packages ran from 22:03 UTC on 2026-11-18,
-> taking `linux-lts` from 6.18.63 to 6.18.64 and PostgreSQL from 18.6 to
-> 18.7, and a `poweroff` from the user session followed at 22:12:05,
-> which stopped the daemon cleanly. The boot loaded two changes that
-> were not yet live: this repository's `a71dd6c`, which corrects two
-> docstrings, and estate-manager's `8c717c6` and `c37e6a9` in
-> `estate.llama`, which put llama-server's reason in a status error and
-> refuse an embedding reply whose indexes are not the batch's. The
-> `services.yaml` entries of `a68e608` were already live, installed by
-> a reload at 16:53 UTC on 2026-11-17. `/health` answers **200**
+> **Deploy.** The daemon restarted at **2026-11-26 06:25:06**
+> <!--check:deploy--> <!--check:daemon_start--> by `kill -TERM` from
+> Session 462, so that it serves `hook_wiring.py`'s corrected
+> docstrings: `~/.claude/settings.json` stopped being a symlink into
+> `~/projects/dotfiles` at 06:16 that day. At 06:22:52 a `SIGHUP`
+> reload added `dotfiles-live-timer`, making 52 declared services, and
+> its first check read `ok` at 06:24:18. The start before
+> was the boot of 2026-11-19 08:19:18, after a system upgrade and a
+> clean `poweroff`. `/health` answers **200**
 > <!--check:health-->, and the live schema is at the packaged head
 > <!--check:schema-->.
 >
