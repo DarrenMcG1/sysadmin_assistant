@@ -135,13 +135,18 @@ KIND_NOT_AN_OBJECT = "not_an_object"
 def _where(path: Path) -> dict[str, Any]:
     """The path as declared and as it actually lands.
 
-    Both, because they stopped being the same file on 2026-09-06:
-    ``~/.claude/settings.json`` is a symlink into ``~/projects/dotfiles``
+    Both, because they stopped being the same file on 2026-09-06, when
+    ``~/.claude/settings.json`` became a symlink into ``~/projects/dotfiles``
     (estate ADR-0132 registered that tree ``status: active`` on
-    2026-09-08).  A row naming only the symlink sends a reader to edit a
-    file whose changes are tracked somewhere they were not told about;
+    2026-09-08).  A row naming only the symlink sent a reader to edit a
+    file whose changes were tracked somewhere they were not told about;
     ``monitor/collation.py`` rule 4's *"the remedy's trap is carried in
-    the alert"*, applied to a trap that is one day old.
+    the alert"*.  **Since 2026-11-26 it is a regular file again**
+    (dotfiles ADR-0014 §3, estate message ``d6dab8bf``): the runtime
+    writes it and dotfiles' copy is a record that lags on purpose, so
+    ``resolves_to`` is absent from today's payloads.  The field stays,
+    because it costs nothing when the path resolves to itself and the
+    next re-link would otherwise be the trap again.
 
     Resolution failure is reported as absence rather than raised: this
     runs to *describe* a fault and must never become one.
@@ -156,9 +161,11 @@ def _where(path: Path) -> dict[str, Any]:
     errno-40 ``OSError`` :func:`pathlib.check_eloop` re-raises as a
     ``RuntimeError``.  That is not an ``OSError`` subclass, so the
     original guard was aimed at an exception this call cannot produce.
-    Reachable rather than theoretical: ``~/.claude/settings.json`` is a
-    symlink into ``~/projects/dotfiles``, which is what makes a loop
-    constructible with one mistyped ``ln -s``, and ``_where`` runs
+    Reachable rather than theoretical: from 2026-09-06 to 2026-11-26
+    ``~/.claude/settings.json`` was a symlink into ``~/projects/dotfiles``,
+    which made a loop constructible with one mistyped ``ln -s``.  As a
+    regular file it takes a deliberate replacement by a link, so the
+    case is rarer, not gone, and ``_where`` still runs
     *before* the file is opened — so uncaught it took down the surface
     whose whole job is to say every hook on this box is down.
 

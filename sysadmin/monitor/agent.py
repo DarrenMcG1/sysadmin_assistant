@@ -53,6 +53,7 @@ from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
+from sysadmin.monitor.mqtt_alerts import ALERT_KIND_DETAIL
 from sysadmin.monitor.self_monitor import build_self_report
 from sysadmin.monitor.services import (
     SKIPPED,
@@ -1788,6 +1789,11 @@ class SysAdminAgent(BaseAgent):
                 details={
                     **details,
                     "service_name": service_name,
+                    # What this outage is, for the estate bus's `kind`
+                    # (mqtt_alerts.py). On every row of the family and
+                    # `None` where nothing is declared, by the rule in
+                    # the comment below.
+                    ALERT_KIND_DETAIL: svc.outage_kind,
                     # Recorded on **every** row of this family, not only
                     # the quietened one — Session 128's rule for
                     # `details['attribution']`, and for its reason: a key

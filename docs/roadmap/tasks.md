@@ -4,11 +4,325 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-17
+> **Last Updated**: 2026-11-26
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
 ---
+
+## Session 466: phone item 1 marked on the estate bus (2026-11-26)
+
+Opened on Session 465's Next action. Code in `bbfd7e2`, a test fix in
+`2783678`.
+
+- [x] **Phone item 1, "Alfred is down", carries `kind: "alfred-down"`
+      on `estate/alerts/raised`.** Every payload now has `kind`, null
+      unless the alert is an outage (critical or unreachable) of a
+      service declaring `outage_kind: alfred-down` in `services.yaml`.
+      - Marked: `alfred` (backend, 8100) and `alfred-frontend` (3100),
+        the two units the owner's Alfred self-restart ruling covers.
+        Not marked: `alfred-bus`, `alfred-telegram`, `alfred-inference`,
+        `alfred-desktop` and the three timers.
+      - The mark is on the row (`details.alert_kind`) and the publisher
+        reads it back, so the row and the bus agree.
+      - Announced first to alfred-glance, the topic's one measured
+        reader, as estate message `c2f77a4b-48c6-4ee3-b403-51c9bd299588`,
+        in reply to `db66a2c0`.
+      - Live since the owner's restart at 10:00:16 UTC. The auto-mode
+        classifier had refused the session's.
+      - The read-back was driven live, read-only. Not yet witnessed on
+        the wire.
+- [x] **Restart the daemon** (owner): done at 10:00:16 UTC; STATUS.md's
+      Deploy sentence carries it.
+- [x] **Second concern, found by the full suite:**
+      `test_the_route_serves_every_span_overlapping_the_range` fails on
+      a fixed date, by arithmetic from 2026-11-13. The route's
+      `datetime.now` is frozen in the test now (`2783678`). Neither
+      push half runs it: `SNAG-TEST-023`.
+
+## Session 465: the WAL lever re-measured; alfred-glance's mark logged (2026-11-26)
+
+Opened on Session 464's Next action (the owner's WAL lever, under
+Session 463).
+
+- [x] **Checkpoints spaced (the owner's ruling, 2026-11-26).** The owner ran
+      `ALTER SYSTEM` by hand. PostgreSQL's journal logged the reload at
+      08:44:54 UTC, and a fresh connection reads `checkpoint_timeout`
+      1800 s and `max_wal_size` 16384 MB from `postgresql.auto.conf`.
+      - Undo: `ALTER SYSTEM RESET` for each, then
+        `SELECT pg_reload_conf()`.
+      - Filed to estate-manager as message
+        `555efccb-7090-444d-9b88-3c26dc85638b` (no repository declares
+        the cluster's settings), with a time correction,
+        `109f5867-b10e-4ba3-a6d4-c493c9828577`.
+- [ ] **Re-measure the effect after 02:05 UTC on Sunday 2026-11-29.**
+      - Baseline at 08:45:04 UTC on 2026-11-26:
+        `pg_stat_checkpointer` `num_done` 11,325 and `num_requested`
+        3,103; `pg_stat_wal` `wal_fpi` 76,849,698 and `wal_bytes`
+        688,330,841,190; LSN `1BC/5749D6A0`; `/` used
+        1,447,534,239,744 bytes.
+      - Compare full-page images per day and WAL bytes per day against
+        Session 463's figures: about 177 GB from 2026-11-22 to
+        2026-11-26, and 86 GB in the day to 2026-11-23.
+      - Works only if the venture writer keeps its rate. The question
+        of which job it is stays open with venture-assistant (estate
+        message `bdca0861-d677-43b2-ad05-9e5e504ff0dc`).
+      - Answered on its close: the writer is venture-assistant's test
+        suite, run against the live `venture` database, not a pipeline
+        job. Their `f4612d6` (not yet pushed) cuts one full run from
+        3.65 GB of WAL to 679 MB. So Sunday's figures mix two causes:
+        split them by the review-push hours, when their suite runs.
+
+- [ ] **Mark the criticals that are phone items 1 and 2.** Item 1 done
+      by Session 466 (`bbfd7e2`); item 2 remains. Logged from
+      estate messages `db66a2c0-1e58-42fc-ac40-ceddd7b9298d` and
+      `47410a04-c6e4-44b3-9b8d-f7bae8568ed2` (alfred-glance, 2026-11-26,
+      and its correction).
+      - Phone items 1 and 2 are "Alfred is down" and "a service's
+        restart did not bring it back".
+      - The ask: their ADR-0041 pushes every critical on
+        `estate/alerts/raised` to the phone. They want a machine-readable
+        mark on those two kinds, so a missed backup stops pushing.
+      - The shape is ours to choose: a payload field, a value, or a
+        topic of its own under `estate/alerts/`.
+      - What glance does with unmarked criticals is undecided. Until the
+        mark exists, the owner reconfirmed pushing every critical,
+        knowing it was 19 from 11 to 26 Nov.
+      - A payload change is announced to its readers before the commit.
+      - Item 2 needs Session 459's own-event task first.
+      - Falls under the working-week freeze exception (question 14).
+        Not worked here: second concern.
+
+## Session 463: what fills `/`, named; estate-manager's live timer logged (2026-11-26)
+
+Opened on Session 462's Next action. Docs only.
+
+- [x] **What has filled `/` since 2026-11-09: pgBackRest's WAL
+      archive.** Measured from cluster-wide views and the backup unit's
+      journal. Nothing inside another application's database was read.
+      - The step series shows no single jump. `/` grows 5 to 10 GiB a
+        day and falls each Sunday at about 02:03, when the weekly full
+        expires the set from a fortnight before (−37.7 GiB at 02:03 on
+        2026-11-22, which removed about 180 GB of raw WAL).
+      - The backup LSNs (positions in the WAL stream) give about 177 GB
+        of WAL from 02:02 on 2026-11-22 to 07:50 on 2026-11-26, and
+        86 GB in the single day to 02:04 on 2026-11-23.
+        `pg_stat_wal` counts 634 GB since 2026-10-26, 75.9 M of it
+        full-page images.
+      - `du` over everything this user can read is 76 GiB short of
+        `df`, which is roughly the size of a repository holding 11 days
+        of WAL at 5:1. It is an estimate: `du -b` counts apparent
+        bytes.
+      - Since 2026-11-22: +57 GiB on `/`. About 32 GiB is WAL, and
+        25 GiB is a Stable Diffusion install under
+        `~/.local/opt/stable-diffusion`, born on 2026-11-23.
+      - The writer is attributed, not caught. `pg_stat_database` gives
+        `venture` 422,682,613 row updates against 4,850,770 for the next
+        database. Every connection to `venture` is
+        venture-assistant's backend. The writes come in bursts, though,
+        and no burst has been tied to a job. Filed to venture-assistant
+        as estate message `bdca0861-d677-43b2-ad05-9e5e504ff0dc` (which
+        job makes the updates).
+      - The straight-line date of 2026-12-02 was wrong. The 90 % line
+        is 1391.5 GiB used, measured as used plus available, as psutil
+        and `df` do. `/` should peak near 88.4 % before 02:00 on
+        Sunday 2026-11-29, then fall to about 85 % when 2026-11-15's
+        set expires. The next peak, before Sunday 2026-12-06, is near
+        89 to 90 % if WAL holds its current rate. One large install
+        before then would cross the line.
+- [x] **Owner: choose a lever on the WAL volume.** Done in Session
+      465: the owner chose to space checkpoints, applied by the
+      owner's own hand. The `ALTER SYSTEM` reloaded at 08:44:54 UTC on 2026-11-26.
+      The rest of this item is the case put to the owner. The cluster runs with
+      `wal_compression` off, `max_wal_size` at 1 GB and the default
+      5-minute `checkpoint_timeout`. A full-page image is written on the
+      first change to each page after a checkpoint. **Revised by Session
+      465; the lz4 recommendation is withdrawn.**
+      - lz4 may not shrink the archive at all. pgBackRest already
+        compresses each segment (`compress-level=3`, about 5:1 by
+        Session 463's figures), and lz4 output barely compresses again.
+      - Checkpoint spacing is the lever. 11,322 checkpoints ran from
+        2026-10-26 to 2026-11-26, one every 3.9 minutes, of which 3,099
+        were requested. PostgreSQL logged "checkpoints are occurring
+        too frequently" 20 times since 2026-11-25. `venture` is 1,966
+        MB and made about 86 GB of WAL in one day, so its pages are
+        re-imaged roughly 40 times a day.
+      - **Recommended:** `checkpoint_timeout = 30min` and
+        `max_wal_size = 16GB`. Both take effect on a reload. The costs:
+        crash recovery replays up to 30 minutes of WAL, and `pg_wal` on
+        `/` may grow to about 16 GB (199 GB free on 2026-11-26).
+      - **Ownership, corrected:** estate-manager declares
+        `pgbackrest.conf`, but no repository declares `postgresql.conf`.
+        `ALTER SYSTEM` would write `postgresql.auto.conf`, which nobody
+        declares either.
+      - Meanwhile: nothing is changed, and the expiry on 2026-11-29
+        gives about a week of headroom.
+- [x] **Declare `estate-manager-live.timer` in `services.yaml`** as
+      `kind: timer`, user scope, project `estate-manager`. Logged from
+      estate messages `ff20a6c0-cdf0-4976-b97a-ca438a645bde` (advance
+      notice of their ADR-0262 step 2: a 15-minute timer starting the
+      oneshot `estate-manager-live.service`, which follows origin/main
+      in `~/.local/share/estate-manager-live`) and
+      `ef523070-ffbd-46f3-b2c3-0863794a2b10` (installed and enabled at
+      06:58 GMT on 2026-11-26, first timer run clean at 07:00:04). It
+      can land now. It is the same shape as Session 462's
+      `dotfiles-live-timer`. Not worked here, because it is a second
+      concern. Done by Session 464 (`f4298f1`): a `SIGHUP` at 08:27:48
+      UTC added it, and its first check read `ok` at 08:30:06.
+
+## Session 462: dotfiles' live-folder timer declared; hook_wiring re-read (2026-11-26)
+
+Logged from and acting on estate message
+`d6dab8bf-6734-42e9-8f2b-877709d3b6c6` (dotfiles: their units exist and
+`~/.claude/settings.json` is a regular file, both 2026-11-26).
+
+- [x] **`dotfiles-live-timer` declared** in `services.yaml` (`279622d`),
+      `kind: timer`, user scope, so the oneshot's `Result` is read. A
+      `SIGHUP` reload at 06:22:52 UTC added it; its first check read `ok`
+      at 06:24:18.
+- [x] **`hook_wiring.py` re-read.** The code needed no change:
+      `resolves_to` is absent when the path resolves to itself. `_where`'s
+      two present-tense symlink sentences and one test docstring now say
+      the symlink is history. The daemon was restarted at 06:25:06 to
+      serve them.
+- [x] **The settings-path warning closes once the estate re-audits.**
+      Closed at 07:26:06 UTC, after the owner re-ran the audit at 06:28.
+      Opened at 06:20 UTC because the 05:04 audit predates the cut-over
+      (`SNAG-CFG-009`). Until it closes, STATUS.md's alert claims and the
+      box test `test_both_readers_name_one_file_today` are red.
+
+## Session 461: STATUS.md's Deploy and Alerts rewritten; dotfiles' live folder logged (2026-11-25)
+
+Opened on Session 460's Next action. Docs only.
+
+- [x] **Why the daemon restarted at 2026-11-19 08:19:18: a boot.** A
+      full system upgrade of 325 packages ran from 22:03 UTC on
+      2026-11-18 (`linux-lts` 6.18.63 → 6.18.64, PostgreSQL 18.6 →
+      18.7), then a `poweroff` from the user session at 22:12:05. The
+      daemon stopped cleanly and the unit's `NRestarts` is 0. The boot
+      newly loaded `a71dd6c` (two docstrings) and estate-manager's
+      `8c717c6` and `c37e6a9` in `estate.llama`; `a68e608`'s
+      `services.yaml` entries were already live from a reload at 16:53
+      UTC on 2026-11-17. STATUS.md's Deploy paragraph now says so.
+- [x] **Alerts named.** `Project Athenaeum next action idle` (`info`,
+      opened 05:20 UTC on 2026-11-24) is in the marked sentence, and
+      InvestingAssistant's row, closed 17:20 UTC on 2026-11-25, is out.
+      `check-ops-claims.sh` has no failing claim, and
+      `test_ops_claims.py` with `test_log_resume_boundary.py` pass, 242
+      tests.
+- [x] **Find what has been filling `/` since 2026-11-09.** Done by
+      Session 463: pgBackRest's WAL archive, fed mostly by the `venture`
+      database's updates; see that session. Found while
+      re-measuring the disk paragraph, which said `/` sat between 79.8 %
+      and 82 %. It has climbed every day since, from 79.9 % to 87.0 % on
+      2026-11-25, about 0.44 points a day, so it crosses the 90 %
+      critical line around 2026-12-02. The method is the memory's
+      *date a disk jump from snapshots*: the step in
+      `resource_snapshots` first, then file births. Clearing it stays
+      the owner's choice; this task finds and names it.
+- [x] **Declare dotfiles' two live-folder units in `services.yaml` once
+      they exist.** Done by Session 462: one entry, the timer. Logged from estate message
+      `0ff03232-df47-4577-9cd3-38d6f39477e6` (dotfiles, advance notice
+      of their ADR-0014, decided and not built). A timer,
+      `dotfiles-live.timer`, every 15 minutes starts the oneshot
+      `dotfiles-live.service`, which fast-forwards a second clone at
+      `~/.local/share/dotfiles-live`. Both are user units, project
+      `dotfiles`, and the timer is the one to check (`kind: timer`).
+      **Waits on dotfiles' reply** (`in_reply_to` that message) the day
+      they are installed, because an entry declared before then alarms
+      on a missing unit. Writing `services.yaml` is ours; dotfiles will
+      not.
+- [x] **Re-read `sysadmin/estate/hook_wiring.py` at dotfiles' cut-over.**
+      Done by Session 462: docstrings only.
+      Same message. `~/.claude/settings.json` stops being a symlink into
+      `~/projects/dotfiles` and becomes a regular file at the same path.
+      The reads keep working, but `_where`'s resolved target will then
+      equal the declared path, and its docstrings saying the file is a
+      symlink go stale. The ELOOP case it guards gets harder to build,
+      not impossible. The cut-over is the owner's hand step after their
+      review, so nothing changes here before it.
+
+## Session 460: STATUS.md's timed prediction re-measured (2026-11-25)
+
+Opened on Session 459's Next action. Docs only.
+
+- [x] **The prediction held and was replaced.** The 3 shared instants
+      of 2026-10-30 are gone: today's oldest `log_entries` row was
+      ingested at 2026-10-26 03:01:35 UTC, which is today's 03:00
+      cutoff, so retention ran on time. The test still passes rather
+      than skipping, because 9 new shared instants were ingested on
+      four days between 2026-10-30 and 2026-11-20, across 4 sources,
+      each two records with different raw lines. The new prediction:
+      the newest pair, ingested 2026-11-20 00:29 UTC, clears at the
+      03:00 run on 2026-12-20, from `purge_statement`'s `ingested_at <
+      now − 30 days`.
+- [x] **Driven:** `check-ops-claims.sh` reads the prediction `ok`, 24
+      days to run, and `test_ops_claims.py` with
+      `test_log_resume_boundary.py` pass, 242 tests. The first rewrite
+      put a sentence between the clock and the marker and two tests
+      went red on it, which is the rule that a marker sits in the
+      sentence naming its clock.
+- [x] **Two other claims in the same block fail, found by this
+      session's check run and not worked.** Done by Session 461. `daemon_start`: the daemon
+      has been active since 2026-11-19 08:19:18, and the Deploy
+      paragraph still names Session 453's restart of 2026-11-16, with
+      no record of why it restarted. `open_titles`: `Project Athenaeum
+      next action idle` is open and unnamed, and InvestingAssistant's
+      row has closed.
+
+## Session 459: the owner's working-week rulings, logged and the self-restart built (2026-11-25)
+
+Logged from estate message `de46c7a3-b008-4425-b3ef-4de64615945b`
+(estate-manager, the owner's rulings of 2026-11-25 on his working-weeks
+review). All of it falls under the freeze exception he named that day,
+fitting the estate to the working week; work no ruling leads to is
+still frozen.
+
+- [x] **Self-restart for the three named projects (question 14).**
+      Built on branch `self-restart-three` (`27c3cc9`, `5e3dbee`), not
+      on main: service control always waits for his merge (question 2,
+      case 4), and the daemon runs this checkout. `auto_restart: true` on
+      `alfred`, `alfred-frontend`, `llama-server`, `estate-manager-api`
+      and `estate-manager-https`. The lease is read before a restart
+      (`SNAG-AGENT-013` closed), a unit is restarted once per outage, and
+      the restart is queued with `--no-block`, so a unit waiting for the
+      GPU cannot stall the other checks. `llama-server` was added on the
+      owner's word in the session the same day. Live only once he merges
+      it and the daemon restarts.
+- [ ] **Phone item 2: "a service failed and its restart did not bring it
+      back" as its own critical event.** After the branch is merged, the
+      row that says so is the already-open critical, refreshed in place,
+      so the topic `estate/alerts/raised` hears nothing new. Item 1
+      (Alfred is down) is already published there as a critical. Making
+      either push to the phone is alfred-glance's half, filed there by the
+      estate. That this repository raises them is the audit session's
+      recommendation, not a ruling.
+- [ ] **Phone items 4, 5 and 6 wait on other work.** 4 (a scheduled
+      session failed, hung or ran out of usage) and 6 (a pull request
+      waits for his sign-off) wait for the estate's scheduled sessions and
+      pull-request gate. 5 (the phone cannot reach home) cannot be sent
+      over the link that failed, so it needs something outside the house.
+      None is this repository's to start.
+- [ ] **The daemon runs from a live folder on merged main (question
+      23).** `/etc/systemd/system/sysadmin.service` runs this checkout,
+      so a change is live at the next restart before it is reviewed. The
+      ruled order is dotfiles, estate-manager, then Alfred, then the
+      pull-request gate. Moving this unit needs `sudo` and follows their
+      pattern.
+- [ ] **Pull-request sign-off trial (question 1).** This repository is
+      one of the five. Waits on the estate's gate and the Review tab's
+      repurposing.
+- [ ] **The enforced path list (questions 2 and 3).** The list is
+      estate-manager's open row. Recommended for case 4 here, not ruled:
+      `sysadmin/files/`, the service-control routes
+      (`POST /api/sysadmin/services/{name}/{action}` and its router),
+      `sysadmin/monitor/systemd.py`, the `auto_restart` branch in
+      `sysadmin/monitor/agent.py`, `services.yaml` and `systemd/`.
+- [ ] **Scheduled sessions (question 5).** This repository is among the
+      15. The design is estate-manager's open row.
+- [x] **STATUS.md's timed prediction, due 2026-11-22, is overdue.** A
+      second concern found this session, recorded and not worked.
+      Done by Session 460.
 
 ## Session 454: the estate's HTTPS units, logged to declare (2026-11-17)
 

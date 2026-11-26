@@ -3,25 +3,31 @@
 What is pinned is the shape of what reaches ``estate.bus.publish`` — its
 arguments are the whole contract with the broker — and the four ways an
 event is declined before a subprocess is spent: disabled, below the
-floor, a row the run's rollback removed, and no credential.
+floor, a row the run's rollback removed, and no credential. And the
+``kind`` mark, from its ``services.yaml`` declaration to the wire.
 """
 
 import logging
 import subprocess
+import typing
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from estate.bus import BrokerIdentity, PublishError, publish
+from pydantic import ValidationError
 
 from sysadmin.core.config import MqttNotificationsConfig, parse_config
+from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.mqtt_alerts import (
+    ALERT_KIND_DETAIL,
     CREDENTIALS_ENV,
     SOURCE,
     MqttAlertPublisher,
     build_payload,
 )
+from sysadmin.monitor.services import OutageKind, ServiceEntry, load_services
 
 NOW = datetime(2026, 10, 1, 21, 0, tzinfo=UTC)
 
@@ -34,10 +40,14 @@ RAISED = {
 }
 
 
-def publisher(*, rows: int = 1, publish_fn=None) -> tuple[MqttAlertPublisher, MagicMock]:
-    """A publisher whose read-back finds ``rows`` rows, and its spy."""
+def publisher(
+    *, rows: int = 1, details: dict | None = None, publish_fn=None
+) -> tuple[MqttAlertPublisher, MagicMock]:
+    """A publisher whose read-back finds ``rows`` rows with ``details``, and its spy."""
+    result = MagicMock()
+    result.first.return_value = (details if details is not None else {},) if rows else None
     session = MagicMock()
-    session.scalar = AsyncMock(return_value=rows)
+    session.execute = AsyncMock(return_value=result)
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=False)
     spy = MagicMock(side_effect=publish_fn)
@@ -117,6 +127,7 @@ class TestWhatReachesTheBroker:
             "severity": "critical",
             "title": "venture-chat unreachable",
             "message": RAISED["message"],
+            "kind": None,
             "published_at": "2026-10-01T21:00:00+00:00",
         }
         assert SOURCE == "sysadmin-assistant"
@@ -255,6 +266,72 @@ class TestFailureIsLoggedNeverRaised:
 
         mqtt, _ = publisher(publish_fn=explode)
         await handle(mqtt)  # must not raise
+
+
+class TestTheKind:
+    """alfred-glance's message ``db66a2c0``: mark the owner's phone item 1."""
+
+    async def test_a_marked_row_publishes_its_kind(self, credentials):
+        mqtt, spy = publisher(details={ALERT_KIND_DETAIL: "alfred-down"})
+        await handle(mqtt, {**RAISED, "title": "alfred unreachable"})
+
+        assert spy.call_args.args[2]["kind"] == "alfred-down"
+
+    async def test_an_unmarked_row_publishes_null_and_keeps_the_key(self, credentials):
+        """The backup timer going inactive is the critical glance must not push."""
+        mqtt, spy = publisher(details={ALERT_KIND_DETAIL: None})
+        await handle(mqtt, {**RAISED, "title": "pgbackrest-backup-timer critical"})
+
+        payload = spy.call_args.args[2]
+        assert "kind" in payload and payload["kind"] is None
+
+    async def test_a_row_with_null_details_still_publishes(self, credentials):
+        mqtt, spy = publisher(details=None)
+        await handle(mqtt)
+
+        assert spy.call_args.args[2]["kind"] is None
+
+    def test_the_shipped_file_marks_alfreds_backend_and_frontend_only(self):
+        services = load_services(Path("services.yaml")).services
+        marked = {s.name: s.outage_kind for s in services if s.outage_kind}
+
+        assert marked == {"alfred": "alfred-down", "alfred-frontend": "alfred-down"}
+        backup = next(s for s in services if s.name == "pgbackrest-backup-timer")
+        assert backup.outage_kind is None
+
+    def test_a_misspelt_kind_fails_at_load(self):
+        with pytest.raises(ValidationError):
+            ServiceEntry(name="x", kind="tcp", host="h", port=1, outage_kind="alfred-dwn")
+
+    def test_build_payload_names_every_value_it_can_carry(self):
+        """glance's decoder names ``build_payload`` as its authority."""
+        doc = build_payload.__doc__ or ""
+        for value in typing.get_args(OutageKind):
+            assert f'"{value}"' in doc
+
+    @pytest.mark.parametrize(
+        ("declared", "status"),
+        [("alfred-down", "unreachable"), ("alfred-down", "critical"), (None, "critical")],
+    )
+    async def test_the_outage_path_writes_the_declared_kind(
+        self, mock_session, declared, status
+    ):
+        svc = ServiceEntry(
+            name="alfred",
+            kind="http",
+            url="http://localhost:8100/api/health",
+            port=8100,
+            systemd={"unit": "alfred-backend.service", "scope": "user"},
+            outage_kind=declared,
+        )
+        agent = SysAdminAgent()
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            await agent._handle_status(mock_session, svc, status, {})
+
+        assert ra.call_args.kwargs["severity"] == "critical"
+        details = ra.call_args.kwargs["details"]
+        assert ALERT_KIND_DETAIL in details
+        assert details[ALERT_KIND_DETAIL] == declared
 
 
 def test_it_is_subscribed_at_startup():

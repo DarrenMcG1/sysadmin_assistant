@@ -64,6 +64,7 @@ services:
   - project: alfred
     name: alfred
     role: backend
+    outage_kind: alfred-down   # phone item 1; alfred-glance's message db66a2c0
     kind: http
     url: http://localhost:8100/api/health   # /health and /api/v1/health both 404
     port: 8100
@@ -112,6 +113,7 @@ services:
   - project: alfred
     name: alfred-frontend
     role: frontend
+    outage_kind: alfred-down   # phone item 1; alfred-glance's message db66a2c0
     kind: http
     url: http://localhost:3100              # Nuxt/Nitro
     port: 3100
@@ -861,6 +863,44 @@ services:
     controllable: false
     log: { type: journalctl, unit: estate-manager-cert.service,
            severity_filter: warning }
+
+  # The estate's live folder, ~/.local/share/estate-manager-live, moved to
+  # origin/main every 15 minutes by scripts/live-update (their ADR-0262
+  # step 2, announced as message `ff20a6c0`), declared 2026-11-26, the day
+  # the units were installed (message `ef523070`). A oneshot, so the timer
+  # is watched and `kind: timer` reads the service's Result. It exits 1
+  # on a changed or untracked tree, a branch checked out, or an
+  # origin/main that does not descend from the checkout, so a failed run
+  # means the live folder has stopped following origin/main. Unlike
+  # dotfiles' timer, a failed fetch exits 0 until the last good fetch is
+  # 24 hours old, so a box offline for an afternoon reads `ok`.
+  #
+  # No `log:` block: the script and systemd's start lines all arrive at
+  # PRIORITY=6 (21 of 21 records at declaration), so a `warning` filter
+  # would store none of the script's refusal reasons. The journal
+  # identifier is `estate-manager-live`.
+  - project: estate-manager
+    name: estate-manager-live-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: estate-manager-live.timer, scope: user }
+    controllable: false
+
+  # --- dotfiles -------------------------------------------------------
+  # The live folder, ~/.local/share/dotfiles-live, fast-forwarded to
+  # origin/main every 15 minutes (dotfiles ADR-0014), declared the day the
+  # units were installed (2026-11-26, estate message d6dab8bf). A oneshot,
+  # so the timer is watched and `kind: timer` reads the service's Result.
+  # An origin/main already current exits 0; a changed tree, a branch, a
+  # non-descending origin/main or a failed fetch exits non-zero, so a
+  # failed run means the live folder has stopped following origin/main.
+  # No port and no health endpoint.
+  - project: dotfiles
+    name: dotfiles-live-timer
+    role: schedule
+    kind: timer
+    systemd: { unit: dotfiles-live.timer, scope: user }
+    controllable: false
 
   # --- Host services --------------------------------------------------
   # No `project:`. These belong to the machine rather than to any

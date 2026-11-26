@@ -49,6 +49,11 @@ Kind = Literal["http", "tcp", "systemd", "timer", "oneshot", "static"]
 
 Scope = Literal["user", "system"]
 
+#: The values ``outage_kind`` may take. ``alfred-down`` is the owner's
+#: phone item 1, "Alfred is down" (ruled 2026-11-25, question 14). A new
+#: value is announced to the topic's readers before it is published.
+OutageKind = Literal["alfred-down"]
+
 #: Kinds that assert nothing about a unit's running state.
 QUIET_KINDS: frozenset[str] = frozenset({"oneshot", "static"})
 
@@ -225,6 +230,16 @@ class ServiceEntry(BaseModel):
     controllable: bool = True
     auto_restart: bool = False
     auto_restart_after_checks: int = 3
+    #: What an outage of this service *is*, when that is something a
+    #: reader off the desk must tell apart from any other critical
+    #: (alfred-glance's message ``db66a2c0``, the owner's phone item 1).
+    #: Written into ``details`` of every critical/unreachable row this
+    #: service raises and published as the payload's ``kind`` by
+    #: :mod:`sysadmin.monitor.mqtt_alerts`. A fact about the alert, never
+    #: a delivery instruction: whether it reaches the phone is glance's.
+    #: A ``Literal`` so a misspelling fails at load rather than publishing
+    #: a value no reader matches.
+    outage_kind: OutageKind | None = None
     #: This service holds GPU memory that a card reset destroys, so a
     #: process started before the last reset is serving from a context
     #: that no longer exists (`ADR-0007`, ``SNAG-GPU-001``).  Read by
