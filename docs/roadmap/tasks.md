@@ -10,6 +10,21 @@
 
 ---
 
+## Session 468: self-restart-three merged and live (2026-11-26)
+
+Opened on Session 467's Next action. The owner gave the merge in the
+session ("merge"), because service control waits for his merge
+(working-weeks rulings, question 2).
+
+- [x] **Merge `self-restart-three` and restart the daemon.** Merge
+      `eb1dec5`. The push checks ran green on the merged main first: 121
+      box tests and 4,525 others passed, and ruff and mypy were clean.
+      Restarted at 11:05:56 by `kill -TERM`, under the owner's no-sudo
+      ruling of 2026-10-21.
+- [ ] **First live witness of a `restart-failed` critical.** None has
+      been driven. A deliberate failure of an Alfred or estate unit
+      would page the phone, so it waits for a real one.
+
 ## Session 467: phone item 2 raised as its own critical, on the branch (2026-11-26)
 
 Opened on Session 466's Next action. Code on branch `self-restart-three`
@@ -31,9 +46,11 @@ the `kind` field.
         failure gives `alfred-down` first and `restart-failed` later.
       - Announced first to alfred-glance as estate message
         `c61da678-f6f8-426d-ba80-8d2dbd70e491`, in reply to `c2f77a4b`.
-- [ ] **Tell estate-manager when the daemon has loaded `live_folder:`.**
+- [x] **Tell estate-manager when the daemon has loaded `live_folder:`.**
       Logged from estate message `97b41b41-84ab-4f01-8bcb-56ac4578c73f`
-      (estate-manager, 2026-11-26).
+      (estate-manager, 2026-11-26). Done by Session 468: told in estate
+      message `97e26582-58eb-4a71-a2bb-988fc6aa5bf9`, after the restart
+      at 11:05:56.
       - `estate.registry` gains an optional `live_folder:` key in
         `.project.yaml` (their `d05d81e`, 10:01:31 UTC).
       - This daemon's boot refuses a manifest key its library does not

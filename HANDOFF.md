@@ -1,8 +1,8 @@
-# Handoff — 2026-11-26 (Session 467)
+# Handoff — 2026-11-26 (Session 468)
 
 ## Next action
 
-Merge branch self-restart-three into main and restart sysadmin.service, which makes phone item 2 live and loads the estate's live_folder parse. *(For: owner, ~30 min)*
+Nothing here is startable until Sunday's WAL re-measure, listed under Scheduled action. *(For: none)*
 
 ## Scheduled action
 
@@ -12,6 +12,35 @@ Merge branch self-restart-three into main and restart sysadmin.service, which ma
   preflight reports it, then a session re-measures it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 468: self-restart-three merged and live
+
+Opened on Session 467's Next action. Merge `eb1dec5`.
+
+- **The merge was the owner's word, asked for first.** The rulings make
+  service control an always-review path that waits for his merge
+  (`~/estate-audit/notes/working-weeks/rulings.md`, question 2). The
+  Next action reached the session as its own text, so the session asked
+  and he answered "merge".
+- **Checked before the restart.** The push checks ran green on the
+  merged main: 121 box tests and 4,525 others passed, ruff and mypy were
+  clean. All five auto-restart units were active, so going live
+  restarted nothing.
+- **Restarted at 11:05:56 GMT**, PID 3205145, by `kill -TERM`. At boot
+  the registry loaded 45 repositories and refused none, and the daemon
+  loaded 53 services. The first sysadmin poll ran at 11:10:56 with no
+  warning or error in the journal, and no service critical or
+  unreachable.
+- **Still owed:** a live `restart-failed`. None has been driven, because
+  a deliberate failure would page the phone.
+- **Close note** on `c61da678` (alfred-glance, 2026-11-26): logged in
+  their ADR-0041 amendment, `1b6369c`. Nothing changes in glance. They
+  note that the outage row and `restart-failed` come from one agent, so
+  the second replaces the first in the same phone notification.
+- **Told estate-manager** the parse is loaded: estate message
+  `97e26582-58eb-4a71-a2bb-988fc6aa5bf9`, in reply to `97b41b41`.
+- Left alone: Session 467's worktree, in that session's scratchpad, and
+  the merged branch `self-restart-three`.
 
 ## Session 467: phone item 2 raised as its own critical, on the branch
 
