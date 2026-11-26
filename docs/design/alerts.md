@@ -106,8 +106,9 @@ Four rules, three of them the opposite of the obvious implementation:
    run that holds and re-raised on the next, and each flip clears the
    tray's `{severity}:{title}` fingerprint so it notifies again. A
    pile-up is loud; that is loud *and* reads as recovery. The database
-   name sits last in the title, keeping it clear of the five
-   `% <kind>` patterns by construction.
+   name sits last in the title, keeping it clear of the six
+   `% <kind>` patterns by construction (five until 2026-11-26, when
+   `% restart-failed`, phone item 2, joined them).
 4. **The remedy's trap is carried in the alert.** `ALTER DATABASE …
    REFRESH COLLATION VERSION` alone clears the warning by asserting the
    versions now match without rebuilding anything — a loud known risk
