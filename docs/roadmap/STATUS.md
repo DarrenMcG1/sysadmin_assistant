@@ -20,12 +20,14 @@
 > <!--check:health-->, and the live schema is at the packaged head
 > <!--check:schema-->.
 >
-> **Alerts.** `alerts` holds **5** unresolved rows <!--check:alerts-->,
+> **Alerts.** `alerts` holds **2** unresolved rows <!--check:alerts-->,
 > not counting the two flapping titles below: `High disk usage on /`
-> and `Project portfolio next action idle` at `warning`, and `Project
-> Athenaeum next action idle`, `Project kaggle next action idle` and
-> `Project powerbi-ae next action idle` at `info`
-> <!--check:open_titles-->.
+> and `Project portfolio next action idle`, both at `warning`
+> <!--check:open_titles-->. At 07:26:06 UTC on 2026-11-26 one judge run
+> closed four rows: the idle nudges for Athenaeum, kaggle and
+> powerbi-ae, which the estate no longer lists, and the settings-path
+> warning that dotfiles' cut-over opened at 06:20 (`SNAG-CFG-009`),
+> after the owner re-ran the estate's audit at 06:28.
 >
 > **The critical row closed at 15:38 UTC on 2026-11-16.**
 > `estate-broker-provision` had been `failed` since the 2026-11-14 boot,

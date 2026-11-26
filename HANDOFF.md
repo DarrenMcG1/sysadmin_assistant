@@ -30,8 +30,10 @@ file, both 2026-11-26). Code in `279622d`.
 - **Stacked**: the cut-over opened `Estate wiring check and this
   monitor read different settings files` at 06:20, because the estate's
   05:04 audit still names the old symlink target. Recorded as
-  `SNAG-CFG-009` and a task under Session 462. It turns STATUS.md's two
-  alert claims and one box test red until the estate re-audits.
+  `SNAG-CFG-009` and a task under Session 462. The owner re-ran the
+  estate's audit at 06:28 and the warning closed at 07:26:06, in the
+  same judge run that closed three idle nudges; STATUS.md's Alerts now
+  names the 2 open rows.
 
 ## Session 461: STATUS.md's Deploy and Alerts, rewritten
 

@@ -25,7 +25,8 @@ Logged from and acting on estate message
       two present-tense symlink sentences and one test docstring now say
       the symlink is history. The daemon was restarted at 06:25:06 to
       serve them.
-- [ ] **The settings-path warning closes once the estate re-audits.**
+- [x] **The settings-path warning closes once the estate re-audits.**
+      Closed at 07:26:06 UTC, after the owner re-ran the audit at 06:28.
       Opened at 06:20 UTC because the 05:04 audit predates the cut-over
       (`SNAG-CFG-009`). Until it closes, STATUS.md's alert claims and the
       box test `test_both_readers_name_one_file_today` are red.
