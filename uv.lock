@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -177,7 +177,7 @@ wheels = [
 [[package]]
 name = "estate-lib"
 version = "0.1.0"
-source = { editable = "../estate-manager/lib" }
+source = { editable = "../../.local/share/estate-manager-live/lib" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
@@ -995,7 +995,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.13.0" },
     { name = "apscheduler", specifier = ">=3.10.0" },
     { name = "asyncpg", specifier = ">=0.29.0" },
-    { name = "estate-lib", editable = "../estate-manager/lib" },
+    { name = "estate-lib", editable = "../../.local/share/estate-manager-live/lib" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "httpx", marker = "extra == 'tray'", specifier = ">=0.27.0" },

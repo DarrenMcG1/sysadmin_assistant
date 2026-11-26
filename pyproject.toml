@@ -87,7 +87,10 @@ sysadmin-backfill-messages = "sysadmin.monitor.message_backfill:main"
 [tool.uv.sources]
 # Editable relative path, deliberately unversioned: one box, one committer,
 # a change reaches this service at its next restart (estate ADR-0006 §4).
-estate-lib = { path = "../estate-manager/lib", editable = true }
+# It names estate-manager's live folder, ~/.local/share/estate-manager-live,
+# which follows origin/main, never its work folder (their ADR-0262 §3.5).
+# Relative, so CI can link the same layout without sudo (ci.yml).
+estate-lib = { path = "../../.local/share/estate-manager-live/lib", editable = true }
 
 [build-system]
 requires = ["hatchling"]

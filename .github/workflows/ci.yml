@@ -21,9 +21,11 @@ jobs:
       # a setup-python step would not. Move it when the box's Python moves.
       TZ: Europe/London
       UV_PYTHON: "3.12.12"
-    # pyproject.toml resolves estate-lib at ../estate-manager/lib, and
     # actions/checkout will not write outside the workspace, so both
     # repositories are checked out as siblings inside it (SNAG-TEST-015).
+    # pyproject.toml resolves estate-lib at
+    # ../../.local/share/estate-manager-live/lib, the box's live folder, so
+    # a step links that path to the sibling checkout.
     defaults:
       run:
         working-directory: sysadmin_assistant
@@ -57,6 +59,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libegl1 libgl1 libxkbcommon0 libdbus-1-3 \
             libfontconfig1 libglib2.0-0
+
+      # Two levels up from this checkout is outside the workspace but still
+      # the runner's own directory, so no sudo is needed.
+      - name: Link estate-manager where pyproject.toml expects the live folder
+        run: |
+          mkdir -p ../../.local/share
+          ln -s "$GITHUB_WORKSPACE/estate-manager" ../../.local/share/estate-manager-live
 
       - name: Install dependencies
         run: uv sync --extra dev --extra tray
