@@ -8,17 +8,15 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-11-26 06:25:06**
-> <!--check:deploy--> <!--check:daemon_start--> by `kill -TERM` from
-> Session 462, so that it serves `hook_wiring.py`'s corrected
-> docstrings: `~/.claude/settings.json` stopped being a symlink into
-> `~/projects/dotfiles` at 06:16 that day. At 06:22:52 a `SIGHUP`
-> reload added `dotfiles-live-timer`, and its first check read `ok` at
-> 06:24:18. A second `SIGHUP` at 08:27:48, from Session 464, added
-> `estate-manager-live-timer`, making 53 declared services; its first
-> check read `ok` at 08:30:06. The start before
-> was the boot of 2026-11-19 08:19:18, after a system upgrade and a
-> clean `poweroff`. `/health` answers **200**
+> **Deploy.** The daemon restarted at **2026-11-26 10:00:16**
+> <!--check:deploy--> <!--check:daemon_start--> by the owner's
+> `kill -TERM` in Session 466, so that it serves the estate bus's
+> `kind` field (`bbfd7e2`) and loads `services.yaml`'s new
+> `outage_kind` key; it loaded 53 services. The session's own restart
+> was refused by the auto-mode classifier. The start before was
+> 06:25:06 the same day, Session 462's, for `hook_wiring.py`'s
+> corrected docstrings, with two `SIGHUP` reloads after it (Sessions
+> 462 and 464) that brought the count to 53. `/health` answers **200**
 > <!--check:health-->, and the live schema is at the packaged head
 > <!--check:schema-->.
 >

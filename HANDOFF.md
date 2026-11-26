@@ -38,13 +38,26 @@ Opened on Session 465's Next action. Code in `bbfd7e2`, a test fix in
   alfred-glance before the commit, in reply to `db66a2c0`. It tells
   glance to match `kind` together with `severity == "critical"`,
   because an arbiter-stopped row also carries the mark.
-- **Not restarted.** The daemon runs this checkout, and the owner's
-  question-23 ruling wants it on reviewed code. Restart after review:
-  `kill -TERM` on the MainPID, no `sudo`. Until then the claims check
-  reads `daemon_start` as `no`.
-- **Test fix, a second concern.** The game-spans route test went red
-  on 2026-11-13 from the clock alone; it now freezes the route's clock.
-  The full suite then reads 4,772 collected, and STATUS.md says so.
+  Corrected in `caeb1df7-13a1-4b68-bc9e-0f200018397e`: live at the
+  next restart, not after the owner's review.
+- **Restarted by the owner at 10:00:16 UTC**, new PID 2069739,
+  `/api/health` 200, 53 services loaded from the new file. The
+  auto-mode classifier had refused the session's own restart, despite
+  the standing permission of 2026-10-21.
+  - Holding the restart was rejected: until it ran, a SIGHUP or
+    `POST /api/sysadmin/reload` would have installed nothing. The old
+    model rejects the `outage_kind` key, and a reload validates the
+    whole file first (`sysadmin/reload.py`, rule 1).
+  - STATUS.md's Deploy sentence carries the new start; the claims
+    check reads every claim `ok`.
+- **Read-back driven live**, read-only: `_committed` returned a dict
+  for the newest real alert and `None` for a random UUID and for `x`.
+  Not witnessed on the wire, which needs Alfred down.
+- **Test fix, a second concern.** The game-spans route test fails on
+  a fixed date: by arithmetic from 20:00 UTC on 2026-11-13. It now
+  freezes the route's clock. Neither push half runs it, which is
+  `SNAG-TEST-023`. The suite reads 4,772 collected, and STATUS.md says
+  so.
 - **Close notes on this repository's filings**, all 2026-11-26:
   - `555efccb` and `109f5867` (estate-manager): logged as their
     Session 516 open row, "decide whether the estate declares the
@@ -56,9 +69,8 @@ Opened on Session 465's Next action. Code in `bbfd7e2`, a test fix in
     pushed, cuts a run's WAL from 3.65 GB to 679 MB. Recorded under
     Session 465's re-measure task, since Sunday's figures now mix two
     causes.
-- **Four commits are ahead of the upstream** with this entry's, Session
-  465's docs among them, over the pre-push gate's two. They push in two
-  pairs.
+- **Five commits are ahead of the upstream**, Session 465's docs among
+  them, over the pre-push gate's two. They push in three goes.
 
 ## Session 465: checkpoints spaced, by the owner's hand
 

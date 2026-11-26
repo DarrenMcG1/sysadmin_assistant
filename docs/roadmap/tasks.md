@@ -28,13 +28,17 @@ Opened on Session 465's Next action. Code in `bbfd7e2`, a test fix in
       - Announced first to alfred-glance, the topic's one measured
         reader, as estate message `c2f77a4b-48c6-4ee3-b403-51c9bd299588`,
         in reply to `db66a2c0`.
-      - Live at the daemon's next restart, held until the owner's review
-        (question 23: the daemon should run reviewed code). The claims
-        check reads `daemon_start` as `no` until then.
+      - Live since the owner's restart at 10:00:16 UTC. The auto-mode
+        classifier had refused the session's.
+      - The read-back was driven live, read-only. Not yet witnessed on
+        the wire.
+- [x] **Restart the daemon** (owner): done at 10:00:16 UTC; STATUS.md's
+      Deploy sentence carries it.
 - [x] **Second concern, found by the full suite:**
-      `test_the_route_serves_every_span_overlapping_the_range` went red
-      on 2026-11-13 from the clock alone. The route's `datetime.now` is
-      frozen in the test now (`2783678`).
+      `test_the_route_serves_every_span_overlapping_the_range` fails on
+      a fixed date, by arithmetic from 2026-11-13. The route's
+      `datetime.now` is frozen in the test now (`2783678`). Neither
+      push half runs it: `SNAG-TEST-023`.
 
 ## Session 465: the WAL lever re-measured; alfred-glance's mark logged (2026-11-26)
 
