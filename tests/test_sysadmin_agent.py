@@ -508,6 +508,67 @@ class TestHandleStatus:
             assert restart_mock.call_count == 2
 
     @pytest.mark.asyncio
+    async def test_a_restart_that_did_not_bring_it_back_is_its_own_critical(
+        self, agent, mock_session, auto_restart_svc
+    ):
+        """Phone item 2: a full streak after the queued restart, a row of its
+        own with kind ``restart-failed``, beside the outage row."""
+        from sysadmin.monitor.mqtt_alerts import ALERT_KIND_DETAIL
+
+        with (
+            patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra,
+            patch(
+                "sysadmin.monitor.agent.restart_unit",
+                new_callable=AsyncMock,
+                return_value=(True, "queued"),
+            ),
+        ):
+            per_poll = []
+            for _ in range(7):
+                before = ra.call_count
+                await agent._handle_status(mock_session, auto_restart_svc, "critical", {})
+                per_poll.append([c.kwargs["title"] for c in ra.call_args_list[before:]])
+        # Restarted on poll 3; polls 4 and 5 are a slow start, not a failed
+        # restart; poll 6 is. Deduplicated within the run after that.
+        assert per_poll[2] == ["svc auto-restarted"]
+        assert [i for i, t in enumerate(per_poll) if "svc restart-failed" in t] == [5]
+        row = next(c.kwargs for c in ra.call_args_list
+                   if c.kwargs["title"] == "svc restart-failed")
+        assert row["severity"] == "critical"
+        assert row["details"][ALERT_KIND_DETAIL] == "restart-failed"
+        assert row["details"]["unit"] == "svc.service"
+        assert "after its automatic restart" in row["message"]
+        # The outage row is judged on that poll too, so the sweep keeps it open.
+        assert "svc critical" in agent._judged_titles
+        assert "svc restart-failed" in agent._judged_titles
+
+    @pytest.mark.asyncio
+    async def test_a_unit_the_arbiter_stopped_after_its_restart_is_no_failed_restart(
+        self, agent, mock_session, auto_restart_svc
+    ):
+        from sysadmin.estate import client as estate_client
+
+        agent._restarted.add("svc")
+        agent._failure_counts["svc"] = 5
+        agent._arbitration = estate_client.ArbitratedStops(
+            reading=estate_client.ARBITRATION_GRANTED,
+            units=frozenset({"svc.service"}),
+            lease_id=7,
+        )
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            await agent._handle_status(mock_session, auto_restart_svc, "unreachable", {})
+        titles = [c.kwargs["title"] for c in ra.call_args_list]
+        assert titles == ["svc unreachable"]
+
+    @pytest.mark.asyncio
+    async def test_no_restart_means_no_failed_restart(self, agent, mock_session, svc):
+        with patch.object(agent, "raise_alert", new_callable=AsyncMock) as ra:
+            for _ in range(10):
+                await agent._handle_status(mock_session, svc, "critical", {})
+        titles = {c.kwargs["title"] for c in ra.call_args_list}
+        assert "svc restart-failed" not in titles
+
+    @pytest.mark.asyncio
     async def test_non_controllable_skips_auto_restart(self, agent, mock_session):
         """Non-controllable services should not auto-restart even with auto_restart=True."""
         svc = ServiceEntry(

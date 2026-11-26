@@ -25,11 +25,11 @@ kernel`` are indistinguishable to whoever is looking at them.
 The suffix is ``agent failing``, and that is load-bearing.
 ``SysAdminAgent._resolve_recovered`` sweeps open rows whose titles match
 ``RESOLVABLE_TITLE_PATTERNS`` — ``% degraded``, ``% warning``, ``%
-critical``, ``% unreachable``, ``% auto-restarted`` and the resource
-thresholds — and closes any this run did not raise.  A family named with
-one of those five words as its last word would have its rows closed by
-the sysadmin agent **while they were still true**, which is why
-``stalls`` is absent from that tuple and why a test pins this title
+critical``, ``% unreachable``, ``% auto-restarted``, ``% restart-failed``
+and the resource thresholds — and closes any this run did not raise.  A
+family named with one of those six words as its last word would have its
+rows closed by the sysadmin agent **while they were still true**, which
+is why ``stalls`` is absent from that tuple and why a test pins this title
 against it.  The lifecycle owner of a laddered fault must be the module
 that owns the ladder.
 
@@ -93,10 +93,10 @@ from sysadmin.core.escalation import (
 #: ``SERVICE_ALERT_KINDS`` already encode: a hand-written resolve pattern
 #: that matches nothing fails silently while the table grows.
 #:
-#: ``failing`` is not one of the five words in
+#: ``failing`` is not one of the six words in
 #: ``SERVICE_ALERT_KINDS``, which is what keeps these rows out of
-#: ``_resolve_recovered``'s reach.  Renaming this to end in
-#: ``degraded``/``warning``/``critical``/``unreachable``/``auto-restarted``
+#: ``_resolve_recovered``'s reach.  Renaming this to end in any of them
+#: (``degraded``, ``critical``, ``restart-failed`` and the rest)
 #: would hand the lifecycle to a second owner — see the module docstring.
 FAILURE_TITLE_SUFFIX = "agent failing"
 

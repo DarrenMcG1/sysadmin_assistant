@@ -53,7 +53,7 @@ from sysadmin.monitor.anomaly import DISK_KEY_PREFIX, Anomaly, detect_anomalies
 from sysadmin.monitor.gpu import get_gpu_usage
 from sysadmin.monitor.models.resource_snapshot import ResourceSnapshot
 from sysadmin.monitor.models.service_health import ServiceHealth
-from sysadmin.monitor.mqtt_alerts import ALERT_KIND_DETAIL
+from sysadmin.monitor.mqtt_alerts import ALERT_KIND_DETAIL, RESTART_FAILED_KIND
 from sysadmin.monitor.self_monitor import build_self_report
 from sysadmin.monitor.services import (
     SKIPPED,
@@ -135,6 +135,11 @@ SERVICE_ALERT_KINDS = (
     "critical",
     "unreachable",
     "auto-restarted",
+    # The owner's phone item 2: an automatic restart that did not bring
+    # the service back. A state, not an event, so it is deduplicated and
+    # published once per outage; in this tuple so the first healthy poll
+    # closes it with the rest of the family.
+    "restart-failed",
 )
 
 
@@ -264,8 +269,8 @@ def disk_alert_title(mount: str, critical: bool) -> str:
 #:   quiet → loud ladder for agents whose *runs* keep failing, and
 #:   resolves off the streak returning to zero.  Its suffix was chosen so
 #:   that it cannot match any pattern in this tuple: ``failing`` is not
-#:   one of :data:`SERVICE_ALERT_KINDS`, and a family ending in
-#:   ``degraded``/``warning``/``critical``/``unreachable``/``auto-restarted``
+#:   one of :data:`SERVICE_ALERT_KINDS`, and a family ending in any of
+#:   them (``degraded``, ``critical``, ``restart-failed`` and the rest)
 #:   would have its rows closed from here while they were still true.
 #:   ``tests/test_agent_failures.py`` pins that.
 #: - ``Stale collation version on %`` — :mod:`sysadmin.monitor.collation`
@@ -1767,6 +1772,37 @@ class SysAdminAgent(BaseAgent):
             # 14:00 outage as readily as for the arbitrated 00:00 one,
             # which is the pile-up-wearing-a-declaration-as-an-excuse
             # shape `_resolve_recovered` rule 4 already refuses.
+            # Phone item 2 (owner's ruling 2026-11-25): the restart was
+            # queued and the service is still down a full streak later.
+            # Its own title, so it is a new row and the bus hears it; the
+            # outage row below is open already and is only refreshed.
+            # The same streak as before the restart, so a slow start (a
+            # unit waiting for the GPU) does not page; a degraded poll
+            # resets it. Never for a unit the arbiter has since stopped.
+            raised = 0
+            if (
+                already_restarted
+                and not arbitrated
+                and self._failure_counts[service_name] >= svc.auto_restart_after_checks
+            ):
+                raised += await self._raise_judged(
+                    session,
+                    severity="critical",
+                    title=service_alert_title(service_name, "restart-failed"),
+                    message=(
+                        f"{service_name} is still {status} "
+                        f"{self._failure_counts[service_name]} checks after its "
+                        "automatic restart, which is not tried again until it "
+                        "is next healthy"
+                    ),
+                    details={
+                        **details,
+                        "service_name": service_name,
+                        "unit": svc.systemd_unit,
+                        ALERT_KIND_DETAIL: RESTART_FAILED_KIND,
+                    },
+                )
+
             severity = ARBITRATED_STOP_SEVERITY if arbitrated else "critical"
             message = f"{service_name} is {status}"
             if already_restarted:
@@ -1781,7 +1817,7 @@ class SysAdminAgent(BaseAgent):
                 )
                 if stops.profile:
                     message += f" ({stops.profile})"
-            return await self._raise_judged(
+            return raised + await self._raise_judged(
                 session,
                 severity=severity,
                 title=service_alert_title(service_name, status),
