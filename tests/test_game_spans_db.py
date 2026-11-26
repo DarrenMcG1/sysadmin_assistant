@@ -114,14 +114,27 @@ def _closed_span(game, started, ended):
 
 @pytest.mark.asyncio
 async def test_the_route_serves_every_span_overlapping_the_range(
-    build, engine, patched_config  # noqa: F811
+    build, engine, patched_config, monkeypatch  # noqa: F811
 ):
     """ADR-0016 §5 rule 1: overlap, not start-inside, over ``[start, end)``.
 
     A session crossing the range's start, one still open, and one inside
     are served; one that ended before the range and one starting exactly
     at its end are not.
+
+    The route's clock is frozen at the last poll. ``retained_from`` is
+    the later of the oldest run and ``now`` less the retention window,
+    and with the real clock the fixed ``T0`` fell out of that window on
+    2026-11-13, so the test went red on the date, not on any code.
     """
+    frozen = T0 + timedelta(hours=3)
+
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            return frozen if tz is None else frozen.astimezone(tz)
+
+    monkeypatch.setattr("sysadmin.games.router.datetime", FrozenDatetime)
     start, end = T0, T0 + timedelta(hours=4)
     with Session(engine) as session, session.begin():
         session.add_all(
