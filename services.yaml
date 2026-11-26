@@ -51,6 +51,7 @@ services:
   - project: alfred
     name: alfred
     role: backend
+    outage_kind: alfred-down   # phone item 1; alfred-glance's message db66a2c0
     kind: http
     url: http://localhost:8100/api/health   # /health and /api/v1/health both 404
     port: 8100
@@ -98,6 +99,7 @@ services:
   - project: alfred
     name: alfred-frontend
     role: frontend
+    outage_kind: alfred-down   # phone item 1; alfred-glance's message db66a2c0
     kind: http
     url: http://localhost:3100              # Nuxt/Nitro
     port: 3100
