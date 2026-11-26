@@ -16,7 +16,9 @@ Merge branch self-restart-three into main and restart sysadmin.service, which ma
 ## Session 467: phone item 2 raised as its own critical, on the branch
 
 Opened on Session 466's Next action. Code on branch `self-restart-three`
-only; this entry and the task rows are on main.
+only (`356b6de`, `fdb9964`, `96a2515`, design docs `e2b04f3`, on merge
+`d5f09c3`);
+this entry and the task rows are on main.
 
 - **A restart that did not bring a service back is now its own
   critical.** The title is `<service> restart-failed`, and the row
@@ -42,6 +44,13 @@ only; this entry and the task rows are on main.
   - Not built: raising it at once when `systemctl` refuses to queue the
     restart. That case is still caught a streak later, and it already
     writes a warning saying "failed".
+- **Tested in-process only**, with `raise_alert` and `restart_unit`
+  mocked. Four new tests: the row on the right poll, none for an
+  arbiter-stopped unit, none without a restart, and none written by a
+  later run while it is open. The first goes red with the raise
+  disabled. Branch suite in the worktree: 4,747 passed, 9 failed, all
+  nine from its path or missing `.venv`. No real failed restart was
+  driven, so the first live witness comes after the merge.
 - **Announced first** to alfred-glance as estate message
   `c61da678-f6f8-426d-ba80-8d2dbd70e491`, in reply to `c2f77a4b`. The
   message says it is live only after the merge and a restart.

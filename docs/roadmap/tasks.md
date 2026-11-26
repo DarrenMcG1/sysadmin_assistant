@@ -13,7 +13,9 @@
 ## Session 467: phone item 2 raised as its own critical, on the branch (2026-11-26)
 
 Opened on Session 466's Next action. Code on branch `self-restart-three`
-only, after merging main into it for the `kind` field.
+only (`356b6de`, `fdb9964`, `96a2515`), after merging main into it
+(`d5f09c3`) for
+the `kind` field.
 
 - [x] **Phone item 2, "a restart did not bring it back", is its own
       critical with `kind: "restart-failed"`.** Built on the branch,
