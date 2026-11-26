@@ -1,15 +1,53 @@
-# Handoff — 2026-11-26 (Session 464)
+# Handoff — 2026-11-26 (Session 465)
 
 ## Next action
 
-Choose a lever on the WAL volume filling /: recommended wal_compression = lz4 in the cluster config, as recorded in tasks.md under Session 463. *(For: owner, ~10 min)*
+Mark the criticals that are alfred-glance's phone item 1 (Alfred is down) on estate/alerts/raised, as logged in tasks.md under Session 465. *(For: session)*
 
 ## Scheduled action
 
+- 2026-11-29 after 02:05 UTC: re-measure WAL against the baseline under
+  Session 465 in tasks.md, once the Sunday expiry has run.
 - 2026-12-20 03:00 UTC: STATUS.md's timed prediction comes due; the
   preflight reports it, then a session re-measures it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 465: checkpoints spaced, by the owner's hand
+
+Opened on Session 464's Next action, the owner's WAL lever. Docs only.
+
+- **The lz4 recommendation was withdrawn before the ask.** pgBackRest
+  already compresses the archive at `compress-level=3`, about 5:1, so
+  lz4 in the WAL would barely shrink it. Checkpoint spacing cuts
+  full-page images at source instead.
+  - 11,322 checkpoints in 31 days, one every 3.9 minutes.
+  - PostgreSQL logged "checkpoints are occurring too frequently" 20
+    times since 2026-11-25.
+  - `venture` is 1,966 MB against about 86 GB of WAL in one day.
+- **The owner chose** `checkpoint_timeout = 30min` and
+  `max_wal_size = 16GB`, applied by `ALTER SYSTEM` from the owner's own
+  prompt. It reloaded at 08:44:54 UTC, and a fresh connection reads both
+  values from `postgresql.auto.conf`. That prompt's `SHOW` printed the
+  old values, because a reload is asynchronous.
+- **Forks taken.**
+  - Rejected: `wal_compression`, for the reason above.
+  - Rejected: applying the change through estate-manager. It would have
+    waited for their session, and no repository declares
+    `postgresql.conf` at all.
+  - Rejected: waiting for venture-assistant to name the writer, which
+    is still open as estate message `bdca0861`.
+  - Rejected: lowering `repo1-retention-full`, the owner's ruling of
+    2026-10-03.
+- **Filed** estate message `555efccb-7090-444d-9b88-3c26dc85638b` to
+  estate-manager: the cluster's settings have no declared owner, and a
+  restore from their guide would lose these two. Corrected its time in
+  `109f5867-b10e-4ba3-a6d4-c493c9828577`.
+- **Logged** alfred-glance's `db66a2c0-1e58-42fc-ac40-ceddd7b9298d` and
+  its correction `47410a04-c6e4-44b3-9b8d-f7bae8568ed2` as one task
+  under Session 465 (mark the criticals that are phone items 1 and 2),
+  and closed both. Item 1 is the Next action. Item 2 waits on Session
+  459's own-event task.
 
 ## Session 464: estate-manager's live-folder timer declared
 

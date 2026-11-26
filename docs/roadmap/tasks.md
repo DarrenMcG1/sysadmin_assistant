@@ -10,6 +10,53 @@
 
 ---
 
+## Session 465: the WAL lever re-measured; alfred-glance's mark logged (2026-11-26)
+
+Opened on Session 464's Next action (the owner's WAL lever, under
+Session 463).
+
+- [x] **Checkpoints spaced (the owner's ruling, 2026-11-26).** The owner ran
+      `ALTER SYSTEM` by hand. PostgreSQL's journal logged the reload at
+      08:44:54 UTC, and a fresh connection reads `checkpoint_timeout`
+      1800 s and `max_wal_size` 16384 MB from `postgresql.auto.conf`.
+      - Undo: `ALTER SYSTEM RESET` for each, then
+        `SELECT pg_reload_conf()`.
+      - Filed to estate-manager as message
+        `555efccb-7090-444d-9b88-3c26dc85638b` (no repository declares
+        the cluster's settings), with a time correction,
+        `109f5867-b10e-4ba3-a6d4-c493c9828577`.
+- [ ] **Re-measure the effect after 02:05 UTC on Sunday 2026-11-29.**
+      - Baseline at 08:45:04 UTC on 2026-11-26:
+        `pg_stat_checkpointer` `num_done` 11,325 and `num_requested`
+        3,103; `pg_stat_wal` `wal_fpi` 76,849,698 and `wal_bytes`
+        688,330,841,190; LSN `1BC/5749D6A0`; `/` used
+        1,447,534,239,744 bytes.
+      - Compare full-page images per day and WAL bytes per day against
+        Session 463's figures: about 177 GB from 2026-11-22 to
+        2026-11-26, and 86 GB in the day to 2026-11-23.
+      - Works only if the venture writer keeps its rate. The question
+        of which job it is stays open with venture-assistant (estate
+        message `bdca0861-d677-43b2-ad05-9e5e504ff0dc`).
+
+- [ ] **Mark the criticals that are phone items 1 and 2.** Logged from
+      estate messages `db66a2c0-1e58-42fc-ac40-ceddd7b9298d` and
+      `47410a04-c6e4-44b3-9b8d-f7bae8568ed2` (alfred-glance, 2026-11-26,
+      and its correction).
+      - Phone items 1 and 2 are "Alfred is down" and "a service's
+        restart did not bring it back".
+      - The ask: their ADR-0041 pushes every critical on
+        `estate/alerts/raised` to the phone. They want a machine-readable
+        mark on those two kinds, so a missed backup stops pushing.
+      - The shape is ours to choose: a payload field, a value, or a
+        topic of its own under `estate/alerts/`.
+      - What glance does with unmarked criticals is undecided. Until the
+        mark exists, the owner reconfirmed pushing every critical,
+        knowing it was 19 from 11 to 26 Nov.
+      - A payload change is announced to its readers before the commit.
+      - Item 2 needs Session 459's own-event task first.
+      - Falls under the working-week freeze exception (question 14).
+        Not worked here: second concern.
+
 ## Session 463: what fills `/`, named; estate-manager's live timer logged (2026-11-26)
 
 Opened on Session 462's Next action. Docs only.
@@ -47,17 +94,33 @@ Opened on Session 462's Next action. Docs only.
         set expires. The next peak, before Sunday 2026-12-06, is near
         89 to 90 % if WAL holds its current rate. One large install
         before then would cross the line.
-- [ ] **Owner: choose a lever on the WAL volume.** Recorded as a
-      recommendation, not a ruling. The cluster runs with
+- [x] **Owner: choose a lever on the WAL volume.** Done in Session
+      465: the owner chose to space checkpoints, applied by the
+      owner's own hand. The `ALTER SYSTEM` reloaded at 08:44:54 UTC on 2026-11-26.
+      The rest of this item is the case put to the owner. The cluster runs with
       `wal_compression` off, `max_wal_size` at 1 GB and the default
-      5-minute `checkpoint_timeout`: 3,082 WAL-forced checkpoints since
-      2026-10-26, about 100 a day. A full-page image is written on the
-      first change to each page after a checkpoint. **Recommended:**
-      `wal_compression = lz4`, which cuts the archive without touching
-      any application, then a larger `max_wal_size`. The cluster config
-      and the backup unit are estate-manager's, not this repository's.
-      Meanwhile: nothing is changed, and the 2026-11-29 expiry gives
-      about a week of headroom.
+      5-minute `checkpoint_timeout`. A full-page image is written on the
+      first change to each page after a checkpoint. **Revised by Session
+      465; the lz4 recommendation is withdrawn.**
+      - lz4 may not shrink the archive at all. pgBackRest already
+        compresses each segment (`compress-level=3`, about 5:1 by
+        Session 463's figures), and lz4 output barely compresses again.
+      - Checkpoint spacing is the lever. 11,322 checkpoints ran from
+        2026-10-26 to 2026-11-26, one every 3.9 minutes, of which 3,099
+        were requested. PostgreSQL logged "checkpoints are occurring
+        too frequently" 20 times since 2026-11-25. `venture` is 1,966
+        MB and made about 86 GB of WAL in one day, so its pages are
+        re-imaged roughly 40 times a day.
+      - **Recommended:** `checkpoint_timeout = 30min` and
+        `max_wal_size = 16GB`. Both take effect on a reload. The costs:
+        crash recovery replays up to 30 minutes of WAL, and `pg_wal` on
+        `/` may grow to about 16 GB (199 GB free on 2026-11-26).
+      - **Ownership, corrected:** estate-manager declares
+        `pgbackrest.conf`, but no repository declares `postgresql.conf`.
+        `ALTER SYSTEM` would write `postgresql.auto.conf`, which nobody
+        declares either.
+      - Meanwhile: nothing is changed, and the expiry on 2026-11-29
+        gives about a week of headroom.
 - [x] **Declare `estate-manager-live.timer` in `services.yaml`** as
       `kind: timer`, user scope, project `estate-manager`. Logged from
       estate messages `ff20a6c0-cdf0-4976-b97a-ca438a645bde` (advance
