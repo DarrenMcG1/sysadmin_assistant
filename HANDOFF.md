@@ -13,6 +13,41 @@ Nothing here is startable until Sunday's WAL re-measure, listed under Scheduled 
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
 
+## Session 469: estate-lib read from estate-manager's live folder
+
+Opened on estate message `043b07ad-5ea2-47e6-9f7c-819093131277`
+(estate-manager, their ADR-0262 step 5). Code in `4f56bb1`.
+
+- **The path is relative**, `../../.local/share/estate-manager-live/lib`,
+  not the absolute one the message named. No estate check reads the
+  string (`consumers.py` reads `project.dependencies` only), the box
+  resolves both alike, and CI can then link the same layout under the
+  runner's own directory without sudo. Rejected: the absolute path,
+  because CI would need `sudo` to create `/home/gaddi/...` on the
+  runner, and the lock would carry a home path.
+- **CI gained a link step** in `.github/workflows/ci.yml`, rehearsed in a
+  scratch copy of its layout with `uv sync --locked`. The runner itself
+  is untested until the next push.
+- **Same library code.** The two `lib/` trees held the same source at
+  the switch; the live folder was at `7257b35`, already holding the
+  `live_folder:` parse the message said it lacked.
+- **Restarted at 11:29:43 GMT**, PID 3563297, by `kill -TERM`. At boot
+  the registry loaded 45 repositories and refused none, and the daemon
+  loaded 53 services. The push checks ran green first: 121 box tests
+  and 4,525 others passed, and ruff and mypy were clean. The first
+  sysadmin poll completed at 11:34:43 with no warning, and the message
+  was closed at 11:36:29 UTC.
+- **The live clone stayed clean** after the sync, the checks and the
+  restart (`git status --porcelain` empty), which matters because
+  live-update refuses a dirty one.
+- **`estate_service` stays on the work folder**: a hand install the
+  tests alone import, which the message noted and did not ask about.
+  Logged as a task under Session 469 in tasks.md.
+- **Close note** on `97e26582` (estate-manager, 11:15:52 UTC): logged in
+  their HANDOFF.md Scheduled action and their tasks.md Session 504
+  step 4 and 5 rows. The step 4 restart condition was met at 11:05:56;
+  they answered it with `043b07ad`, which this session acted on.
+
 ## Session 468: self-restart-three merged and live
 
 Opened on Session 467's Next action. Merge `eb1dec5`.

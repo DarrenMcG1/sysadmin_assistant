@@ -8,14 +8,15 @@
 > stood here until 2026-10-19 are in
 > [archive/status_opening_block_2026-10-19.md](archive/status_opening_block_2026-10-19.md).
 >
-> **Deploy.** The daemon restarted at **2026-11-26 11:05:56**
-> <!--check:deploy--> <!--check:daemon_start--> by Session 468's
-> `kill -TERM`, after the owner merged `self-restart-three` (`eb1dec5`):
-> the monitor's self-restart for five services and phone item 2's
-> `restart-failed` critical are live, and the estate's `live_folder:`
-> parse is loaded. It loaded 53 services and refused 0 of 45
-> repositories. The start before was 10:00:16 the same day, the
-> owner's, in Session 466. `/health` answers **200**
+> **Deploy.** The daemon restarted at **2026-11-26 11:29:43**
+> <!--check:deploy--> <!--check:daemon_start--> by Session 469's
+> `kill -TERM`, after estate-lib was repointed at estate-manager's live
+> folder, `~/.local/share/estate-manager-live/lib`, which follows their
+> origin/main (`4f56bb1`). Its library source is the same as the work
+> folder's was, so nothing it runs changed. It loaded 53 services and
+> refused 0 of 45 repositories. The start before was 11:05:56 the same
+> day, Session 468's, after the owner merged `self-restart-three`
+> (`eb1dec5`). `/health` answers **200**
 > <!--check:health-->, and the live schema is at the packaged head
 > <!--check:schema-->.
 >

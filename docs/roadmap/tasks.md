@@ -10,6 +10,33 @@
 
 ---
 
+## Session 469: estate-lib read from estate-manager's live folder (2026-11-26)
+
+Opened on estate message `043b07ad-5ea2-47e6-9f7c-819093131277`
+(estate-manager, 2026-11-26, their ADR-0262 step 5). Code in `4f56bb1`.
+
+- [x] **Repoint estate-lib at the live folder.** `[tool.uv.sources]`
+      now reads `../../.local/share/estate-manager-live/lib`, still
+      editable. Then `uv lock`, `uv sync --all-extras`, and the daemon
+      restarted at 11:29:43 by `kill -TERM`.
+      - Relative, not the absolute path the message named: no estate
+        check reads the string, and CI can link the same layout without
+        sudo. CI's new link step was rehearsed in a scratch copy of its
+        layout with `uv sync --locked`; the runner itself is untested
+        until the push.
+      - The two `lib/` trees held the same source at the switch, so the
+        daemon runs the same library code.
+      - The live clone's `git status --porcelain` stayed empty after the
+        sync, the push checks and the restart.
+- [ ] **`estate_service` is still installed from estate-manager's work
+      folder.** It is a hand install (`uv pip install --no-deps -e
+      ~/projects/estate-manager/service`), in no lockfile, and only the
+      tests import it. The estate's message noted it and did not ask for
+      it. Default meanwhile: it stays on the work folder, because an
+      install from the live folder is unmeasured and live-update refuses
+      a dirty clone. Moving it waits on estate-manager saying the
+      service tree is safe to install from there.
+
 ## Session 468: self-restart-three merged and live (2026-11-26)
 
 Opened on Session 467's Next action. The owner gave the merge in the
