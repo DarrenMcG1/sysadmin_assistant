@@ -23,6 +23,7 @@ from sysadmin.monitor.agent import SysAdminAgent
 from sysadmin.monitor.mqtt_alerts import (
     ALERT_KIND_DETAIL,
     CREDENTIALS_ENV,
+    RESTART_FAILED_KIND,
     SOURCE,
     MqttAlertPublisher,
     build_payload,
@@ -306,8 +307,23 @@ class TestTheKind:
     def test_build_payload_names_every_value_it_can_carry(self):
         """glance's decoder names ``build_payload`` as its authority."""
         doc = build_payload.__doc__ or ""
-        for value in typing.get_args(OutageKind):
+        for value in (*typing.get_args(OutageKind), RESTART_FAILED_KIND):
             assert f'"{value}"' in doc
+
+    def test_the_restart_kind_cannot_be_declared(self):
+        """Phone item 2 is the monitor's finding, never a services.yaml claim."""
+        assert RESTART_FAILED_KIND == "restart-failed"
+        assert RESTART_FAILED_KIND not in typing.get_args(OutageKind)
+        with pytest.raises(ValidationError):
+            ServiceEntry(
+                name="x", kind="tcp", host="h", port=1, outage_kind=RESTART_FAILED_KIND
+            )
+
+    async def test_a_restart_failed_row_publishes_its_kind(self, credentials):
+        mqtt, spy = publisher(details={ALERT_KIND_DETAIL: RESTART_FAILED_KIND})
+        await handle(mqtt, {**RAISED, "title": "alfred restart-failed"})
+
+        assert spy.call_args.args[2]["kind"] == "restart-failed"
 
     @pytest.mark.parametrize(
         ("declared", "status"),

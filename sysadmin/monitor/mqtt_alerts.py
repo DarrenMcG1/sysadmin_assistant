@@ -33,12 +33,16 @@ repository that owns the phone. So:
 tell apart** (alfred-glance's message ``db66a2c0``, 2026-11-26). It is
 ``"alfred-down"`` on an outage of a service whose ``services.yaml``
 entry declares ``outage_kind: alfred-down`` (``alfred`` and
-``alfred-frontend``), the owner's phone item 1, and null on every other
-alert. It is read from the **row's** ``details`` (key
-``ALERT_KIND_DETAIL``), so ``GET /api/sysadmin/alerts`` shows the same
-mark the bus carries. A fact, not a delivery rule: rule 2's reason. The
-values are ``monitor.services.OutageKind``, and a new one is announced
-to this topic's readers before it is published.
+``alfred-frontend``), the owner's phone item 1. It is
+``"restart-failed"`` (``RESTART_FAILED_KIND``) on the critical
+``<service> restart-failed`` row, raised when a service the monitor
+restarted is still down a full streak later, the owner's phone item 2.
+It is null on every other alert. It is read from the **row's**
+``details`` (key ``ALERT_KIND_DETAIL``), so ``GET /api/sysadmin/alerts``
+shows the same mark the bus carries. A fact, not a delivery rule: rule
+2's reason. The values are ``monitor.services.OutageKind`` and
+``RESTART_FAILED_KIND``, and a new one is announced to this topic's
+readers before it is published.
 
 **The row is read back before it is announced.** Until 2026-10-01
 ``BaseAgent.run`` flushed buffered events whatever the run's outcome, so
@@ -86,6 +90,11 @@ SOURCE = "sysadmin-assistant"
 #: The ``details`` key the outage path writes a row's kind under (rule 5).
 ALERT_KIND_DETAIL = "alert_kind"
 
+#: The ``kind`` of phone item 2, an automatic restart that did not bring
+#: the service back (rule 5). Set by the monitor, never declared in
+#: ``services.yaml``, which is why it is not a ``monitor.services.OutageKind``.
+RESTART_FAILED_KIND = "restart-failed"
+
 #: The variable systemd sets for ``LoadCredential=``. Not a setting: the
 #: no-environment-variables rule is about where settings live (ADR-0003).
 CREDENTIALS_ENV = "CREDENTIALS_DIRECTORY"
@@ -111,8 +120,9 @@ def build_payload(
     (alfred-glance's ideas.md, risk 3).
 
     ``kind`` is ``"alfred-down"`` (Alfred's backend or frontend measured
-    down, the owner's phone item 1) or null; rule 5 in the module
-    docstring. ``details`` is the committed row's.
+    down, the owner's phone item 1), ``"restart-failed"`` (a service's
+    automatic restart did not bring it back, phone item 2) or null;
+    rule 5 in the module docstring. ``details`` is the committed row's.
     """
     message = event.get("message")
     kind = (details or {}).get(ALERT_KIND_DETAIL)
