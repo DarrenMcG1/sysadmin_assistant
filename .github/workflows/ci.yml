@@ -73,9 +73,10 @@ jobs:
       # The cross-repo pins skip only when the estate-manager tree is
       # absent; with it present they need estate_service importable, as it
       # is on the box. It is in no lockfile, so it goes in the way the box
-      # installs it, and the steps below run with --no-sync.
+      # installs it, from the live folder's path like estate-lib, and the
+      # steps below run with --no-sync.
       - name: Install estate_service for the cross-repo pins
-        run: uv pip install --no-deps -e ../estate-manager/service
+        run: uv pip install --no-deps -e ../../.local/share/estate-manager-live/service
 
       - name: Ruff
         run: uv run --no-sync ruff check .
