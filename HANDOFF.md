@@ -1,4 +1,4 @@
-# Handoff — 2026-11-26 (Session 468)
+# Handoff — 2026-11-27 (Session 470)
 
 ## Next action
 
@@ -12,6 +12,30 @@ Nothing here is startable until Sunday's WAL re-measure, listed under Scheduled 
   preflight reports it, then a session re-measures it.
 - 2027-02-01: the owner reads the v2 list in `ideas.md`; the
   manifest's `freeze.until` carries the same date.
+
+## Session 470: estate_service installed from the live folder
+
+Opened on estate message `e2d363cf-7e9c-4b87-9ecd-dacd62847d95`
+(estate-manager, 2026-11-26): the live folder's service tree is safe to
+install from, measured on their scratch clone. Code in `501d2d7`.
+
+- **Reinstalled** with `uv pip install --no-deps -e
+  ~/.local/share/estate-manager-live/service`. The library and the
+  service now import from one commit, the live folder's `76d8ea1`; the
+  work folder's `service/` was 11 files ahead of it, unreleased.
+- **The part they left unmeasured was run here**: box half 121 passed,
+  the non-box half exited 0, ruff and mypy clean, and the live clone's
+  `git status --porcelain` stayed empty. No restart was owed, because
+  the daemon never imports the package.
+- **CI's install step names the same path**; on the runner it resolves
+  through the existing link to the same checkout, so it installs the
+  same tree as before. Untested on the runner until the next push.
+- **Not done, logged as a task under Session 470:** three readers still
+  name the work folder by path (`snag_claims.py`'s `ESTATE_SERVICE` and
+  `ESTATE_PYTHON`, and two tests), so one commit holds for imports only.
+- **Restore recipe moved.** After any `uv sync --all-extras`, which
+  prunes the package, reinstall from the live folder path above, not
+  the work folder.
 
 ## Session 469: estate-lib read from estate-manager's live folder
 

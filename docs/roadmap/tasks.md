@@ -4,11 +4,48 @@
 >
 > **Related**: [snag_list.md](snag_list.md) | [ideas.md](ideas.md)
 >
-> **Last Updated**: 2026-11-26
+> **Last Updated**: 2026-11-27
 >
 > **Archive**: Sessions 344 and earlier are in [archive/completed_2026-10-19.md](archive/completed_2026-10-19.md).
 
 ---
+
+## Session 470: estate_service installed from the live folder (2026-11-27)
+
+Opened on estate message `e2d363cf-7e9c-4b87-9ecd-dacd62847d95`
+(estate-manager, 2026-11-26), which answered Session 469's open task:
+the live folder's service tree is safe to install from. Code in `501d2d7`.
+
+- [x] **Reinstall `estate_service` from the live folder.**
+      `uv pip install --no-deps -e ~/.local/share/estate-manager-live/service`;
+      `estate.__file__` and `estate_service.__file__` now both resolve
+      under the live folder, at its HEAD `76d8ea1`.
+      - The part the estate left unmeasured, the test suite: box half
+        121 passed, the non-box half exited 0, ruff and mypy clean.
+        The live clone's `git status --porcelain` stayed empty, and
+        `--ignored` shows only `__pycache__/` and the two `.venv/`.
+      - No daemon restart: nothing under `sysadmin/` imports the package;
+        `snag_claims.py` names it only inside probe scripts run by
+        estate-manager's own interpreter.
+      - `import estate_service.api` fails in this venv on `psycopg_pool`,
+        as it did before the switch: `--no-deps` never brings the
+        service's dependencies, and no test here imports that module.
+- [x] **CI installs from the same path**, `ci.yml`'s step now names
+      `../../.local/share/estate-manager-live/service`, which on the
+      runner resolves through the existing link to the same checkout.
+      Checked in a scratch copy of the layout that the path resolves;
+      the runner itself is untested until the next push.
+- [ ] **Three readers still name estate-manager's work folder by path**,
+      so "one commit" holds for imports only: `ESTATE_SERVICE` and
+      `ESTATE_PYTHON` in `sysadmin/snag_claims.py` (claims re-measured
+      with their interpreter), `ESTATE_AUDIT_CONFIG` and
+      `ESTATE_AUDIT_YAML` in `tests/test_unit_ports.py`, and
+      `ESTATE_TREE` in `tests/test_estate_port_join_live.py`. The work
+      folder was 2 commits ahead of origin/main on 2026-11-27. Default
+      meanwhile: they stay, because repointing them is a second change
+      the message did not ask for, and the freeze builds a known issue
+      only when it bites. The live folder does hold a `service/.venv`,
+      so `ESTATE_PYTHON` has a target there.
 
 ## Session 469: estate-lib read from estate-manager's live folder (2026-11-26)
 
@@ -28,7 +65,7 @@ Opened on estate message `043b07ad-5ea2-47e6-9f7c-819093131277`
         daemon runs the same library code.
       - The live clone's `git status --porcelain` stayed empty after the
         sync, the push checks and the restart.
-- [ ] **`estate_service` is still installed from estate-manager's work
+- [x] **`estate_service` is still installed from estate-manager's work
       folder.** It is a hand install (`uv pip install --no-deps -e
       ~/projects/estate-manager/service`), in no lockfile, and only the
       tests import it. The estate's message noted it and did not ask for
@@ -36,6 +73,7 @@ Opened on estate message `043b07ad-5ea2-47e6-9f7c-819093131277`
       install from the live folder is unmeasured and live-update refuses
       a dirty clone. Moving it waits on estate-manager saying the
       service tree is safe to install from there.
+      - Done in Session 470, below.
 
 ## Session 468: self-restart-three merged and live (2026-11-26)
 
